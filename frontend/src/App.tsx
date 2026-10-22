@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LOGIN_URL, checkSession } from './auth/session';
 import { config } from './config';
 import { DemoEventSource } from './demo/demoEventSource';
+import type { AxisGroup } from './map/axes';
 import type { MapController } from './map/mapController';
 import { loadStations } from './map/referentiel';
 import { liveOd } from './od/odApi';
@@ -209,6 +210,36 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
     controller.current?.setSelected(index, true);
   }, []);
 
+  const focusAxis = useCallback((group: AxisGroup) => {
+    const ui = useUiStore.getState();
+    ui.setDrawerOpen(false);
+    // Le filtre « Axe » se pose, sans jamais se retirer : chercher deux fois la même autoroute ne doit pas l'annuler.
+    if (ui.odFilters.axis !== group.value) {
+      ui.chooseAxis(group.value);
+    }
+    controller.current?.focusAxis(group.stations);
+  }, []);
+
+  /** « / » met le focus sur la recherche (et ouvre le tiroir sur petit écran), sauf pendant une saisie ou devant une fenêtre ouverte. */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const typing = target !== null && (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName));
+      const ui = useUiStore.getState();
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || typing || ui.aboutOpen || ui.tourActive) {
+        return;
+      }
+      event.preventDefault();
+      if (compact && !ui.drawerOpen) {
+        ui.setDrawerOpen(true);
+      } else {
+        document.getElementById('station-search')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); };
+  }, [compact]);
+
   return (
     <div className="app">
       {config.demo && <div className="simulated-banner" role="note">DONNÉES SIMULÉES — démonstration, aucune valeur réelle</div>}
@@ -218,13 +249,14 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         </div>
       )}
       <TopBar store={store} />
-      <SidePanel stations={stations} onFocus={focus} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
+      <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
         onResetView={() => { controller.current?.resetView(); }} />
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); }} />}
       <main className="map-area" data-tour="map">
         <MapView stations={stations} store={store} onReady={onReady} />
         <StationTooltip stations={stations} store={store} />
-        <StationDetail stations={stations} store={store} />
+        <StationDetail stations={stations} store={store}
+          onFocusFlow={(flow) => { controller.current?.focusFlow(flow); }} />
         {!config.demo && <ReplayBar controls={replayControls} />}
         <DiagnosticPanel store={store} />
       </main>

@@ -37,7 +37,7 @@ export interface ReplayState {
 }
 
 /** Sections du panneau latéral : une seule est ouverte à la fois. */
-export type SectionId = 'layers' | 'od' | 'segments' | 'legend';
+export type SectionId = 'layers' | 'activity' | 'od' | 'segments' | 'legend';
 
 export interface HoveredStation {
   readonly index: number;

@@ -249,3 +249,28 @@ button, input { font: inherit; color: inherit; }
   font-size: 11px; font-weight: 700; line-height: 16px; letter-spacing: 0.02em; cursor: pointer; user-select: none; white-space: nowrap; }
 .axis-label:hover, .axis-label-active { background: var(--accent); color: #0e1116; border-color: var(--accent); }
 .axis-label-sample { display: inline-block; cursor: default; flex: none; }
+
+/* Recherche : résultats à deux lignes (nom, détail) */
+.search-result { display: flex; flex-direction: column; gap: 1px; }
+.search-name { color: var(--text); }
+.search-detail { color: var(--text-muted); font-size: 11px; }
+
+/* Gares les plus actives */
+.activity-list { list-style: none; margin: 6px 0 0; padding: 0; }
+.activity-row { display: grid; grid-template-columns: 1fr 64px auto; align-items: center; gap: 8px; width: 100%; padding: 4px 6px; background: none; border: 0; border-radius: var(--radius); text-align: left; cursor: pointer; }
+.activity-row:hover, .activity-row:focus-visible { background: var(--panel-border); }
+.activity-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-count { color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.sparkline { display: block; width: 64px; height: 20px; }
+.sparkline path { fill: none; stroke: var(--text-muted); stroke-width: 1.5; stroke-linejoin: round; }
+.sparkline-up path { stroke: var(--accent); }
+.sparkline-down path { stroke: var(--warn); }
+
+/* Fiche de gare : flux */
+.detail-flows { margin-top: 8px; }
+.detail-flows h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 0 0 4px; }
+.detail-flows ol { list-style: none; margin: 0; padding: 0; }
+
+/* Légende : échelle continue de la charge estimée */
+.scale-bar { height: 8px; margin: 4px 0 2px; border-radius: 4px; }
+.scale-ticks { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
