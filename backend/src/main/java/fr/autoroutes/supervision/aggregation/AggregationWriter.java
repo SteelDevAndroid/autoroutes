@@ -268,6 +268,9 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
                     od.flows(watermark.get(), config.odWindow(), config.odMinVehicles(), config.odLimit()));
             liveView.update(update);
             publisher.publishOd(update);
+            var window = config.odWindow();
+            liveView.update(new OdSnapshot(watermark.get(), window, od.cells(watermark.get(), window), od.coverage(watermark.get(), window),
+                    state.exitsBetween(OdCounters.firstMinute(watermark.get(), window), OdCounters.lastMinute(watermark.get()))));
             nextOdAt = now.plus(config.odInterval());
         }
         var consumerLag = lagProbe.lag();

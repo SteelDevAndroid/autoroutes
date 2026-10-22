@@ -1,6 +1,7 @@
 package fr.autoroutes.supervision.api;
 
 import fr.autoroutes.supervision.aggregation.LiveView;
+import fr.autoroutes.supervision.aggregation.OdSnapshot;
 import fr.autoroutes.supervision.aggregation.WriterStats;
 import fr.autoroutes.supervision.diffusion.StreamBroadcaster;
 import fr.autoroutes.supervision.ingestion.QuarantineStore;
@@ -17,7 +18,7 @@ class DiagnosticController {
     }
 
     record Diagnostic(WriterStats writer, long quarantinePending, List<QuarantinedName> quarantineTopNames,
-                      String referentielVersion, String aliasVersion, int sseClients) {
+                      String referentielVersion, String aliasVersion, int sseClients, OdSnapshot odCoverage) {
     }
 
     private final LiveView liveView;
@@ -44,6 +45,7 @@ class DiagnosticController {
                 .map(n -> new QuarantinedName(n.stationName(), n.events(), suggester.suggest(n.stationName(), 3)))
                 .toList();
         return new Diagnostic(liveView.stats().orElse(null), quarantine.countPending(), top, catalog.version(),
-                aliases.currentVersion(), broadcaster.clientCount());
+                aliases.currentVersion(), broadcaster.clientCount(),
+                liveView.odSnapshot().map(o -> new OdSnapshot(o.reference(), o.window(), java.util.List.of(), o.coverage(), o.stationExits())).orElse(null));
     }
 }

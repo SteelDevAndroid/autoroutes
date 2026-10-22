@@ -10,6 +10,7 @@ public class LiveView {
 
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
     private final AtomicReference<OdUpdate> od = new AtomicReference<>();
+    private final AtomicReference<OdSnapshot> odSnapshot = new AtomicReference<>();
     private final AtomicReference<Freshness> freshness = new AtomicReference<>();
     private final AtomicReference<WriterStats> stats = new AtomicReference<>();
 
@@ -19,6 +20,10 @@ public class LiveView {
 
     public Optional<OdUpdate> od() {
         return Optional.ofNullable(od.get());
+    }
+
+    public Optional<OdSnapshot> odSnapshot() {
+        return Optional.ofNullable(odSnapshot.get());
     }
 
     public Optional<Freshness> freshness() {
@@ -35,6 +40,10 @@ public class LiveView {
 
     void update(OdUpdate value) {
         od.set(value);
+    }
+
+    void update(OdSnapshot value) {
+        odSnapshot.set(value);
     }
 
     void update(Freshness value) {

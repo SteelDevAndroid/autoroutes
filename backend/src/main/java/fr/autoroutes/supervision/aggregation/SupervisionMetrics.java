@@ -37,6 +37,12 @@ class SupervisionMetrics implements MeterBinder {
         Gauge.builder("toll.stations.stale", liveView, v -> v.freshness().map(f -> (double) f.staleStations().size()).orElse(Double.NaN))
                 .description("Gares sans événement récent par rapport au watermark")
                 .register(registry);
+        Gauge.builder("toll.od.origin.known.ratio", liveView, v -> v.odSnapshot().map(o -> o.coverage().originKnownRatio()).orElse(Double.NaN))
+                .description("Part des sorties en système fermé dont la gare d'entrée est connue (fenêtre O/D)")
+                .register(registry);
+        Gauge.builder("toll.od.reconciliation.gap.ratio", liveView, v -> v.odSnapshot().map(OdSnapshot::reconciliationGapRatio).orElse(Double.NaN))
+                .description("Écart relatif entre sorties des gares et issues O/D (doit rester nul ; critère ± 0,5 %)")
+                .register(registry);
     }
 
     private void stat(MeterRegistry registry, String name, String description, ToDoubleFunction<WriterStats> value) {
