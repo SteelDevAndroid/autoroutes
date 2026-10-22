@@ -14,8 +14,10 @@ services:
     image: autoroutes-frontend:demo
     ports:
       - "8080:8080"
+    # Sorties de cartographie/build.sh ; vides en démonstration hors ligne (fond neutre, sans libellés).
     volumes:
-      - ./cartographie/out:/usr/share/nginx/html/tiles:ro
+      - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
+      - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
     read_only: true
     tmpfs:
       - /var/cache/nginx
