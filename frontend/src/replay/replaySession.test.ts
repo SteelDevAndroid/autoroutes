@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_OD_FILTERS, EMPTY_OD_VIEW } from '../od/odTypes';
+import type { OdFilters } from '../od/odTypes';
 import { StationStore } from '../state/stationStore';
 import { ReplaySession } from './replaySession';
 import type { HistoryApi } from './replaySession';
@@ -20,7 +22,10 @@ const api = (): HistoryApi & { calls: string[] } => {
       return Promise.resolve(from.getTime() <= minute * 1000 && minute * 1000 < to.getTime()
         ? [{ stationId: 'A', t: minute, entries: 3, exits: 1 }] : []);
     }),
-    odFlows: vi.fn(() => Promise.resolve([])),
+    odFlows: vi.fn((from: Date, to: Date, filters: OdFilters) => {
+      calls.push(`od ${to.getTime() - from.getTime()} ${filters.level} ${filters.department}`);
+      return Promise.resolve(EMPTY_OD_VIEW);
+    }),
   };
 };
 
@@ -36,7 +41,7 @@ describe('ReplaySession', () => {
     const history = api();
     const statuses: string[] = [];
     const session = new ReplaySession(store, {
-      onData: vi.fn(), onTime: vi.fn(), onOd: vi.fn(), onStatus: (s) => statuses.push(s),
+      onData: vi.fn(), onTime: vi.fn(), onOd: vi.fn(), odFilters: () => DEFAULT_OD_FILTERS, onStatus: (s) => statuses.push(s),
     }, history, () => NOW);
 
     await session.load({ from: FROM, durationMinutes: 90, speed: 60 });
@@ -45,5 +50,23 @@ describe('ReplaySession', () => {
     expect(history.calls.filter((c) => c.startsWith('minutes'))).toHaveLength(2);
     expect(store.entriesToday[0]).toBe(50);
     expect(statuses).toEqual(['loading', 'paused']);
+  });
+
+  it('reloads the O/D flows of the elapsed hour with the current filters on demand', async () => {
+    const store = new StationStore(['A']);
+    const history = api();
+    let filters: OdFilters = DEFAULT_OD_FILTERS;
+    const session = new ReplaySession(store, {
+      onData: vi.fn(), onTime: vi.fn(), onOd: vi.fn(), odFilters: () => filters, onStatus: vi.fn(),
+    }, history, () => NOW);
+    await session.load({ from: FROM, durationMinutes: 90, speed: 60 });
+    session.play();
+    await vi.waitFor(() => { expect(history.calls.some((c) => c.startsWith('od '))).toBe(true); });
+
+    filters = { ...DEFAULT_OD_FILTERS, level: 'DEPARTMENT', department: '69' };
+    session.refreshOd();
+
+    expect(history.calls.at(-1)).toBe(`od ${60 * 60_000} DEPARTMENT 69`);
+    session.dispose();
   });
 });

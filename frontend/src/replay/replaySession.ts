@@ -1,6 +1,6 @@
 import * as historyApi from '../history/historyApi';
 import { parisMidnight } from '../history/parisTime';
-import type { OdFlow } from '../realtime/protocol';
+import type { OdFilters, OdView } from '../od/odTypes';
 import type { StationStore } from '../state/stationStore';
 import { ReplayClock } from './replayClock';
 import { ReplayDataset } from './replayDataset';
@@ -17,7 +17,9 @@ export interface ReplayCallbacks {
   readonly onData: () => void;
   readonly onTime: (time: Date) => void;
   readonly onStatus: (status: ReplayStatus, error?: string) => void;
-  readonly onOd: (flows: readonly OdFlow[]) => void;
+  readonly onOd: (view: OdView) => void;
+  /** Filtres courants de l'interface : relus à chaque rechargement des flux O/D. */
+  readonly odFilters: () => OdFilters;
 }
 
 export type HistoryApi = Pick<typeof historyApi, 'minutes' | 'totals' | 'odFlows'>;
@@ -154,11 +156,22 @@ export class ReplaySession {
     this.store.applyDelta(this.dataset.metricsAt(minute, this.midnightOf(minute * MINUTE)));
     this.callbacks.onData();
     if (minute - this.lastOdMinute >= OD_EVERY_MINUTES) {
-      this.lastOdMinute = minute;
-      const to = new Date((minute + 1) * MINUTE);
-      this.api.odFlows(new Date(to.getTime() - 60 * MINUTE), to, this.abort.signal)
-        .then((flows) => { this.callbacks.onOd(flows); }, () => { /* flux O/D facultatifs pendant la relecture */ });
+      this.loadOd(minute);
     }
+  }
+
+  /** Recharge les flux O/D de l'heure écoulée avec les filtres courants (changement de filtre pendant la relecture). */
+  refreshOd(): void {
+    if (Number.isFinite(this.lastMinute)) {
+      this.loadOd(this.lastMinute);
+    }
+  }
+
+  private loadOd(minute: number): void {
+    this.lastOdMinute = minute;
+    const to = new Date((minute + 1) * MINUTE);
+    this.api.odFlows(new Date(to.getTime() - 60 * MINUTE), to, this.callbacks.odFilters(), this.abort.signal)
+      .then((view) => { this.callbacks.onOd(view); }, () => { /* flux O/D facultatifs pendant la relecture */ });
   }
 
   private midnightOf(time: number): number {

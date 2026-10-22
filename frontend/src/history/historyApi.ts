@@ -1,3 +1,6 @@
+import { odQuery, toOdView } from '../od/odTypes';
+import type { OdFilters, OdResultDto, OdView } from '../od/odTypes';
+
 /** Historique OBSERVÉ (backend, incrément 2). Les données couvrent jusqu'au dernier point de reprise (≤ 60 s). */
 
 export interface SeriesPoint {
@@ -45,8 +48,7 @@ export function totals(from: Date, to: Date, signal?: AbortSignal): Promise<Stat
   return getJson<StationTotal[]>(`/api/v1/history/totals?${range(from, to)}`, signal);
 }
 
-export async function odFlows(from: Date, to: Date, signal?: AbortSignal) {
-  const body = await getJson<{ flows: { originId: string; destinationId: string; vehicles: number }[] }>(
-    `/api/v1/history/od?${range(from, to)}`, signal);
-  return body.flows;
+export async function odFlows(from: Date, to: Date, filters: OdFilters, signal?: AbortSignal): Promise<OdView> {
+  const body = await getJson<{ result: OdResultDto }>(`/api/v1/history/od?${range(from, to)}&${odQuery(filters)}`, signal);
+  return toOdView(body.result);
 }
