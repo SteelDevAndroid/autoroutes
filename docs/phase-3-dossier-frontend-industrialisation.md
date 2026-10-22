@@ -386,7 +386,7 @@ osmium-tool est sous GPL-3.0, mais il n'est utilisé **que comme outil de build*
 | R21 | Approximation du drapeau `concede` (H21) | Couleur erronée sur quelques sections | Revue visuelle ; table d'exceptions versionnée |
 | R22 | Évolutions de MapLibre 6 (worker, API) | Régressions à la mise à jour | Tests de style + E2E de rendu déjà en place |
 | R23 | Lisibilité nationale avec les vrais flux O/D | Surcharge | 60 arcs maximum, filtre par gare ; agrégation par axe à étudier |
-| Q14 | Noms de gare réels du topic (phase 2) | Bloque l'incrément 1 | **Prioritaire** |
+| Q14 | ~~Noms de gare réels du topic~~ | — | **Répondue** : même liste que le référentiel |
 | Q20 | Poste de référence (GPU, écran) de la salle de supervision | Objectifs de la section 7 | Nouvelle |
 | Q21 | Accès réseau du poste de build aux sources Protomaps / Geofabrik / GitHub (ou miroir interne) | Exécution de `cartographie/build.sh` | Nouvelle |
 | Q22 | Mode relecture historique au MVP ou à l'incrément 2 ? | Périmètre de l'interface | Inchangé depuis Q11 : incrément 2 proposé |

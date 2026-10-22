@@ -34,7 +34,7 @@ Réponses intégrées :
 |---|---|---|---|
 | H1 | ~~H~~ → **F** | Les événements portent un nom de gare, pas un code | Réponse à Q1 |
 | H2 | ~~H~~ → **F** | La sortie porte la gare d'entrée | Réponse à Q2 : scénario A |
-| H7 | **H** | Les noms des événements correspondent aux `nomGare` du référentiel, à la casse, aux accents et aux espaces près | **Critique.** S'ils diffèrent (noms de l'exploitant), il faut enrichir la table d'alias ; le taux de quarantaine le mesurera dès le premier jour |
+| H7 | ~~H~~ → **F** | Les noms des événements sont ceux de `gares-peage-2025.csv` (réponse à Q14) | Vérifié par `ReferentielNamesResolutionTest` : les 813 noms bruts sont résolus. La quarantaine ne capte plus que des gares nouvelles ou des erreurs de saisie |
 | H8 | H | Le nom de la gare d'entrée suit la même nomenclature que la gare de sortie | Sinon, statut `ENTRY_UNKNOWN` et perte de flux origine-destination, mesurée par métrique |
 | H9 | H | `entryTime` est présent sur les sorties | Optionnel ; sert à répartir la charge des tronçons sur la durée du trajet (incrément ultérieur) |
 | H10 | H | Aucun nom n'est partagé par deux gares distinctes dans les événements | Vérifié sur le référentiel : 812 alias, aucun conflit **[F]**. Un homonyme futur est **refusé au chargement** de la table |
@@ -629,7 +629,7 @@ simulator/                                      générateur d'événements (mod
 
 | # | Risque / question | Impact | Mesure |
 |---|---|---|---|
-| R1 | **H7** : noms des événements ≠ noms du référentiel | Quarantaine massive, MVP vide | Obtenir la liste des noms distincts du topic **avant** l'implémentation (Q14) ; enrichir la table d'alias ; métrique de quarantaine dès le premier jour |
+| R1 | ~~H7 : noms des événements ≠ noms du référentiel~~ | Levé | Q14 : même liste de gares que le référentiel ; test de non-régression à chaque mise à jour du référentiel |
 | R2 | Homonymes futurs entre exploitants | Table refusée au chargement | Clé `(exploitant, nom)` (section 4.3) |
 | R3 | Une seule instance = point de défaillance unique | Indisponibilité de 1 à 2 min au redémarrage | Redémarrage automatique + reprise rapide ; section 4.6 si le SLA l'exige (Q15) |
 | R4 | Mémoire de déduplication en pointe réelle | Pression sur le GC | Mesure au banc ; ensemble de `long` primitifs ; réduire l'horizon |
@@ -639,6 +639,6 @@ simulator/                                      générateur d'événements (mod
 | Q3 | Exemples réels, topics, partitions, clé, Schema Registry | Contrat, ordre | Toujours ouverte |
 | Q4 | Volumétrie réelle | Dimensionnement | Toujours ouverte |
 | Q13 | Rétention du topic ≥ 48 h ? | Démarrage à froid (rattrapage depuis minuit) | Nouvelle |
-| Q14 | Liste des noms de gare distincts présents dans le topic (une journée) | Mesure directe de R1 | Nouvelle, **prioritaire** |
+| Q14 | ~~Liste des noms de gare distincts présents dans le topic~~ | — | **Répondue** : même liste que `gares-peage-2025.csv` |
 | Q15 | Disponibilité attendue (SLA) | Mono-instance ou section 4.6 | Nouvelle |
 | Q16 | `entryTime` présent sur les sorties ? | Répartition temporelle des charges | Nouvelle |

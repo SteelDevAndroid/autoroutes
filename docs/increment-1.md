@@ -74,7 +74,7 @@ Commandes :
 
 ## 6. Limites connues et suites
 
-- **Q14 reste prioritaire.** Le rapprochement par nom (H7) n'a été éprouvé qu'avec les noms du référentiel. Le taux de quarantaine en production le mesurera dès le premier jour (`/api/v1/diagnostic`, métrique `toll_events_total{result="quarantined"}`).
+- **Q14 répondue** : les événements portent les noms de `gares-peage-2025.csv`. `ReferentielNamesResolutionTest` vérifie que les 813 noms bruts (dont la variante avec tabulation) sont résolus vers une gare logique existante. La quarantaine ne devrait donc capter que des gares nouvelles ou des erreurs de saisie : alerter dès le premier événement en quarantaine (`toll_events_total{result="quarantined"}` > 0).
 - Les fenêtres glissantes avancent avec le watermark : sans aucun événement, elles se figent, et le statut passe à `STALE` au bout de 60 s, ce qui est voulu et affiché.
 - La liste `staleStations` est envoyée en entier toutes les 10 s (≈ 12 Ko quand toutes les gares sont périmées). À passer en différentiel si la bande passante compte.
 - Le message `freshness: CATCHING_UP` ne suspend pas encore les impulsions côté frontend (évolution notée en phase 3, section 4.4).
