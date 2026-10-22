@@ -73,4 +73,29 @@ test.describe('flux réel (backend + simulateur)', () => {
     await expect(chart).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/J-7 même heure/)).toBeVisible();
   });
+
+  test('flux O/D : filtres, seuil de 3 véhicules et cohérence avec les sorties des gares', async ({ page, request }) => {
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/');
+    await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+    await page.getByLabel('Flux origine → destination').first().check();
+
+    const top = page.getByRole('list', { name: 'Principaux flux' }).getByRole('listitem');
+    await expect(top.first()).toBeVisible({ timeout: 90_000 });
+    await expect(top.first()).toContainText('observé');
+
+    await page.getByLabel('Niveau des flux').selectOption('DEPARTMENT');
+    await expect(top.first()).toContainText('Département', { timeout: 30_000 });
+
+    const coverage = await (await request.get('/api/v1/od/coverage')).json() as { gapRatio: number; coverage: { recorded: number } };
+    expect(coverage.coverage.recorded).toBeGreaterThan(0);
+    expect(coverage.gapRatio).toBeLessThanOrEqual(0.005);
+
+    const flows = await (await request.get('/api/v1/od?limit=2000')).json() as { minVehicles: number; flows: { vehicles: number }[] };
+    expect(flows.minVehicles).toBeGreaterThanOrEqual(3);
+    expect(flows.flows.every((f) => f.vehicles >= 3)).toBe(true);
+    await page.screenshot({ path: 'test-results/live-od.png' });
+    expect(errors).toEqual([]);
+  });
 });

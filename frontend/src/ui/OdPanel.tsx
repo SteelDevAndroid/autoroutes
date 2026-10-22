@@ -80,7 +80,7 @@ export function OdPanel({ stations }: { readonly stations: StationCollection }) 
           <ol className="od-top" aria-label="Principaux flux">
             {view.flows.slice(0, TOP).map((f) => (
               <li key={`${f.originId}>${f.destinationId}`}>
-                {label(f.originId)} → {label(f.destinationId)} <strong>{formatCount(f.vehicles)}</strong> véh. <span className="tag">observé</span>
+                {f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`} <strong>{formatCount(f.vehicles)}</strong> véh. <span className="tag">observé</span>
               </li>
             ))}
           </ol>

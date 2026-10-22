@@ -6,14 +6,14 @@ Workflow : `.github/workflows/ci.yml`, déclenché à chaque pull request, à ch
 
 | Job | Ce qu'il vérifie | Durée indicative |
 |---|---|---|
-| **Backend** | `mvn verify` sous **Java 25** : 63 tests unitaires (dont la vérification Spring Modulith des frontières entre modules) puis 6 tests d'intégration avec **Kafka et PostgreSQL réels** (Testcontainers) : déduplication, quarantaine, rejets, SSE avec reprise, historique identique au temps réel, redémarrage sans double comptage | 5 à 8 min |
+| **Backend** | `mvn verify` sous **Java 25** : 72 tests unitaires (dont la vérification Spring Modulith des frontières entre modules) puis 7 tests d'intégration avec **Kafka et PostgreSQL réels** (Testcontainers) : déduplication, quarantaine, rejets, SSE avec reprise, historique identique au temps réel, flux O/D filtrés et rapprochés des sorties, redémarrage sans double comptage | 5 à 8 min |
 | **Simulateur** | `mvn verify` : 4 tests (contrat, système ouvert ou fermé, anomalies, modèle gravitaire) | 2 min |
-| **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, 53 tests Vitest (dont validité du style MapLibre), builds de production et de démonstration, **E2E Playwright** de la démonstration : rendu WebGL réel, plus de 600 gares dessinées, **aucune erreur console**, accessibilité axe-core | 4 à 6 min |
+| **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, 62 tests Vitest (dont validité du style MapLibre), builds de production et de démonstration, **E2E Playwright** de la démonstration : rendu WebGL réel, plus de 600 gares dessinées, **aucune erreur console**, accessibilité axe-core | 4 à 6 min |
 | **Référentiel et cartographie** | Tests de `prepare_motorways.py` ; **le référentiel versionné est régénéré par les scripts et comparé** (alias, cas à arbitrer et identifiants des gares logiques) : aucune dérive silencieuse | 1 min |
 | **Supervision** | `promtool check config` sur la configuration et les 14 règles d'alerte Prometheus ; le tableau de bord Grafana est **régénéré par son script puis comparé** au fichier versionné | 1 min |
 | **Scripts shell** | `shellcheck` sur `cartographie/build.sh` et `scripts/perf_history.sh` | < 1 min |
 | **Images Docker** | `docker compose config` pour les cinq profils (`demo`, `infra`, `full`, `monitoring`, `tiles`) ; construction complète des images backend, simulateur et frontend (cache GitHub Actions) | 5 à 10 min |
-| **E2E chaîne complète et supervision** | Profils `full` et `monitoring` démarrés de zéro (simulateur → Kafka → backend → SSE → nginx, plus Prometheus et Grafana), puis 4 scénarios navigateur : données réelles sans bandeau de simulation, **latence de bout en bout p95 ≤ 3 s**, relecture puis retour au direct, courbe aujourd'hui / J-7. Ensuite `scripts/verify_observability.py` : cibles Prometheus saines, 14 règles chargées, aucune alerte critique, **chaque panneau Grafana alimenté** | 10 à 15 min |
+| **E2E chaîne complète et supervision** | Profils `full` et `monitoring` démarrés de zéro (simulateur → Kafka → backend → SSE → nginx, plus Prometheus et Grafana), puis 5 scénarios navigateur : données réelles sans bandeau de simulation, **latence de bout en bout p95 ≤ 3 s**, relecture puis retour au direct, courbe aujourd'hui / J-7, flux O/D (niveau département, seuil, écart de rapprochement ≤ 0,5 %). Ensuite `scripts/verify_observability.py` : cibles Prometheus saines, 14 règles chargées, aucune alerte critique, **chaque panneau Grafana alimenté** | 10 à 15 min |
 | **CI réussie** | Agrège tous les jobs ci-dessus ; échoue si l'un n'est pas en succès (y compris « skipped ») | quelques secondes |
 
 En cas d'échec, les rapports de tests, les captures et les journaux des services sont déposés en artefacts (7 jours).
@@ -54,7 +54,7 @@ Dans *Settings → Branches → Branch protection rules* pour `main` :
 ## Vérifié avant la mise en place, hors GitHub
 
 - Les workflows passent `actionlint` (avec `shellcheck` sur les scripts embarqués) ; les scripts shell passent `shellcheck`.
-- Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts.
+- Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts (incrément 2). Incrément 3 : 72 + 7 tests backend verts sous JDK 21 (`-Djava.version=21`, JDK 25 non rejoué), 62 tests frontend, 5 scénarios navigateur réels et la vérification de supervision (14 règles, 16 panneaux alimentés).
 - La procédure du job « E2E chaîne complète et supervision » rejouée de bout en bout en local (volumes neufs, `.env` généré comme dans le job) : 4 scénarios navigateur et la vérification de supervision au vert.
 - L'étape « référentiel à jour » rejouée : aucune différence ; la logique du job « CI réussie » simulée (vert et rouge).
 - Les commandes `package` et d'extraction des couches des Dockerfiles du backend et du simulateur rejouées sans réseau.
