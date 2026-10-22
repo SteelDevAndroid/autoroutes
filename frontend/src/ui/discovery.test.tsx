@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_OD_VIEW } from '../od/odTypes';
 import type { StationCollection } from '../map/referentiel';
@@ -6,6 +6,7 @@ import type { StationMetrics } from '../realtime/protocol';
 import { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { ActivityPanel } from './ActivityPanel';
+import { AxisFocusChip } from './AxisFocusChip';
 import { Legend } from './Legend';
 import { SearchBox } from './SearchBox';
 import { StationDetail } from './StationDetail';
@@ -184,5 +185,30 @@ describe('Legend segment scale', () => {
     render(<Legend />);
 
     expect(screen.getByText('Échelle disponible à la première estimation.')).toBeTruthy();
+  });
+});
+
+describe('AxisFocusChip', () => {
+  it('is hidden without a search, and brings back the previous display on click', () => {
+    const onBack = vi.fn();
+    const { container } = render(<AxisFocusChip onBack={onBack} />);
+    expect(container.textContent).toBe('');
+
+    act(() => { useUiStore.getState().focusAxis('A7', 'A0007'); });
+    expect(screen.getByRole('status').textContent).toContain('A7');
+    fireEvent.click(screen.getByRole('button', { name: /Revenir à la vue d’ensemble/ }));
+
+    expect(onBack).toHaveBeenCalledOnce();
+    expect(useUiStore.getState().odFilters.axis).toBe('');
+    expect(screen.queryByRole('status')).toBeNull();
+  });
+
+  it('disappears when the axis filter is changed elsewhere', () => {
+    render(<AxisFocusChip onBack={vi.fn()} />);
+    act(() => { useUiStore.getState().focusAxis('A7', 'A0007'); });
+
+    act(() => { useUiStore.getState().setOdFilters({ axis: '' }); });
+
+    expect(screen.queryByRole('status')).toBeNull();
   });
 });

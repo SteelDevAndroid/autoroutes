@@ -56,6 +56,22 @@ test.describe('démonstration (flux simulé)', () => {
     // Choisir une autoroute active la couche des flux et ouvre sa section (le filtre « Axe » n'existe pas en démonstration).
     await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
     await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'true');
+
+    // Retour à l'affichage d'avant : la puce et Échap défont la recherche (flux éteints, carte recadrée sur la France).
+    const back = page.getByRole('button', { name: /Revenir à la vue d’ensemble/ });
+    await expect(back).toBeVisible();
+    await back.click();
+    await expect(back).toBeHidden();
+    await expect(page.getByLabel('Flux origine → destination')).not.toBeChecked();
+
+    await page.keyboard.press('/');
+    await page.keyboard.type('a7');
+    await page.keyboard.press('Enter');
+    await expect(back).toBeVisible();
+    await page.locator('body').click({ position: { x: 5, y: 5 } });
+    await page.keyboard.press('Escape');
+    await expect(back).toBeHidden();
+    await expect(page.getByLabel('Flux origine → destination')).not.toBeChecked();
   });
 
   test('la section « Gares les plus actives » classe les gares et ouvre leur détail', async ({ page }) => {
