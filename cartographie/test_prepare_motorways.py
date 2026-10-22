@@ -57,6 +57,12 @@ class PrepareMotorwaysTest(unittest.TestCase):
         self.assertFalse(graph["edges"][0]["link"])
         self.assertTrue(graph["edges"][1]["link"])
 
+    def test_trunk_roads_get_default_speed_and_link_flag(self):
+        _, graph = build([way(6, [[0, 0], [0.01, 0]], highway="trunk"), way(7, [[0.01, 0], [0.02, 0]], highway="trunk_link")], {})
+
+        self.assertEqual([e["speedKmh"] for e in graph["edges"] if e["from"] != e["to"]][:2], [110, 70])
+        self.assertEqual([e["link"] for e in graph["edges"]][:2], [False, True])
+
     def test_bidirectional_way_creates_two_edges(self):
         _, graph = build([way(3, [[0, 0], [0.01, 0]], oneway="no")], {})
 

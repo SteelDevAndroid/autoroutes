@@ -19,7 +19,7 @@ from pathlib import Path
 
 PRECISION = 7
 CONCESSION_RADIUS_M = 20_000
-DEFAULT_SPEED = {"motorway": 130, "motorway_link": 70}
+DEFAULT_SPEED = {"motorway": 130, "motorway_link": 70, "trunk": 110, "trunk_link": 70}
 
 
 def key(coord):
@@ -131,12 +131,12 @@ def build(ways, reference_points):
             "type": "Feature",
             "geometry": {"type": "LineString", "coordinates": coords},
             "properties": {"segmentId": segment_id, "ref": props.get("ref", ""), "concede": conceded,
-                           "link": highway == "motorway_link"},
+                           "link": highway.endswith("_link")},
         })
         a = nodes.setdefault(key(coords[0]), len(nodes))
         b = nodes.setdefault(key(coords[-1]), len(nodes))
         edge = {"id": segment_id, "from": a, "to": b, "lengthM": round(length(coords), 1),
-                "speedKmh": parse_speed(props.get("maxspeed"), highway), "refs": sorted(refs), "link": highway == "motorway_link"}
+                "speedKmh": parse_speed(props.get("maxspeed"), highway), "refs": sorted(refs), "link": highway.endswith("_link")}
         edges.append(edge)
         # Les autoroutes OSM sont tracées par chaussée (oneway implicite) ; une voie explicitement bidirectionnelle crée deux arêtes.
         if props.get("oneway") == "no":

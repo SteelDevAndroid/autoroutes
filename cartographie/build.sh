@@ -18,6 +18,9 @@ GEOFABRIK_URL=${GEOFABRIK_URL:-https://download.geofabrik.de/europe/france-lates
 OSM_REGIONS_URL=${OSM_REGIONS_URL:-https://download.openstreetmap.fr/extracts/europe/france}
 OSM_REGIONS=${OSM_REGIONS:-alsace aquitaine auvergne basse_normandie bourgogne bretagne centre champagne_ardenne corse franche_comte haute_normandie ile_de_france languedoc_roussillon limousin lorraine midi_pyrenees nord_pas_de_calais pays_de_la_loire picardie poitou_charentes provence_alpes_cote_d_azur rhone_alpes}
 REGION_JOBS=${REGION_JOBS:-8}
+# Types de voies du graphe. Ajouter trunk,trunk_link rattache les gares sur voies express et routes nationales (graphe plus gros, à valider).
+# Les extraits régionaux déjà filtrés dans $WORK/regions sont réutilisés tels quels : les supprimer après un changement.
+OSM_HIGHWAYS=${OSM_HIGHWAYS:-motorway,motorway_link}
 # Polices et sprites : GitHub Pages du dépôt protomaps/basemaps-assets (aucun accès à l'API GitHub requis).
 ASSETS_BASE_URL=${ASSETS_BASE_URL:-https://protomaps.github.io/basemaps-assets}
 
@@ -45,14 +48,14 @@ for sprite in dark dark@2x light light@2x; do
   done
 done
 
-echo "== 3/4 Autoroutes OSM (motorway + motorway_link), mode $OSM_MODE"
+echo "== 3/4 Voies OSM ($OSM_HIGHWAYS), mode $OSM_MODE"
 if [ "$OSM_MODE" = "regions" ]; then
   mkdir -p "$WORK/regions"
   fetch_region() {
     region=$1
     [ -s "$WORK/regions/$region.motorways.osm.pbf" ] && return 0
     until curl -fsS -C - -o "$WORK/regions/$region.osm.pbf" "$OSM_REGIONS_URL/$region.osm.pbf"; do sleep 3; done
-    osmium tags-filter "$WORK/regions/$region.osm.pbf" w/highway=motorway,motorway_link -o "$WORK/regions/$region.motorways.osm.pbf" --overwrite
+    osmium tags-filter "$WORK/regions/$region.osm.pbf" "w/highway=$OSM_HIGHWAYS" -o "$WORK/regions/$region.motorways.osm.pbf" --overwrite
     rm -f "$WORK/regions/$region.osm.pbf"
     echo "  $region : ok"
   }
@@ -69,7 +72,7 @@ if [ "$OSM_MODE" = "regions" ]; then
   MOTORWAYS_INPUT="$WORK/export"
 else
   curl -fsSL -z "$WORK/france.osm.pbf" -o "$WORK/france.osm.pbf" "$GEOFABRIK_URL"
-  osmium tags-filter "$WORK/france.osm.pbf" w/highway=motorway,motorway_link -o "$WORK/motorways.osm.pbf" --overwrite
+  osmium tags-filter "$WORK/france.osm.pbf" "w/highway=$OSM_HIGHWAYS" -o "$WORK/motorways.osm.pbf" --overwrite
   osmium export "$WORK/motorways.osm.pbf" -f geojsonseq -a type,id --geometry-types=linestring \
     -o "$WORK/motorways.geojsonseq" --overwrite
   MOTORWAYS_INPUT="$WORK/motorways.geojsonseq"

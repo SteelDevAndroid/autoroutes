@@ -341,6 +341,7 @@ services:
       BASEMAP_MAXZOOM: ${TILES_MAXZOOM:-12}
       # « regions » : extraits régionaux d'OpenStreetMap France (si Geofabrik n'est pas joignable) ; « single » : un extrait Geofabrik.
       OSM_MODE: ${OSM_MODE:-single}
+      OSM_HIGHWAYS: ${OSM_HIGHWAYS:-motorway,motorway_link}
     volumes:
       - .:/repo
     restart: "no"
