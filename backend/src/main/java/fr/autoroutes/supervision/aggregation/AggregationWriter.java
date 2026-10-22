@@ -28,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.SmartLifecycle;
@@ -60,6 +61,8 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     private final StreamPublisher publisher;
     private final LiveView liveView;
     private final CheckpointStore checkpoints;
+    private final CheckpointTransaction checkpointTransaction;
+    private final HistoryIncrements history;
     private final CheckpointCodec codec;
     private final QuarantineStore quarantine;
     private final RejectionPublisher rejections;
@@ -72,6 +75,9 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     // Persistance hors du chemin critique ; un seul thread : les quarantaines précèdent le point de reprise qui les couvre.
     private final ExecutorService persistence = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("aggregation-persistence").factory());
     private final Map<Integer, Long> nextOffsets = new HashMap<>();
+    private final List<QuarantineMark> quarantineMarks = new ArrayList<>();
+    // Lot dont l'écriture a échoué : réintégré au point de reprise suivant (dont les offsets le couvrent aussi).
+    private final AtomicReference<HistoryBatch> failedHistory = new AtomicReference<>(HistoryBatch.EMPTY);
     private final Map<String, AtomicLong> outcomes = new ConcurrentHashMap<>();
     private final Map<String, AtomicLong> odStatuses = new ConcurrentHashMap<>();
     private final Map<String, Counter> counters = new ConcurrentHashMap<>();
@@ -92,7 +98,8 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     AggregationWriter(SupervisionProperties properties, Clock clock, EventProcessor processor, AggregationState state,
                       OdCounters od, EventDeduplicator deduplicator, WatermarkTracker watermarks, DeltaComputer deltas,
                       FreshnessPolicy freshnessPolicy, StreamPublisher publisher, LiveView liveView,
-                      CheckpointStore checkpoints, CheckpointCodec codec, QuarantineStore quarantine,
+                      CheckpointStore checkpoints, CheckpointTransaction checkpointTransaction,
+                      HistoryIncrements history, CheckpointCodec codec, QuarantineStore quarantine,
                       RejectionPublisher rejections, ConsumerLagProbe lagProbe, ResumeOffsets resumeOffsets,
                       KafkaListenerEndpointRegistry listenerRegistry, StreamEpoch epoch, StationCatalog catalog,
                       MeterRegistry meters) {
@@ -108,6 +115,8 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
         this.publisher = publisher;
         this.liveView = liveView;
         this.checkpoints = checkpoints;
+        this.checkpointTransaction = checkpointTransaction;
+        this.history = history;
         this.codec = codec;
         this.quarantine = quarantine;
         this.rejections = rejections;
@@ -279,20 +288,29 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
         }
     }
 
-    /** Sur le thread de l'écrivain : copie cohérente, l'encodage et l'écriture se font ensuite hors chemin critique. */
-    private CheckpointData captureCheckpoint() {
-        return new CheckpointData(clock.instant(), Map.copyOf(nextOffsets), watermarks.export(), state.export(),
-                od.export(), deduplicator.export());
+    private record PendingCheckpoint(CheckpointData data, HistoryBatch history, List<QuarantineMark> marks) {
     }
 
-    private void writeCheckpoint(CheckpointData data) {
+    /** Sur le thread de l'écrivain : copie cohérente, l'encodage et l'écriture se font ensuite hors chemin critique. */
+    private PendingCheckpoint captureCheckpoint() {
+        var data = new CheckpointData(clock.instant(), Map.copyOf(nextOffsets), watermarks.export(), state.export(),
+                od.export(), deduplicator.export());
+        var batch = failedHistory.getAndSet(HistoryBatch.EMPTY).merge(history.drain());
+        var marks = List.copyOf(quarantineMarks);
+        quarantineMarks.clear();
+        return new PendingCheckpoint(data, batch, marks);
+    }
+
+    private void writeCheckpoint(PendingCheckpoint pending) {
         try {
-            var payload = codec.encode(data);
-            checkpoints.save(epoch, payload);
-            lastCheckpointAt = data.createdAt();
+            var payload = codec.encode(pending.data());
+            checkpointTransaction.commit(epoch, payload, pending.history(), pending.marks());
+            lastCheckpointAt = pending.data().createdAt();
             lastCheckpointBytes = payload.length;
             meters.counter("toll.checkpoints").increment();
         } catch (RuntimeException e) {
+            // Rien n'a été validé : l'historique est réintégré au prochain lot, les issues de rejeu restent à rejouer.
+            failedHistory.accumulateAndGet(pending.history(), HistoryBatch::merge);
             meters.counter("toll.checkpoints.failed").increment();
             LOG.error("Échec du point de reprise", e);
         }
@@ -311,8 +329,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
 
     private void markReplayed(IncomingEvent incoming, QuarantineStore.Status status) {
         if (incoming.replay()) {
-            var eventId = incoming.event().eventId();
-            persistence.execute(() -> quarantine.markProcessed(eventId, status));
+            quarantineMarks.add(new QuarantineMark(incoming.event().eventId(), status));
         }
     }
 

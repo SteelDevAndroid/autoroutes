@@ -68,6 +68,18 @@ class RestartRecoveryIT {
             assertThat(snapshot(app).epoch()).isNotEqualTo(firstEpoch);
             await().during(Duration.ofSeconds(3)).atMost(Duration.ofSeconds(5)).until(() -> total(app) == 140);
         }
+
+        // L'historique a été écrit avec chaque point de reprise final : exactement les 140 passages, dans chaque résolution.
+        try (var connection = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var statement = connection.createStatement()) {
+            for (var table : List.of("station_minute", "station_quarter", "station_hour")) {
+                var result = statement.executeQuery("select coalesce(sum(entries + exits), 0) from " + table);
+                result.next();
+                assertThat(result.getLong(1)).as(table).isEqualTo(140);
+            }
+        } catch (java.sql.SQLException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static ConfigurableApplicationContext start() {

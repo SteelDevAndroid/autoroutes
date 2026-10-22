@@ -42,7 +42,8 @@ import tools.jackson.databind.json.JsonMapper;
  * Conteneurs gérés par Spring (@ServiceConnection sans @Container) : arrêtés APRÈS le contexte,
  * l'application peut donc écrire son point de reprise final à l'arrêt.
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "supervision.aggregation.checkpoint-interval=2s")
 class SupervisionIT {
 
     @ServiceConnection
@@ -62,6 +63,9 @@ class SupervisionIT {
     @Autowired
     JsonMapper json;
 
+    @Autowired
+    fr.autoroutes.supervision.history.PartitionManager partitions;
+
     private final HttpClient http = HttpClient.newHttpClient();
 
     @BeforeAll
@@ -75,7 +79,8 @@ class SupervisionIT {
 
     @Test
     void countsValidEventsOnceQuarantinesUnknownNamesAndRejectsInvalidPayloads() throws Exception {
-        var baseline = totalToday();
+        var stations = new String[] {"La Boisse", "Bellegarde Sortie", "Nangy"};
+        var baseline = totalToday(stations);
         var exitId = UUID.randomUUID().toString();
         send(event(UUID.randomUUID().toString(), "La Boisse", "ENTRY", null));
         send(event(exitId, "Bellegarde Sortie", "EXIT", "Nangy"));
@@ -84,7 +89,7 @@ class SupervisionIT {
         kafka.send("toll-events", "x", "pas du json").get();
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            assertThat(totalToday()).isEqualTo(baseline + 2);
+            assertThat(totalToday(stations)).isEqualTo(baseline + 2);
             assertThat(get("/api/v1/diagnostic").path("quarantinePending").asLong()).isEqualTo(1);
         });
         var writer = get("/api/v1/diagnostic").path("writer");
@@ -93,7 +98,7 @@ class SupervisionIT {
         assertThat(rejectedReasons()).contains("INVALID_JSON");
 
         var aliases = Files.readString(Path.of("../referentiel/alias-gares.csv"), StandardCharsets.UTF_8);
-        var nangy = aliases.lines().filter(l -> l.startsWith("Nangy;")).findFirst().orElseThrow().split(";")[1];
+        var nangy = stationId("Nangy");
         var upload = http.send(HttpRequest.newBuilder(uri("/api/v1/admin/aliases"))
                 .header("Content-Type", "text/csv")
                 .POST(HttpRequest.BodyPublishers.ofString(aliases + UNKNOWN + ";" + nangy + "\n")).build(),
@@ -101,7 +106,7 @@ class SupervisionIT {
         assertThat(upload.statusCode()).isEqualTo(200);
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
-            assertThat(totalToday()).isEqualTo(baseline + 3);
+            assertThat(totalToday(stations)).isEqualTo(baseline + 3);
             assertThat(get("/api/v1/diagnostic").path("quarantinePending").asLong()).isZero();
         });
     }
@@ -112,7 +117,7 @@ class SupervisionIT {
             String lastId;
             try (var reader = openStream(null)) {
                 assertThat(nextEvent(reader).type()).isEqualTo("snapshot");
-                send(event(UUID.randomUUID().toString(), "Nangy", "ENTRY", null));
+                send(event(UUID.randomUUID().toString(), "Ablis", "ENTRY", null));
                 var delta = nextEventOfType(reader, "delta");
                 lastId = delta.id();
                 assertThat(lastId).matches("[0-9a-f-]{36}:\\d+");
@@ -126,6 +131,43 @@ class SupervisionIT {
                 assertThat(nextEvent(otherEpoch).type()).isEqualTo("snapshot");
             }
         });
+    }
+
+    @Test
+    void historyMatchesLiveTotalsInEveryResolutionAndValidatesRanges() throws Exception {
+        var from = Instant.now().minus(Duration.ofHours(3)).truncatedTo(java.time.temporal.ChronoUnit.HOURS);
+        var to = Instant.now().plus(Duration.ofHours(1));
+        var baseline = totalToday("Sylans", "Beaupont");
+        send(event(UUID.randomUUID().toString(), "Sylans", "ENTRY", null));
+        send(event(UUID.randomUUID().toString(), "Beaupont", "EXIT", "Sylans"));
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            assertThat(totalToday("Sylans", "Beaupont")).isEqualTo(baseline + 2);
+            for (var step : List.of("PT1M", "PT15M", "PT1H")) {
+                assertThat(historyTotal("Sylans", step, from, to) + historyTotal("Beaupont", step, from, to))
+                        .as("historique %s = temps réel", step).isEqualTo(totalToday("Sylans", "Beaupont"));
+            }
+        });
+        assertThat(get("/api/v1/history/network?from=%s&to=%s&step=PT1H".formatted(from, to)).path("points").size()).isPositive();
+        assertThat(get("/api/v1/history/minutes?from=%s&to=%s".formatted(Instant.now().minus(Duration.ofHours(1)), to)).size()).isPositive();
+        assertThat(get("/api/v1/history/od?from=%s&to=%s&minVehicles=1".formatted(from, to)).path("minVehicles").asLong()).isEqualTo(3);
+
+        var tooLong = http.send(HttpRequest.newBuilder(uri("/api/v1/history/minutes?from=%s&to=%s".formatted(from, to))).build(),
+                HttpResponse.BodyHandlers.ofString());
+        assertThat(tooLong.statusCode()).isEqualTo(400);
+        assertThat(tooLong.body()).contains("Plage trop longue");
+    }
+
+    @Test
+    void dropsPartitionsBeyondRetention() {
+        var old = Instant.now().minus(Duration.ofDays(30));
+        partitions.ensure("station_minute", old);
+        partitions.ensure("station_quarter", old);
+
+        var dropped = partitions.dropExpired(Instant.now());
+
+        assertThat(dropped).anyMatch(name -> name.startsWith("station_minute_p"));
+        assertThat(dropped).noneMatch(name -> name.startsWith("station_quarter_p"));
     }
 
     @Test
@@ -219,12 +261,34 @@ class SupervisionIT {
         return json.writeValueAsString(event);
     }
 
-    private long totalToday() throws Exception {
+    /** Cumul du jour des gares données : chaque test travaille sur ses propres gares (contexte partagé entre tests). */
+    private long totalToday(String... stationNames) throws Exception {
+        var ids = java.util.Arrays.stream(stationNames).map(SupervisionIT::stationId).toList();
         long total = 0;
         for (var station : get("/api/v1/snapshot").path("stations")) {
-            total += station.path("today").path("entries").asLong() + station.path("today").path("exits").asLong();
+            if (ids.contains(station.path("stationId").asString())) {
+                total += station.path("today").path("entries").asLong() + station.path("today").path("exits").asLong();
+            }
         }
         return total;
+    }
+
+    private long historyTotal(String stationName, String step, Instant from, Instant to) throws Exception {
+        long total = 0;
+        var series = get("/api/v1/stations/%s/history?from=%s&to=%s&step=%s".formatted(stationId(stationName), from, to, step));
+        for (var point : series.path("points")) {
+            total += point.path("entries").asLong() + point.path("exits").asLong();
+        }
+        return total;
+    }
+
+    private static String stationId(String name) {
+        try {
+            return Files.readAllLines(Path.of("../referentiel/alias-gares.csv"), StandardCharsets.UTF_8).stream()
+                    .filter(l -> l.startsWith(name + ";")).findFirst().orElseThrow().split(";")[1];
+        } catch (IOException e) {
+            throw new java.io.UncheckedIOException(e);
+        }
     }
 
     private JsonNode get(String path) throws Exception {

@@ -33,6 +33,11 @@ spring:
 
 server:
   shutdown: graceful
+  compression:
+    # Séries et relecture volumineuses ; jamais text/event-stream (le gzip mettrait le flux SSE en tampon).
+    enabled: true
+    mime-types: application/json,application/geo+json
+    min-response-size: 2KB
 
 management:
   endpoints:

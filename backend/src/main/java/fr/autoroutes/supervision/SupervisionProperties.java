@@ -12,7 +12,8 @@ public record SupervisionProperties(
         @DefaultValue Referentiel referentiel,
         @DefaultValue Kafka kafka,
         @DefaultValue Aggregation aggregation,
-        @DefaultValue Stream stream) {
+        @DefaultValue Stream stream,
+        @DefaultValue History history) {
 
     /** Fichiers produits par scripts/analyse_referentiel.py. */
     /** Chemins en chaînes : la conversion Spring vers Path passe par les ressources et refuse « ../ ». */
@@ -48,6 +49,16 @@ public record SupervisionProperties(
             @DefaultValue("60s") Duration staleAfter,
             @DefaultValue("15m") Duration stationStaleAfter,
             @DefaultValue("5000") long catchingUpLag) {
+    }
+
+    /** Rétentions par résolution (purge par partition) et plage maximale d'une lecture minute par minute. */
+    public record History(
+            @DefaultValue("7d") Duration minuteRetention,
+            @DefaultValue("400d") Duration quarterRetention,
+            @DefaultValue("1100d") Duration hourRetention,
+            @DefaultValue("93d") Duration odHourRetention,
+            @DefaultValue("400d") Duration odDayRetention,
+            @DefaultValue("2h") Duration maxMinuteSpan) {
     }
 
     public record Stream(

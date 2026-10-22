@@ -35,6 +35,7 @@ class EventProcessorTest {
 
     private AggregationState state;
     private OdCounters od;
+    private HistoryIncrements history;
     private EventProcessor processor;
 
     @BeforeEach
@@ -44,10 +45,11 @@ class EventProcessorTest {
         when(resolver.resolve("Bellegarde Entrée")).thenReturn(Optional.of("GL-ECH-BELLEGARDE"));
         state = new AggregationState(ZoneId.of("Europe/Paris"));
         od = new OdCounters();
+        history = new HistoryIncrements(ZoneId.of("Europe/Paris"));
         processor = new EventProcessor(resolver,
                 new WatermarkTracker(Duration.ofSeconds(30), new MutableClock(T0)),
                 new LatenessPolicy(Duration.ofMinutes(10), Duration.ofHours(2)),
-                new EventDeduplicator(Duration.ofHours(2)), state, od);
+                new EventDeduplicator(Duration.ofHours(2)), state, od, history);
     }
 
     private static TollEvent exit(String id, Instant at, String entry) {
@@ -62,6 +64,20 @@ class EventProcessorTest {
         assertThat(state.metrics("GL-ECH-LA-BOISSE", T0).last5m().exits()).isEqualTo(1);
         assertThat(od.flows(T0, Duration.ofHours(1), 1, 10))
                 .containsExactly(new OdFlow("GL-ECH-BELLEGARDE", "GL-ECH-LA-BOISSE", 1));
+    }
+
+    @Test
+    void recordsHistoryIncrementsOnlyForAppliedEvents() {
+        processor.process(0, exit("e-1", T0, "Bellegarde Entrée"));
+        processor.process(0, exit("e-1", T0, "Bellegarde Entrée"));
+        processor.process(0, new TollEvent("e-2", "Gare Inconnue", EventType.ENTRY, T0, null, null, 1, null, false));
+
+        var batch = history.drain();
+
+        assertThat(batch.minutes()).containsExactly(java.util.Map.entry(
+                new HistoryBatch.StationMinute("GL-ECH-LA-BOISSE", T0.getEpochSecond() / 60), new WindowCounts(0, 1)));
+        assertThat(batch.odHours().values()).containsExactly(1L);
+        assertThat(history.drain().isEmpty()).isTrue();
     }
 
     @Test

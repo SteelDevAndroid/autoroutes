@@ -39,11 +39,17 @@ class AggregationConfig {
     }
 
     @Bean
+    HistoryIncrements historyIncrements(SupervisionProperties properties) {
+        return new HistoryIncrements(properties.zone());
+    }
+
+    @Bean
     EventProcessor eventProcessor(StationResolver resolver, WatermarkTracker watermarks, EventDeduplicator deduplicator,
-                                  AggregationState state, OdCounters od, SupervisionProperties properties) {
+                                  AggregationState state, OdCounters od, HistoryIncrements history,
+                                  SupervisionProperties properties) {
         var aggregation = properties.aggregation();
         return new EventProcessor(resolver, watermarks,
-                new LatenessPolicy(aggregation.allowedLateness(), aggregation.dedupHorizon()), deduplicator, state, od);
+                new LatenessPolicy(aggregation.allowedLateness(), aggregation.dedupHorizon()), deduplicator, state, od, history);
     }
 
     @Bean

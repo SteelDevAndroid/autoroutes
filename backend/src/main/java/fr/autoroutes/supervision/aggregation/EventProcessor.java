@@ -41,15 +41,17 @@ public final class EventProcessor {
     private final EventDeduplicator deduplicator;
     private final AggregationState state;
     private final OdCounters od;
+    private final HistoryIncrements history;
 
     public EventProcessor(StationResolver resolver, WatermarkTracker watermarks, LatenessPolicy lateness,
-                          EventDeduplicator deduplicator, AggregationState state, OdCounters od) {
+                          EventDeduplicator deduplicator, AggregationState state, OdCounters od, HistoryIncrements history) {
         this.resolver = resolver;
         this.watermarks = watermarks;
         this.lateness = lateness;
         this.deduplicator = deduplicator;
         this.state = state;
         this.od = od;
+        this.history = history;
     }
 
     public Outcome process(int partition, TollEvent event) {
@@ -82,7 +84,10 @@ public final class EventProcessor {
             case BEYOND_HORIZON -> {
                 return new Outcome.Rejected(event.eventId(), RejectReason.TOO_LATE);
             }
-            case NEW -> state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount());
+            case NEW -> {
+                state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount());
+                history.station(stationId.get(), event.type(), event.eventTime(), event.vehicleCount());
+            }
         }
         return new Outcome.Applied(stationId.get(), verdict == LatenessPolicy.Verdict.CORRECTION,
                 recordOd(event, stationId.get()));
@@ -99,6 +104,7 @@ public final class EventProcessor {
                 .flatMap(resolver::resolve)
                 .map(originId -> {
                     od.add(originId, destinationId, event.eventTime(), event.vehicleCount());
+                    history.od(originId, destinationId, event.eventTime(), event.vehicleCount());
                     return OdStatus.RECORDED;
                 })
                 .orElse(OdStatus.ENTRY_UNKNOWN);
