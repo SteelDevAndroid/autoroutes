@@ -1,63 +1,77 @@
-# Environnement de développement et de démonstration (profils exclusifs entre eux pour le port 8080) :
-#   docker compose --profile demo up -d   → frontend seul, flux simulé dans le navigateur, http://localhost:8080
-#   docker compose --profile infra up -d  → Kafka (KRaft) + PostgreSQL pour développer le backend en local
-#   docker compose --profile full up -d   → chaîne complète : simulateur → Kafka → backend → SSE → frontend, http://localhost:8080
+# Pile complète de supervision des gares de péage.
+#
+#   cp .env.example .env                    # secrets locaux ; COMPOSE_PROFILES=full par défaut
+#   docker compose up -d --build            # pile applicative : simulateur → Kafka → backend → SSE → frontend
+#   → http://localhost:8080
+#
+# Profils (combinables : docker compose --profile full --profile monitoring up -d --build) :
+#   full        simulateur, Kafka (KRaft), PostgreSQL, backend, frontend de production (+ supervision recommandée)
+#   monitoring  Prometheus (métriques, 12 alertes) et Grafana (tableau de bord provisionné) ; à combiner avec « full »
+#   demo        frontend seul, flux SIMULÉ dans le navigateur, sans backend (port 8080 : exclusif avec « full »)
+#   infra       Kafka et PostgreSQL seuls, pour développer le backend en local
+#   tiles       tâche ponctuelle : produit le fond de carte et le graphe routier (accès réseau requis)
+#
+# Sécurité : seuls le frontend (8080) et, avec « monitoring », Grafana (3000) sont destinés à être joints ;
+# les autres ports ne sont publiés que sur 127.0.0.1 (diagnostic local). Conteneurs applicatifs en lecture seule,
+# sans privilèges ni capacités superflues, avec limites de mémoire et journaux en rotation.
 name: autoroutes
 
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+# Conteneurs applicatifs : système de fichiers en lecture seule (écritures dans /tmp), aucune élévation de privilèges.
+x-hardened: &hardened
+  read_only: true
+  tmpfs:
+    - /tmp
+  security_opt:
+    - no-new-privileges:true
+  logging: *logging
+  restart: unless-stopped
+
 services:
-  frontend:
-    profiles: [demo]
-    build:
-      context: ./frontend
-      args:
-        MODE: demo
-    image: autoroutes-frontend:demo
-    ports:
-      - "8080:8080"
-    # Sorties de cartographie/build.sh ; vides en démonstration hors ligne (fond neutre, sans libellés).
-    volumes:
-      - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
-      - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
-    read_only: true
-    tmpfs:
-      - /var/cache/nginx
-      - /tmp
-    restart: unless-stopped
+  # ───────────────────────── Application ─────────────────────────
 
   frontend-live:
+    <<: *hardened
     profiles: [full]
     build:
       context: ./frontend
       args:
         MODE: production
-        # Sans tuiles produites (cartographie/build.sh), définir ces variables vides dans .env.
+        # Sans tuiles produites (profil « tiles »), définir ces variables vides dans .env : fond neutre, sans libellés.
         VITE_BASEMAP_URL: ${VITE_BASEMAP_URL-pmtiles:///tiles/france.pmtiles}
         VITE_MOTORWAYS_URL: ${VITE_MOTORWAYS_URL-pmtiles:///tiles/motorways.pmtiles}
         VITE_GLYPHS_URL: ${VITE_GLYPHS_URL-/basemaps-assets/fonts/{fontstack}/{range}.pbf}
         VITE_SPRITE_URL: ${VITE_SPRITE_URL-/basemaps-assets/sprites/v4/dark}
     image: autoroutes-frontend:live
     ports:
-      - "8080:8080"
+      - "${FRONTEND_PORT:-8080}:8080"
     volumes:
       - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
       - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
-    read_only: true
     tmpfs:
-      - /var/cache/nginx
       - /tmp
+      - /var/cache/nginx
     depends_on:
       backend:
         condition: service_healthy
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 128m }
 
   backend:
+    <<: *hardened
     profiles: [full]
     build:
       context: .
       dockerfile: backend/Dockerfile
     image: autoroutes-backend:latest
     ports:
-      - "8081:8080"
+      - "127.0.0.1:${BACKEND_PORT:-8081}:8080"
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/supervision
       DATABASE_USER: supervision
@@ -68,10 +82,14 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    # Arrêt propre : le point de reprise final est écrit avant la sortie.
     stop_grace_period: 45s
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 1g }
 
   simulator:
+    <<: *hardened
     profiles: [full]
     build:
       context: .
@@ -80,21 +98,50 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SIMULATOR_RATE: ${SIMULATOR_RATE:-80}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
     depends_on:
       kafka-init:
         condition: service_completed_successfully
-    restart: unless-stopped
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  # Démonstration hors ligne : même frontend, flux simulé dans le navigateur (aucun backend).
+  frontend:
+    <<: *hardened
+    profiles: [demo]
+    build:
+      context: ./frontend
+      args:
+        MODE: demo
+    image: autoroutes-frontend:demo
+    ports:
+      - "${FRONTEND_PORT:-8080}:8080"
+    volumes:
+      - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
+      - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
+  # ───────────────────────── Données ─────────────────────────
 
   kafka:
     profiles: [infra, full]
     image: apache/kafka:4.1.0
+    logging: *logging
+    restart: unless-stopped
     ports:
-      - "29092:29092"
+      # Listener EXTERNAL : développement du backend hors conteneur (localhost:29092).
+      - "127.0.0.1:${KAFKA_EXTERNAL_PORT:-29092}:29092"
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
       KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:29092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:29092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:${KAFKA_EXTERNAL_PORT:-29092}
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -111,10 +158,15 @@ services:
       retries: 12
     volumes:
       - kafka-data:/var/lib/kafka/data
+    stop_grace_period: 30s
+    deploy:
+      resources:
+        limits: { memory: 1536m }
 
   kafka-init:
     profiles: [infra, full]
     image: apache/kafka:4.1.0
+    logging: *logging
     depends_on:
       kafka:
         condition: service_healthy
@@ -128,8 +180,10 @@ services:
   postgres:
     profiles: [infra, full]
     image: postgres:17-alpine
+    logging: *logging
+    restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     environment:
       POSTGRES_DB: supervision
       POSTGRES_USER: supervision
@@ -141,7 +195,87 @@ services:
       retries: 20
     volumes:
       - postgres-data:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits: { memory: 1g }
+
+  # ───────────────────────── Supervision ─────────────────────────
+
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v3.5.0
+    logging: *logging
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+    ports:
+      - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  # Grafana est sous licence AGPL-3.0 : usage interne sans modification sans obligation particulière ; voir docs/docker.md.
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana:12.2.0
+    logging: *logging
+    restart: unless-stopped
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?définir GRAFANA_PASSWORD dans .env (voir .env.example)}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/supervision.json
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 512m }
+
+  # ───────────────────────── Tâche ponctuelle ─────────────────────────
+
+  # docker compose --profile tiles run --rm tiles   (variables : PROTOMAPS_BUILD obligatoire, voir cartographie/build.sh)
+  # Écrit cartographie/out/tiles et cartographie/out/basemaps-assets, servis ensuite par le frontend.
+  tiles:
+    profiles: [tiles]
+    build:
+      context: ./cartographie
+    image: autoroutes-cartographie:latest
+    environment:
+      PROTOMAPS_BUILD: ${PROTOMAPS_BUILD:-}
+      BBOX: ${TILES_BBOX:--5.5,41.2,10.0,51.3}
+      BASEMAP_MAXZOOM: ${TILES_MAXZOOM:-14}
+    volumes:
+      - .:/repo
+    restart: "no"
 
 volumes:
   kafka-data:
   postgres-data:
+  prometheus-data:
+  grafana-data:

@@ -10,9 +10,10 @@ Workflow : `.github/workflows/ci.yml`, déclenché à chaque pull request, à ch
 | **Simulateur** | `mvn verify` : 4 tests (contrat, système ouvert ou fermé, anomalies, modèle gravitaire) | 2 min |
 | **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, 53 tests Vitest (dont validité du style MapLibre), builds de production et de démonstration, **E2E Playwright** de la démonstration : rendu WebGL réel, plus de 600 gares dessinées, **aucune erreur console**, accessibilité axe-core | 4 à 6 min |
 | **Référentiel et cartographie** | Tests de `prepare_motorways.py` ; **le référentiel versionné est régénéré par les scripts et comparé** (alias, cas à arbitrer et identifiants des gares logiques) : aucune dérive silencieuse | 1 min |
+| **Supervision** | `promtool check config` sur la configuration et les 12 règles d'alerte Prometheus ; le tableau de bord Grafana est **régénéré par son script puis comparé** au fichier versionné | 1 min |
 | **Scripts shell** | `shellcheck` sur `cartographie/build.sh` et `scripts/perf_history.sh` | < 1 min |
-| **Images Docker** | `docker compose config` pour les trois profils ; construction complète des images backend, simulateur et frontend (cache GitHub Actions) | 5 à 10 min |
-| **E2E chaîne complète** | Profil Compose `full` démarré de zéro (simulateur → Kafka → backend → SSE → nginx), puis 4 scénarios navigateur : données réelles sans bandeau de simulation, **latence de bout en bout p95 ≤ 3 s**, relecture puis retour au direct, courbe aujourd'hui / J-7 | 8 à 12 min |
+| **Images Docker** | `docker compose config` pour les cinq profils (`demo`, `infra`, `full`, `monitoring`, `tiles`) ; construction complète des images backend, simulateur et frontend (cache GitHub Actions) | 5 à 10 min |
+| **E2E chaîne complète et supervision** | Profils `full` et `monitoring` démarrés de zéro (simulateur → Kafka → backend → SSE → nginx, plus Prometheus et Grafana), puis 4 scénarios navigateur : données réelles sans bandeau de simulation, **latence de bout en bout p95 ≤ 3 s**, relecture puis retour au direct, courbe aujourd'hui / J-7. Ensuite `scripts/verify_observability.py` : cibles Prometheus saines, 12 règles chargées, aucune alerte critique, **chaque panneau Grafana alimenté** | 10 à 15 min |
 | **CI réussie** | Agrège tous les jobs ci-dessus ; échoue si l'un n'est pas en succès (y compris « skipped ») | quelques secondes |
 
 En cas d'échec, les rapports de tests, les captures et les journaux des services sont déposés en artefacts (7 jours).
@@ -33,9 +34,10 @@ pip install -r scripts/requirements.txt
 python scripts/analyse_referentiel.py && git status --short referentiel   # doit être propre
 
 # Chaîne complète
-cp .env.example .env    # POSTGRES_PASSWORD ; variables VITE_* vides sans tuiles
-docker compose --profile full up -d --build
+cp .env.example .env    # mots de passe locaux ; variables VITE_* vides sans tuiles ; COMPOSE_PROFILES=full,monitoring
+docker compose up -d --build
 E2E_LIVE=1 E2E_BASE_URL=http://localhost:8080 npx playwright test e2e/live.spec.ts   # depuis frontend/
+GRAFANA_PASSWORD=changez-moi python3 scripts/verify_observability.py
 ```
 
 ## Protection de branche recommandée
@@ -53,6 +55,7 @@ Dans *Settings → Branches → Branch protection rules* pour `main` :
 
 - Les workflows passent `actionlint` (avec `shellcheck` sur les scripts embarqués) ; les scripts shell passent `shellcheck`.
 - Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts.
+- La procédure du job « E2E chaîne complète et supervision » rejouée de bout en bout en local (volumes neufs, `.env` généré comme dans le job) : 4 scénarios navigateur et la vérification de supervision au vert.
 - L'étape « référentiel à jour » rejouée : aucune différence ; la logique du job « CI réussie » simulée (vert et rouge).
 - Les commandes `package` et d'extraction des couches des Dockerfiles du backend et du simulateur rejouées sans réseau.
 

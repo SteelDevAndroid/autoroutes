@@ -96,6 +96,9 @@ class SupervisionIT {
         assertThat(writer.path("outcomes").path("duplicate").asLong()).isGreaterThanOrEqualTo(1);
         assertThat(writer.path("odStatuses").path("RECORDED").asLong()).isGreaterThanOrEqualTo(1);
         assertThat(rejectedReasons()).contains("INVALID_JSON");
+        var metrics = http.send(HttpRequest.newBuilder(uri("/actuator/prometheus")).build(), HttpResponse.BodyHandlers.ofString()).body();
+        assertThat(metrics).contains("toll_events_rejected_total{reason=\"INVALID_JSON\"}", "toll_watermark_lag_seconds",
+                "toll_freshness_status", "toll_consumer_lag", "toll_events_total{result=\"duplicate\"}");
 
         var aliases = Files.readString(Path.of("../referentiel/alias-gares.csv"), StandardCharsets.UTF_8);
         var nangy = stationId("Nangy");
