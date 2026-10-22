@@ -109,7 +109,9 @@ export function businessLayers(): LayerSpecification[] {
       source: SOURCE.od,
       layout: { 'line-cap': 'round', visibility: 'none' },
       paint: {
-        'line-width': ['get', 'width'],
+        // Flux ciblé dans la liste : plus épais ; les autres s'estompent (états posés par MapController.setHighlightedFlow).
+        'line-width': ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]],
+        'line-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
         'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(76,201,240,0.05)', 1, theme.odFlow],
       },
     },

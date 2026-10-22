@@ -33,6 +33,12 @@ test.describe('démonstration (flux simulé)', () => {
     await page.waitForTimeout(2_500);
     await page.screenshot({ path: 'test-results/demo-gare.png' });
 
+    // Info-bulle au survol : la gare est au centre de la carte après le cadrage.
+    const box = await map.boundingBox();
+    expect(box).not.toBeNull();
+    await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) / 2, (box?.y ?? 0) + (box?.height ?? 0) / 2);
+    await expect(page.getByRole('tooltip')).toContainText('La Boisse');
+
     await detail.getByRole('button', { name: 'Fermer le détail' }).click();
     await expect(detail).toBeHidden();
   });
@@ -43,6 +49,19 @@ test.describe('démonstration (flux simulé)', () => {
     await page.waitForTimeout(1_500);
     await page.screenshot({ path: 'test-results/demo-flux.png' });
     await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
+
+    // Légende contextuelle : la ligne des flux n'apparaît qu'avec la couche, et les sections s'ouvrent une à la fois.
+    await page.getByRole('button', { name: 'Légende' }).click();
+    await expect(page.getByText('Flux O/D observé (≥ 3 véh. sur 1 h)')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('la légende ne décrit que les couches affichées', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Légende' }).click();
+    await expect(page.getByText('Gare d’échangeur').last()).toBeVisible();
+    await expect(page.getByText('Flux O/D observé')).toHaveCount(0);
+    await expect(page.getByText('Charge de tronçon')).toHaveCount(0);
   });
 
   test('ne présente pas de violation d’accessibilité critique hors carte', async ({ page }) => {

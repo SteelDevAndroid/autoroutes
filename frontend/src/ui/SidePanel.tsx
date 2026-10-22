@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react';
 import type { StationCollection } from '../map/referentiel';
-import { config } from '../config';
-import { theme } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
+import type { FlowKey } from '../state/uiStore';
+import { Legend } from './Legend';
 import { OdPanel } from './OdPanel';
+import { Section } from './Section';
 import { SegmentsPanel } from './SegmentsPanel';
-import { ReplayPanel } from './ReplayPanel';
-import type { ReplayControls } from './ReplayPanel';
 
 const normalize = (value: string): string =>
   value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
@@ -38,11 +37,11 @@ function Search({ stations, onFocus }: { readonly stations: StationCollection; r
   );
 }
 
-export function SidePanel({ stations, onFocus, onResetView, replay }: {
+export function SidePanel({ stations, onFocus, onFocusFlow, onResetView }: {
   readonly stations: StationCollection;
   readonly onFocus: (index: number) => void;
+  readonly onFocusFlow: (flow: FlowKey) => void;
   readonly onResetView: () => void;
-  readonly replay: ReplayControls;
 }) {
   const layers = useUiStore((s) => s.layers);
   const kinds = useUiStore((s) => s.kinds);
@@ -54,33 +53,20 @@ export function SidePanel({ stations, onFocus, onResetView, replay }: {
   return (
     <aside className="side">
       <Search stations={stations} onFocus={onFocus} />
-      <section>
-        <h2>Gares</h2>
+      <Section id="layers" title="Couches et gares">
         <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
         <label><input type="checkbox" checked={kinds.has('PLEINE_VOIE')} onChange={() => { toggleKind('PLEINE_VOIE'); }} /> Barrières pleine voie</label>
-      </section>
-      <section>
-        <h2>Couches</h2>
+        <hr />
         <label><input type="checkbox" checked={layers.stations} onChange={() => { toggleLayer('stations'); }} /> Activité des gares</label>
         <label><input type="checkbox" checked={layers.labels} onChange={() => { toggleLayer('labels'); }} /> Noms des gares</label>
         <label><input type="checkbox" checked={layers.od} onChange={() => { toggleLayer('od'); }} /> Flux origine → destination</label>
         <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
-      </section>
-      {layers.od && <OdPanel stations={stations} />}
+      </Section>
+      {layers.od && <OdPanel stations={stations} onFocusFlow={onFocusFlow} />}
       {layers.segments && <SegmentsPanel />}
-      {!config.demo && <ReplayPanel controls={replay} />}
-      <section aria-label="Légende">
-        <h2>Légende</h2>
-        <div className="legend-row"><span className="swatch" style={{ background: theme.stationEchangeur }} /> Gare d’échangeur</div>
-        <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>
-        <div className="legend-row"><span className="swatch" style={{ background: theme.stationStale }} /> Gare sans données récentes</div>
-        <p className="note">Surface du cercle ∝ passages sur 1 h (observés). Halo bref = nouveaux passages.</p>
-        <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D observé (≥ 3 véh. sur 1 h, seuil appliqué après regroupement), clair → foncé = origine → destination</div>
-        <div className="legend-row"><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} /> Charge de tronçon <strong>estimée</strong></div>
-        <p className="note">Données de péage : le trafic gratuit et les trajets entre deux gares ne sont pas mesurés.</p>
-      </section>
-      <section>
+      <Legend />
+      <section className="side-actions">
         <button type="button" className="icon-button" onClick={onResetView}>Vue France entière</button>{' '}
         <button type="button" className="icon-button" onClick={toggleDiagnostic}>Diagnostic</button>
       </section>

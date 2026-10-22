@@ -8,7 +8,7 @@ import { StationAnimator } from '../animation/stationAnimator';
 import { EMPTY_OD_VIEW } from '../od/odTypes';
 import type { OdView } from '../od/odTypes';
 import type { StationStore } from '../state/stationStore';
-import type { LayerVisibility } from '../state/uiStore';
+import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
 import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
@@ -25,6 +25,8 @@ export interface MapControllerOptions {
   readonly style: StyleOptions;
   readonly onSelect: (index: number | null) => void;
   readonly onQualityChange: (level: QualityLevel) => void;
+  /** Gare sous le pointeur (null : aucune). Appelé au plus une fois par image. */
+  readonly onHover: (hover: HoveredStation | null) => void;
 }
 
 const STATION_LAYERS = ['stations', 'stations-halo', 'stations-selected', 'stations-label'] as const;
@@ -40,6 +42,10 @@ export class MapController {
   private od: OdView = EMPTY_OD_VIEW;
   private selectedId: string | null = null;
   private segmentIntensity: ReadonlyMap<string, number> = new Map();
+  private highlighted: FlowKey | null = null;
+  private odFeatureKeys: readonly FlowKey[] = [];
+  private odCoordinates: ReadonlyMap<string, readonly [number, number]> = new Map();
+  private pendingHover: HoveredStation | null | undefined;
 
   constructor(
     container: HTMLElement,
@@ -88,7 +94,29 @@ export class MapController {
       options.onSelect(typeof id === 'number' ? id : null);
     });
     this.map.on('mouseenter', 'stations', () => { this.map.getCanvas().style.cursor = 'pointer'; });
-    this.map.on('mouseleave', 'stations', () => { this.map.getCanvas().style.cursor = ''; });
+    this.map.on('mouseleave', 'stations', () => {
+      this.map.getCanvas().style.cursor = '';
+      this.emitHover(null, options);
+    });
+    this.map.on('mousemove', 'stations', (event: MapLayerMouseEvent) => {
+      const id = event.features?.[0]?.id;
+      this.emitHover(typeof id === 'number' ? { index: id, x: event.point.x, y: event.point.y } : null, options);
+    });
+  }
+
+  /** Un seul appel par image : le pointeur peut émettre bien plus d'événements que l'écran n'affiche d'images. */
+  private emitHover(hover: HoveredStation | null, options: MapControllerOptions): void {
+    const scheduled = this.pendingHover !== undefined;
+    this.pendingHover = hover;
+    if (!scheduled) {
+      requestAnimationFrame(() => {
+        const value = this.pendingHover;
+        this.pendingHover = undefined;
+        if (value !== undefined) {
+          options.onHover(value);
+        }
+      });
+    }
   }
 
   /** Après chaque snapshot ou delta : nouvelles cibles d'animation, réveil de la boucle d'images. */
@@ -113,8 +141,39 @@ export class MapController {
         ? new Map(this.od.nodes.map((n) => [n.id, [n.longitude, n.latitude] as const]))
         : this.coordinates;
       const visible = selectFlows(this.od.flows, departments ? null : this.selectedId);
-      (this.map.getSource(SOURCE.od) as GeoJSONSource).setData(buildOdFeatures(visible, coordinates)).catch(reportError);
+      const collection = buildOdFeatures(visible, coordinates);
+      this.odCoordinates = coordinates;
+      this.odFeatureKeys = collection.features.map((f) => ({ originId: f.properties.originId, destinationId: f.properties.destinationId }));
+      (this.map.getSource(SOURCE.od) as GeoJSONSource).setData(collection).then(() => { this.applyHighlight(); }, reportError);
     }
+  }
+
+  /** Met en évidence l'arc d'un flux (survol ou sélection dans la liste) et atténue les autres. */
+  setHighlightedFlow(flow: FlowKey | null): void {
+    this.highlighted = flow;
+    this.applyHighlight();
+  }
+
+  private applyHighlight(): void {
+    if (!this.ready) {
+      return;
+    }
+    const flow = this.highlighted;
+    this.odFeatureKeys.forEach((key, id) => {
+      const active = flow !== null && key.originId === flow.originId && key.destinationId === flow.destinationId;
+      this.map.setFeatureState({ source: SOURCE.od, id }, { active, dim: flow !== null && !active });
+    });
+  }
+
+  /** Cadre la carte sur les deux extrémités d'un flux. */
+  focusFlow(flow: FlowKey): void {
+    const origin = this.odCoordinates.get(flow.originId);
+    const destination = this.odCoordinates.get(flow.destinationId);
+    if (origin === undefined || destination === undefined) {
+      return;
+    }
+    this.map.fitBounds([[Math.min(origin[0], destination[0]), Math.min(origin[1], destination[1])],
+      [Math.max(origin[0], destination[0]), Math.max(origin[1], destination[1])]], { padding: 80, maxZoom: 9 });
   }
 
   /** Charge ESTIMÉE : intensité 0 à 1 posée en feature-state sur les tronçons de la couche autoroutes (promoteId segmentId). */

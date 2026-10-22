@@ -29,6 +29,24 @@ export interface ReplayState {
   readonly speed: number;
   readonly time: string | null;
   readonly error: string | null;
+  /** Bornes de la période relue (ISO) : sert à la barre de progression. */
+  readonly from: string | null;
+  readonly to: string | null;
+}
+
+/** Sections du panneau latéral : une seule est ouverte à la fois. */
+export type SectionId = 'layers' | 'od' | 'segments' | 'legend';
+
+export interface HoveredStation {
+  readonly index: number;
+  /** Position du pointeur dans le conteneur de la carte, en pixels. */
+  readonly x: number;
+  readonly y: number;
+}
+
+export interface FlowKey {
+  readonly originId: string;
+  readonly destinationId: string;
 }
 
 export interface SegmentsState {
@@ -53,6 +71,12 @@ export interface UiState {
   readonly me: Me | null;
   /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
   readonly segments: SegmentsState | null;
+  readonly openSection: SectionId | null;
+  /** Les flux d'une gare ou d'un département vers lui-même (« internes ») sont masqués par défaut : ils dominent les listes sans s'y tracer. */
+  readonly odIncludeInternal: boolean;
+  /** Flux survolé ou ciblé dans la liste : son arc est mis en évidence sur la carte. */
+  readonly highlightedFlow: FlowKey | null;
+  readonly hover: HoveredStation | null;
   readonly quality: QualityLevel;
   readonly reducedMotion: boolean;
   readonly diagnosticOpen: boolean;
@@ -61,6 +85,10 @@ export interface UiState {
   readonly replay: ReplayState;
   readonly select: (index: number | null) => void;
   readonly toggleLayer: (layer: keyof LayerVisibility) => void;
+  readonly setOpenSection: (section: SectionId | null) => void;
+  readonly setOdIncludeInternal: (include: boolean) => void;
+  readonly setHighlightedFlow: (flow: FlowKey | null) => void;
+  readonly setHover: (hover: HoveredStation | null) => void;
   readonly toggleKind: (kind: StationKind) => void;
   readonly setConnection: (status: ConnectionStatus) => void;
   readonly setFreshness: (freshness: Freshness) => void;
@@ -99,9 +127,24 @@ export const useUiStore = create<UiState>()((set, get) => ({
   diagnosticOpen: false,
   resyncCount: 0,
   mode: 'live',
-  replay: { status: 'paused', speed: 60, time: null, error: null },
+  openSection: 'layers',
+  odIncludeInternal: false,
+  highlightedFlow: null,
+  hover: null,
+  replay: { status: 'paused', speed: 60, time: null, error: null, from: null, to: null },
   select: (selectedIndex) => { set({ selectedIndex }); },
-  toggleLayer: (layer) => { set((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } })); },
+  // Activer une couche à section propre l'ouvre : ses réglages sont ce que l'on cherche juste après.
+  toggleLayer: (layer) => {
+    set((s) => {
+      const enabled = !s.layers[layer];
+      const opens = enabled && (layer === 'od' || layer === 'segments');
+      return { layers: { ...s.layers, [layer]: enabled }, ...(opens ? { openSection: layer } : {}) };
+    });
+  },
+  setOpenSection: (openSection) => { set({ openSection }); },
+  setOdIncludeInternal: (odIncludeInternal) => { set({ odIncludeInternal }); },
+  setHighlightedFlow: (highlightedFlow) => { set({ highlightedFlow }); },
+  setHover: (hover) => { set({ hover }); },
   toggleKind: (kind) => {
     set((s) => {
       const kinds = new Set(s.kinds);
