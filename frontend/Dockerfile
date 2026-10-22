@@ -6,7 +6,15 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY . .
 ARG MODE=production
-RUN if [ "$MODE" = "demo" ]; then npm run build:demo; else npm run build; fi
+# Production : tuiles et polices servies par la même origine (sorties de cartographie/build.sh) ; valeurs vides = sans fond.
+ARG VITE_BASEMAP_URL=pmtiles:///tiles/france.pmtiles
+ARG VITE_MOTORWAYS_URL=pmtiles:///tiles/motorways.pmtiles
+ARG VITE_GLYPHS_URL=/basemaps-assets/fonts/{fontstack}/{range}.pbf
+ARG VITE_SPRITE_URL=/basemaps-assets/sprites/v4/dark
+# Les variables d'environnement priment sur les fichiers .env de Vite : elles sont retirées en mode démonstration.
+RUN if [ "$MODE" = "demo" ]; then \
+      env -u VITE_BASEMAP_URL -u VITE_MOTORWAYS_URL -u VITE_GLYPHS_URL -u VITE_SPRITE_URL npm run build:demo; \
+    else npm run build; fi
 
 FROM nginx:1.29-alpine
 COPY nginx.conf /etc/nginx/nginx.conf

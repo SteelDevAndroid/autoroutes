@@ -279,7 +279,7 @@ Tout s'exécute sans GPU : `CHROMIUM_PATH=… npx playwright test` (Chromium pr�
 |---|---|---|---|
 | `demo` | `frontend` (nginx, build `MODE=demo`), lecture seule, tmpfs | Démonstration : http://localhost:8080 | ✅ en bonne santé, E2E passés contre lui |
 | `infra` | `kafka` (KRaft, rétention 72 h), `kafka-init` (topics `toll-events` × 6 partitions, `toll-events.rejected`), `postgres` 17 | Développement du backend en local (`localhost:29092`, `localhost:5432`) | ✅ en bonne santé, topics créés |
-| `full` (incrément 1) | + `backend`, `simulator`, puis `keycloak`, `prometheus`, `grafana` | Démonstration de bout en bout | à créer avec la mise en place du backend (phase 2, section 10.1) |
+| `full` | `backend`, `simulator`, `frontend-live` (production) + `kafka`, `postgres` ; `keycloak`, `prometheus`, `grafana` à l'incrément 5 | Démonstration de bout en bout | ✅ incrément 1 (voir `docs/increment-1.md`) |
 
 - Secrets : `POSTGRES_PASSWORD` dans `.env` (non versionné, modèle `.env.example`). Compose **refuse de démarrer** sans ce mot de passe.
 - Images : versions figées (`node:24-alpine`, `nginx:1.29-alpine`, `apache/kafka:4.1.0`, `postgres:17-alpine`), build multi-étapes.
@@ -334,7 +334,7 @@ autoroutes/
 | Incrément | Contenu | Dépendances | Risques | Critères d'acceptation |
 |---|---|---|---|---|
 | **0. Socle données** ✅ en grande partie | Référentiel, alias, GeoJSON, frontend démo, Compose infra | Validation métier des 161 points à arbitrer | Regroupement contesté | Table validée ; 100 % des gares positionnées |
-| **1. MVP temps réel** | Backend : listener Kafka, écrivain unique, SSE, API référentiel, checkpoint ; chaîne cartographique exécutée ; profil `full` ; simulateur | **Q14** (noms réels du topic), Q3, accès réseau aux sources de tuiles | H7 (noms) ; taille du fond (H20) | Bout en bout sur données simulées puis réelles ; latence ≤ 3 s au 95e centile ; quarantaine < 1 % |
+| **1. MVP temps réel** ✅ sauf chaîne cartographique | Backend : listener Kafka, écrivain unique, SSE, API référentiel, checkpoint ; chaîne cartographique exécutée ; profil `full` ; simulateur | **Q14** (noms réels du topic), Q3, accès réseau aux sources de tuiles | H7 (noms) ; taille du fond (H20) | Bout en bout sur données simulées puis réelles ; latence ≤ 3 s au 95e centile ; quarantaine < 1 % |
 | **2. Historique** | Agrégats persistés, séries dans le détail de gare, comparaison J/J-7, mode relecture (lecture, pause, vitesse) | Q5 (rétention) | Volumes `od_hour` | Requête sur 13 mois < 1 s ; relecture fluide ×60 |
 | **3. Flux O/D** | Diffusion `od` réelle, seuil RGPD, filtres par axe et département | Incrément 1 | Lisibilité nationale | Cohérence Σ O/D = sorties − manquants (± 0,5 %) |
 | **4. Charge estimée des tronçons** | Graphe OSM → module `assignment`, couche `segments-load`, mention « estimé » | Incrément 3, Q10 (ODbL), H21 | Contestation de l'affectation | Validation métier sur 3 axes |

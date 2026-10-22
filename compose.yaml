@@ -1,7 +1,7 @@
-# Environnement de développement et de démonstration.
-#   docker compose --profile demo up -d                 → frontend en mode démonstration (flux simulé), http://localhost:8080
-#   docker compose --profile infra up -d                → Kafka (KRaft) + PostgreSQL pour développer le backend en local
-# Les services backend et simulateur s'ajouteront au profil « full » avec l'incrément 1 (voir docs/phase-3-dossier-frontend-industrialisation.md).
+# Environnement de développement et de démonstration (profils exclusifs entre eux pour le port 8080) :
+#   docker compose --profile demo up -d   → frontend seul, flux simulé dans le navigateur, http://localhost:8080
+#   docker compose --profile infra up -d  → Kafka (KRaft) + PostgreSQL pour développer le backend en local
+#   docker compose --profile full up -d   → chaîne complète : simulateur → Kafka → backend → SSE → frontend, http://localhost:8080
 name: autoroutes
 
 services:
@@ -24,8 +24,69 @@ services:
       - /tmp
     restart: unless-stopped
 
+  frontend-live:
+    profiles: [full]
+    build:
+      context: ./frontend
+      args:
+        MODE: production
+        # Sans tuiles produites (cartographie/build.sh), définir ces variables vides dans .env.
+        VITE_BASEMAP_URL: ${VITE_BASEMAP_URL-pmtiles:///tiles/france.pmtiles}
+        VITE_MOTORWAYS_URL: ${VITE_MOTORWAYS_URL-pmtiles:///tiles/motorways.pmtiles}
+        VITE_GLYPHS_URL: ${VITE_GLYPHS_URL-/basemaps-assets/fonts/{fontstack}/{range}.pbf}
+        VITE_SPRITE_URL: ${VITE_SPRITE_URL-/basemaps-assets/sprites/v4/dark}
+    image: autoroutes-frontend:live
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
+      - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx
+      - /tmp
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+  backend:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: autoroutes-backend:latest
+    ports:
+      - "8081:8080"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/supervision
+      DATABASE_USER: supervision
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env (voir .env.example)}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    stop_grace_period: 45s
+    restart: unless-stopped
+
+  simulator:
+    profiles: [full]
+    build:
+      context: .
+      dockerfile: simulator/Dockerfile
+    image: autoroutes-simulator:latest
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SIMULATOR_RATE: ${SIMULATOR_RATE:-80}
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   kafka:
-    profiles: [infra]
+    profiles: [infra, full]
     image: apache/kafka:4.1.0
     ports:
       - "29092:29092"
@@ -52,7 +113,7 @@ services:
       - kafka-data:/var/lib/kafka/data
 
   kafka-init:
-    profiles: [infra]
+    profiles: [infra, full]
     image: apache/kafka:4.1.0
     depends_on:
       kafka:
@@ -65,7 +126,7 @@ services:
     restart: "no"
 
   postgres:
-    profiles: [infra]
+    profiles: [infra, full]
     image: postgres:17-alpine
     ports:
       - "5432:5432"

@@ -8,6 +8,9 @@ spring:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/supervision}
     username: ${DATABASE_USER:supervision}
     password: ${DATABASE_PASSWORD:}
+    hikari:
+      # Borne l'arrêt (point de reprise final) et les écritures de quarantaine si la base est injoignable.
+      connection-timeout: 5000
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
     consumer:

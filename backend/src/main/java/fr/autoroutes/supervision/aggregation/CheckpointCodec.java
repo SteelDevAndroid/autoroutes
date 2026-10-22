@@ -104,6 +104,10 @@ public final class CheckpointCodec {
                 }
                 dedup.put(minute, ids);
             }
+            // Lecture jusqu'à la fin : c'est elle qui déclenche la vérification CRC du flux GZIP.
+            if (in.read() != -1) {
+                throw new IllegalArgumentException("Point de reprise : données en excès");
+            }
             return new CheckpointData(createdAt, offsets, watermarks, stations, od, dedup);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
