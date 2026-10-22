@@ -10,8 +10,8 @@ docker compose up -d --build            # simulateur → Kafka → backend → S
 # → http://localhost:8080
 ```
 
-Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,monitoring` dans `.env`, ou passer
-`--profile full --profile monitoring`. Grafana : http://localhost:3000 (utilisateur `admin`, mot de passe `GRAFANA_PASSWORD`).
+Avec la supervision (Prometheus, Alertmanager et Grafana) : mettre `COMPOSE_PROFILES=full,monitoring` dans `.env`, ou passer
+`--profile full --profile monitoring`. Grafana : http://localhost:3000 (utilisateur `admin`, mot de passe `GRAFANA_PASSWORD`) ; Alertmanager : http://localhost:9093.
 
 ![Tableau de bord Grafana](img/grafana.png)
 
@@ -39,10 +39,11 @@ Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,moni
 | 3000 | Grafana | `127.0.0.1` (`GRAFANA_BIND=0.0.0.0` pour l'ouvrir) |
 | 8081 | API du backend, Actuator (`/actuator/health`, `/actuator/prometheus`) | `127.0.0.1` |
 | 9090 | Prometheus | `127.0.0.1` |
+| 9093 | Alertmanager (profil `monitoring`) | `127.0.0.1` |
 | 29092 | Kafka, listener externe | `127.0.0.1` |
 | 5432 | PostgreSQL | `127.0.0.1` |
 
-Les ports se changent dans `.env` (`FRONTEND_PORT`, `BACKEND_PORT`, `KAFKA_EXTERNAL_PORT`, `POSTGRES_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`).
+Les ports se changent dans `.env` (`FRONTEND_PORT`, `BACKEND_PORT`, `KAFKA_EXTERNAL_PORT`, `POSTGRES_PORT`, `PROMETHEUS_PORT`, `ALERTMANAGER_PORT`, `GRAFANA_PORT`).
 Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres:5432`, `backend:8080`).
 
 ## Configuration (`.env`)
@@ -57,9 +58,10 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
 | `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` (exigés par Compose pour tous les profils) | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
-| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (OpenStreetMap France) | voir ci-dessous |
+| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
+| `ALERTMANAGER_PORT` | Port publié d'Alertmanager (profil `monitoring`) | `9093` |
 
-Les deux mots de passe sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
+Les secrets sans valeur par défaut (`POSTGRES_PASSWORD`, `GRAFANA_PASSWORD` et ceux de Keycloak) sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
 `.env.example` fournit des valeurs de développement à changer partout ailleurs.
 
 ## Fond de carte
@@ -76,20 +78,30 @@ docker compose up -d --build frontend-live
 
 Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuiles sont servies par requêtes HTTP Range, sans serveur de tuiles.
 
+La même tâche produit le **graphe routier** (`cartographie/out/graph/graph-AAAAMMJJ.json`). Pour activer la charge estimée des tronçons, indiquer son chemin dans le conteneur du backend, qui monte `cartographie/out/graph` en lecture seule sur `/app/graph` :
+
+```bash
+echo "ASSIGNMENT_GRAPH_FILE=/app/graph/graph-20261022.json" >> .env   # nom du fichier produit
+docker compose up -d backend
+```
+
+Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Mesures de la première exécution réelle : `docs/increment-4.md`, section 4.
+
 ## Durcissement et ressources
 
 - Conteneurs applicatifs (`backend`, `simulator`, `frontend-live`, `frontend`) : système de fichiers racine en **lecture seule** (écritures dans `/tmp`), `no-new-privileges`, utilisateur non root pour le backend et le simulateur.
-- Limites de mémoire : backend 1 Go (JVM à 75 %), simulateur 384 Mo, frontend 128 Mo, Kafka 1,5 Go, PostgreSQL 1 Go, Prometheus et Grafana 512 Mo. Utilisation mesurée avec 80 événements par seconde : backend ≈ 260 Mo, Kafka ≈ 500 Mo, simulateur ≈ 140 Mo, frontend ≈ 8 Mo.
+- Limites de mémoire : backend 1 Go (JVM à 75 %), simulateur 384 Mo, frontend 128 Mo, Kafka 1,5 Go, PostgreSQL 1 Go, Prometheus et Grafana 512 Mo, Alertmanager 128 Mo. Utilisation mesurée avec 80 événements par seconde : backend ≈ 260 Mo, Kafka ≈ 500 Mo, simulateur ≈ 140 Mo, frontend ≈ 8 Mo.
 - Journaux `json-file` en rotation (3 fichiers de 10 Mo).
-- Ordre de démarrage garanti par `depends_on` + health checks (Kafka, PostgreSQL, backend, Prometheus, Grafana, frontend).
+- Ordre de démarrage garanti par `depends_on` + health checks (Kafka, PostgreSQL, backend, Prometheus, Alertmanager, Grafana, frontend).
 - Arrêt propre du backend (45 s) : le point de reprise final est écrit avant la sortie.
 
 ## Supervision
 
 - **Prometheus** collecte `backend:8080/actuator/prometheus` toutes les 15 s (conservation 15 jours) et évalue `observability/prometheus/alerts.yml` : backend injoignable, données périmées, retard du watermark, rattrapage Kafka persistant, file de l'écrivain saturée, quarantaine > 1 %, entrée inconnue > 2 % des sorties, origine connue < 90 % ou écart de rapprochement O/D > 0,5 %, messages rejetés, point de reprise en échec ou ancien, tas JVM, clients SSE.
+- **Alertmanager** reçoit les alertes de Prometheus (`alerting` dans `prometheus.yml`) : regroupement par alerte, répétition toutes les 4 h (1 h pour `critical`), et `BackendDown` inhibe les autres alertes. **Aucun récepteur externe n'est configuré** : renseigner e-mail, webhook ou chat dans `observability/alertmanager/alertmanager.yml` (récepteur `equipe`), les secrets par `url_file` / `password_file` ; `docker compose restart alertmanager`.
 - **Grafana** charge sa source de données et le tableau de bord `observability/grafana/dashboards/supervision.json` par provisioning (non modifiable depuis l'interface). Ce fichier est **généré** : modifier `observability/grafana/build_dashboard.py` puis `python3 observability/grafana/build_dashboard.py`.
 - Métriques ajoutées pour l'exploitation : `toll_watermark_lag_seconds`, `toll_consumer_lag`, `toll_freshness_status` (0 LIVE, 1 RATTRAPAGE, 2 PÉRIMÉ), `toll_stations_stale`, `toll_checkpoint_age_seconds`, `toll_checkpoint_bytes`, `toll_events_rejected_total{reason}`, en plus de `toll_events_total{result}`, `toll_od_total{status}`, `toll_od_origin_known_ratio`, `toll_od_reconciliation_gap_ratio`, `toll_writer_queue`, `toll_dedup_entries`, `sse_clients`.
-- Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, les 14 règles et que chaque panneau reçoit des données (exécuté par la CI).
+- Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, qu'Alertmanager est joint par Prometheus, les 14 règles et que chaque panneau reçoit des données (exécuté par la CI).
 
 ## Données et maintenance
 
