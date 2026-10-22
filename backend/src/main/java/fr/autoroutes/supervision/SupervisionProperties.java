@@ -13,7 +13,8 @@ public record SupervisionProperties(
         @DefaultValue Kafka kafka,
         @DefaultValue Aggregation aggregation,
         @DefaultValue Stream stream,
-        @DefaultValue History history) {
+        @DefaultValue History history,
+        @DefaultValue Assignment assignment) {
 
     /** Fichiers produits par scripts/analyse_referentiel.py. */
     /** Chemins en chaînes : la conversion Spring vers Path passe par les ressources et refuse « ../ ». */
@@ -66,5 +67,17 @@ public record SupervisionProperties(
             @DefaultValue("64") int clientQueueCapacity,
             @DefaultValue("300") int replayCapacity,
             @DefaultValue("1h") Duration connectionTimeout) {
+    }
+
+    /** Affectation de la charge des tronçons ; sans fichier de graphe, le module est inactif (aucun message {@code segments}). */
+    public record Assignment(
+            @DefaultValue("") String graphFile,
+            @DefaultValue("500") double attachRadiusM,
+            @DefaultValue("100000") int pathCacheSize,
+            @DefaultValue("3") long minVehicles) {
+
+        public boolean enabled() {
+            return !graphFile.isBlank();
+        }
     }
 }

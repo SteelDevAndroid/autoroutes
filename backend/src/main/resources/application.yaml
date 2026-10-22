@@ -57,6 +57,9 @@ supervision:
   referentiel:
     stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
     aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
+  assignment:
+    # Graphe produit par cartographie/build.sh (out/graph/graph.json) ; vide = charge estimée des tronçons inactive.
+    graph-file: ${ASSIGNMENT_GRAPH_FILE:}
   kafka:
     topic: toll-events
     rejected-topic: toll-events.rejected
