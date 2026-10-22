@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 test.describe('démonstration (flux simulé)', () => {
   test('affiche la carte, le bandeau simulé et l’activité des gares', async ({ page }) => {

@@ -23,3 +23,26 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 - Le comportement « une section à la fois » ferme « Couches et gares » quand on ouvre les flux O/D : il faut rouvrir la section pour décocher une couche. Choix assumé en échange de la tenue en hauteur.
 - Rendu jugé sans fond de carte (tuiles OSM non disponibles ici) : le contraste des arcs mis en évidence reste à revoir sur le vrai fond.
 - Écrans étroits : la barre de relecture passe à la ligne ; le panneau latéral en tiroir (suggestion 11) n'est pas fait.
+
+---
+
+# Suite : tiroir sur petit écran, visite guidée et aide
+
+| # | Changement | Détail |
+|---|---|---|
+| 11 | **Panneau en tiroir** | Sous 900 px, le panneau latéral devient un tiroir ouvert par un bouton « ☰ » de la barre du haut (`aria-expanded`, `aria-controls`). Fermé, il est retiré de l'ordre de tabulation (`visibility`). Ouverture : le focus va à la recherche ; Échap ou un clic sur le fond le ferme et rend le focus au bouton ; choisir une gare ou un flux le ferme pour montrer la carte. Retour en grand écran : il se referme. Le détail d'une gare devient une feuille bornée à 55 % de la hauteur ; les indicateurs secondaires de la barre du haut sont masqués ; `prefers-reduced-motion` supprime la glissière. |
+| 12 | **Page « À propos des données »** | Bouton « ? Aide » : une boîte de dialogue native (focus piégé, Échap) qui rassemble ce qui était dispersé en notes : ce que l'on voit, observé ou estimé, le seuil de 3 véhicules, ce qui n'est pas mesuré, la fraîcheur, la relecture, les sources. Elle a une adresse partageable, **`#a-propos`**, et le bouton « précédent » la referme. |
+| 12 | **Visite guidée** | Proposée à la première visite (cinq étapes : carte, fraîcheur, panneau, relecture, aide ; les étapes dont la cible n'existe pas, comme la relecture en démonstration, sont sautées). Chaque étape met en évidence son élément et place sa carte près de lui sans sortir de l'écran ; sur téléphone, l'étape du panneau ouvre le tiroir. Passer, Échap ou Terminer la mémorisent (`localStorage`, avec repli si le stockage est refusé) ; elle se relance depuis l'aide. Jamais proposée quand l'aide est ouverte par son adresse. |
+
+## Vérifications
+
+- 112 tests Vitest (placement de la carte de visite, mémorisation et repli du stockage, parcours, saut des cibles absentes, ouverture du tiroir par la visite, aide, bouton du tiroir).
+- E2E de démonstration, réels et d'authentification verts ; nouveaux scénarios `tour.spec.ts` (parcours, mémorisation, Échap, `#a-propos`, téléphone) et `responsive.spec.ts` (tiroir : fermé par défaut, focus, Échap, fond, choix d'une gare ; pas de défilement horizontal ; axe-core ; grand écran sans bouton).
+- Les scénarios existants partent d'un navigateur où la visite est déjà faite (`e2e/fixtures.ts`) ; seul `tour.spec.ts` teste la visite.
+- Vérifié visuellement (captures à 1 440 × 900 et 390 × 844).
+
+## Limites
+
+- La visite et l'aide sont en français uniquement, comme le reste de l'interface.
+- Les textes de l'aide décrivent l'état actuel du produit (seuil, fenêtres de retard, relecture sur 7 jours) : à tenir à jour avec lui.
+- Tablette en paysage entre 900 et 1 100 px : le panneau reste fixe à 300 px ; non revu.

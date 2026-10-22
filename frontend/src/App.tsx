@@ -20,6 +20,10 @@ import { formatTime } from './ui/format';
 import { ReplayBar } from './ui/ReplayBar';
 import type { ReplayControls } from './ui/ReplayBar';
 import { StationTooltip } from './ui/StationTooltip';
+import { ABOUT_HASH, AboutDialog } from './ui/AboutDialog';
+import { Tour } from './ui/Tour';
+import { hasSeenTour } from './ui/tourStorage';
+import { useCompact } from './ui/useCompact';
 import { TopBar } from './ui/TopBar';
 
 function streamFactory(stations: StationCollection): EventSourceFactory {
@@ -43,6 +47,9 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const mode = useUiStore((s) => s.mode);
   const replay = useUiStore((s) => s.replay);
   const connection = useUiStore((s) => s.connection);
+  const compact = useCompact();
+  const drawerOpen = useUiStore((s) => s.drawerOpen);
+  const aboutOpen = useUiStore((s) => s.aboutOpen);
   const odLayer = useUiStore((s) => s.layers.od);
   const odFilters = useUiStore((s) => s.odFilters);
 
@@ -66,6 +73,57 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   }, [mode, odLayer, odFilters]);
 
   useEffect(() => { session.current?.refreshOd(); }, [odFilters]);
+
+  /** Tiroir (petit écran) : Échap le ferme et rend le focus au bouton ; à l'ouverture, le focus va à la recherche ; il se ferme au retour en grand écran. */
+  useEffect(() => {
+    if (!compact) {
+      useUiStore.getState().setDrawerOpen(false);
+      return undefined;
+    }
+    if (!drawerOpen) {
+      return undefined;
+    }
+    document.getElementById('station-search')?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !useUiStore.getState().tourActive) {
+        useUiStore.getState().setDrawerOpen(false);
+        document.getElementById('drawer-toggle')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); };
+  }, [compact, drawerOpen]);
+
+  /** L'aide a une adresse (#a-propos) : lien partageable, et le bouton « précédent » la referme. */
+  useEffect(() => {
+    const sync = () => { useUiStore.getState().setAboutOpen(window.location.hash === ABOUT_HASH); };
+    sync();
+    window.addEventListener('hashchange', sync);
+    return () => { window.removeEventListener('hashchange', sync); };
+  }, []);
+  const previousAbout = useRef(aboutOpen);
+  useEffect(() => {
+    // Seulement aux changements : au montage, l'adresse peut déjà porter #a-propos avant que l'état l'ait lue.
+    if (previousAbout.current === aboutOpen) {
+      return;
+    }
+    previousAbout.current = aboutOpen;
+    const here = window.location.pathname + window.location.search;
+    if (aboutOpen && window.location.hash !== ABOUT_HASH) {
+      window.history.pushState(null, '', here + ABOUT_HASH);
+    } else if (!aboutOpen && window.location.hash === ABOUT_HASH) {
+      window.history.replaceState(null, '', here);
+    }
+  }, [aboutOpen]);
+
+  /** Première visite : proposer la visite guidée une fois l'écran posé (jamais si l'aide est déjà ouverte par son adresse). */
+  useEffect(() => {
+    if (hasSeenTour() || window.location.hash === ABOUT_HASH) {
+      return undefined;
+    }
+    const timer = setTimeout(() => { useUiStore.getState().setTourActive(true); }, 1_200);
+    return () => { clearTimeout(timer); };
+  }, []);
 
   /** Flux coupé durablement : si la session a expiré (401), on relance la connexion plutôt que de reconnecter indéfiniment. */
   useEffect(() => {
@@ -146,6 +204,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   }, [store, startLive]);
 
   const focus = useCallback((index: number) => {
+    useUiStore.getState().setDrawerOpen(false);
     useUiStore.getState().select(index);
     controller.current?.setSelected(index, true);
   }, []);
@@ -159,15 +218,18 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         </div>
       )}
       <TopBar store={store} />
-      <SidePanel stations={stations} onFocus={focus} onFocusFlow={(flow) => { controller.current?.focusFlow(flow); }}
+      <SidePanel stations={stations} onFocus={focus} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
         onResetView={() => { controller.current?.resetView(); }} />
-      <main className="map-area">
+      {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); }} />}
+      <main className="map-area" data-tour="map">
         <MapView stations={stations} store={store} onReady={onReady} />
         <StationTooltip stations={stations} store={store} />
         <StationDetail stations={stations} store={store} />
         {!config.demo && <ReplayBar controls={replayControls} />}
         <DiagnosticPanel store={store} />
       </main>
+      <AboutDialog />
+      <Tour />
     </div>
   );
 }

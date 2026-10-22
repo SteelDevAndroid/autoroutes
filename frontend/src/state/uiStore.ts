@@ -72,6 +72,10 @@ export interface UiState {
   /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
   readonly segments: SegmentsState | null;
   readonly openSection: SectionId | null;
+  /** Petit écran : le panneau latéral est un tiroir, ouvert ou fermé. Sans effet au-delà de 900 px. */
+  readonly drawerOpen: boolean;
+  readonly aboutOpen: boolean;
+  readonly tourActive: boolean;
   /** Les flux d'une gare ou d'un département vers lui-même (« internes ») sont masqués par défaut : ils dominent les listes sans s'y tracer. */
   readonly odIncludeInternal: boolean;
   /** Flux survolé ou ciblé dans la liste : son arc est mis en évidence sur la carte. */
@@ -86,6 +90,9 @@ export interface UiState {
   readonly select: (index: number | null) => void;
   readonly toggleLayer: (layer: keyof LayerVisibility) => void;
   readonly setOpenSection: (section: SectionId | null) => void;
+  readonly setDrawerOpen: (open: boolean) => void;
+  readonly setAboutOpen: (open: boolean) => void;
+  readonly setTourActive: (active: boolean) => void;
   readonly setOdIncludeInternal: (include: boolean) => void;
   readonly setHighlightedFlow: (flow: FlowKey | null) => void;
   readonly setHover: (hover: HoveredStation | null) => void;
@@ -128,6 +135,9 @@ export const useUiStore = create<UiState>()((set, get) => ({
   resyncCount: 0,
   mode: 'live',
   openSection: 'layers',
+  drawerOpen: false,
+  aboutOpen: false,
+  tourActive: false,
   odIncludeInternal: false,
   highlightedFlow: null,
   hover: null,
@@ -142,6 +152,9 @@ export const useUiStore = create<UiState>()((set, get) => ({
     });
   },
   setOpenSection: (openSection) => { set({ openSection }); },
+  setDrawerOpen: (drawerOpen) => { set({ drawerOpen }); },
+  setAboutOpen: (aboutOpen) => { set({ aboutOpen }); },
+  setTourActive: (tourActive) => { set({ tourActive }); },
   setOdIncludeInternal: (odIncludeInternal) => { set({ odIncludeInternal }); },
   setHighlightedFlow: (highlightedFlow) => { set({ highlightedFlow }); },
   setHover: (hover) => { set({ hover }); },

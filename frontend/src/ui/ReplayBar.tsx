@@ -34,7 +34,7 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
 
   if (mode === 'live') {
     return (
-      <section className="replay-bar" aria-label="Relecture de l'historique">
+      <section className="replay-bar" aria-label="Relecture de l'historique" data-tour="replay">
         {!open
           ? <button type="button" className="icon-button" aria-expanded="false" onClick={() => { setOpen(true); }}>⏪ Relecture</button>
           : (

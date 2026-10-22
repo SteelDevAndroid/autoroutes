@@ -127,22 +127,31 @@ button, input { font: inherit; color: inherit; }
 
 .loading, .error { display: grid; place-items: center; height: 100vh; color: var(--text-muted); }
 
+/* Bouton du tiroir : absent en grand écran. Déclaré avant la requête pour que celle-ci le rende visible. */
+.drawer-toggle { display: none; }
+
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; grid-template-areas: 'banner' 'topbar' 'map' 'side'; }
-  .side { max-height: 40vh; border-right: 0; border-top: 1px solid var(--panel-border); }
-  .replay-banner {
-  grid-area: banner;
-  background: var(--replay);
-  color: #0e1116;
-  font-weight: 700;
-  text-align: center;
-  padding: 4px 8px;
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: 'banner' 'topbar' 'map'; }
+  .topbar { flex-wrap: wrap; gap: 8px 16px; }
+  .topbar h1 { font-size: 14px; flex: 1; min-width: 0; margin: 0; }
+  .kpi-secondary { display: none; }
+  .drawer-toggle { display: inline-flex; }
+  /* Tiroir : hors écran et retiré de l'ordre de tabulation (visibility) tant qu'il est fermé. */
+  .side {
+    position: fixed; z-index: 20; top: 0; bottom: 0; left: 0;
+    width: min(88vw, 340px); max-height: none;
+    border-right: 1px solid var(--panel-border); border-top: 0;
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform 0.2s ease, visibility 0s linear 0.2s;
+  }
+  .side.side-open { transform: none; visibility: visible; transition: transform 0.2s ease, visibility 0s; }
+  .drawer-backdrop { position: fixed; inset: 0; z-index: 10; background: rgb(0 0 0 / 55%); }
+  .detail { left: 12px; right: 12px; width: auto; max-height: 55vh; overflow-y: auto; }
+  .help-button { padding: 2px 6px; }
 }
-
-.topbar { flex-wrap: wrap; gap: 12px; }
-  .detail { left: 12px; width: auto; }
+@media (max-width: 900px) and (prefers-reduced-motion: reduce) {
+  .side, .side.side-open { transition: none; }
 }
-
 .side select { background: var(--bg); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 2px 4px; }
 .side input[type='datetime-local'] { background: var(--bg); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 2px 4px; color-scheme: dark; }
 .replay-controls { display: flex; gap: 6px; align-items: center; }
@@ -209,3 +218,28 @@ button, input { font: inherit; color: inherit; }
   background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 8px 10px; box-shadow: 0 4px 16px rgb(0 0 0 / 45%); }
 .station-tooltip strong { font-size: 13px; }
 .tooltip-meta { color: var(--text-muted); }
+
+
+/* Aide : « À propos des données » */
+.about { width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 48px); padding: 0; background: var(--panel); color: var(--text);
+  border: 1px solid var(--panel-border); border-radius: var(--radius); }
+.about::backdrop { background: rgb(0 0 0 / 60%); }
+.about-content { padding: 16px 20px 12px; overflow-y: auto; max-height: calc(100vh - 50px); line-height: 1.5; }
+.about header { display: flex; justify-content: space-between; align-items: start; gap: 12px; }
+.about h1 { font-size: 18px; margin: 0 0 8px; }
+.about h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin: 16px 0 4px; }
+.about p, .about ul { margin: 4px 0; }
+.about ul { padding-left: 20px; }
+.about footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; position: sticky; bottom: 0; background: var(--panel); padding: 8px 0; }
+
+/* Visite guidée */
+.tour { position: fixed; inset: 0; z-index: 50; }
+.tour-shield { position: absolute; inset: 0; }
+.tour-ring { position: absolute; border-radius: var(--radius); box-shadow: 0 0 0 9999px rgb(0 0 0 / 62%); border: 2px solid var(--accent); pointer-events: none; }
+.tour-card { position: absolute; background: var(--panel); border: 1px solid var(--accent); border-radius: var(--radius); padding: 12px 14px;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 55%); }
+.tour-card h2 { font-size: 15px; margin: 2px 0 6px; }
+.tour-card p { margin: 0 0 8px; line-height: 1.45; }
+.tour-card .tour-step { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
+.tour-actions { display: flex; align-items: center; gap: 6px; }
+.tour-spacer { flex: 1; }

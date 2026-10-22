@@ -25,7 +25,7 @@ function Search({ stations, onFocus }: { readonly stations: StationCollection; r
   return (
     <section className="search" aria-label="Recherche de gare">
       <h2>Rechercher</h2>
-      <input type="search" placeholder="Nom de gare…" value={query} onChange={(e) => { setQuery(e.target.value); }} aria-label="Nom de gare" />
+      <input id="station-search" type="search" placeholder="Nom de gare…" value={query} onChange={(e) => { setQuery(e.target.value); }} aria-label="Nom de gare" />
       {matches.length > 0 && (
         <ul>
           {matches.map((m) => (
@@ -50,8 +50,9 @@ export function SidePanel({ stations, onFocus, onFocusFlow, onResetView }: {
   const reducedMotion = useUiStore((s) => s.reducedMotion);
   const setReducedMotion = useUiStore((s) => s.setReducedMotion);
   const toggleDiagnostic = useUiStore((s) => s.toggleDiagnostic);
+  const drawerOpen = useUiStore((s) => s.drawerOpen);
   return (
-    <aside className="side">
+    <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel">
       <Search stations={stations} onFocus={onFocus} />
       <Section id="layers" title="Couches et gares">
         <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
