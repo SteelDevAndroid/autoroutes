@@ -1,6 +1,6 @@
 """Vérifie la chaîne de supervision d'une pile Compose en marche (profils full + monitoring).
 
-Contrôles : cibles Prometheus en bonne santé, règles d'alerte chargées et saines, aucune alerte critique déclenchée,
+Contrôles : cibles Prometheus en bonne santé, Alertmanager joint par Prometheus, règles d'alerte chargées et saines, aucune alerte critique déclenchée,
 tableau de bord Grafana provisionné, et CHAQUE requête de CHAQUE panneau renvoie des données (attente jusqu'à --timeout :
 les taux de variation exigent quelques minutes de collecte).
 
@@ -37,6 +37,9 @@ def failures_once():
     problems += [f"cible {job} : {health}" for job, health in jobs.items() if health != "up"]
     if "backend" not in jobs:
         problems.append("cible backend absente")
+
+    if not get(f"{PROMETHEUS}/api/v1/alertmanagers")["data"]["activeAlertmanagers"]:
+        problems.append("aucun Alertmanager joint par Prometheus : les alertes ne sont pas acheminées")
 
     groups = get(f"{PROMETHEUS}/api/v1/rules")["data"]["groups"]
     rules = [rule for group in groups for rule in group["rules"]]
