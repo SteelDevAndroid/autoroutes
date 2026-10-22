@@ -1,6 +1,10 @@
 import unittest
 
-from prepare_motorways import build, normalize_ref, split_at_junctions
+import json
+import tempfile
+from pathlib import Path
+
+from prepare_motorways import build, normalize_ref, read_ways, split_at_junctions
 
 
 def way(way_id, coords, **props):
@@ -9,6 +13,16 @@ def way(way_id, coords, **props):
 
 
 class PrepareMotorwaysTest(unittest.TestCase):
+
+    def test_reads_regional_exports_once_per_way(self):
+        with tempfile.TemporaryDirectory() as folder:
+            shared = way(7, [[0, 0], [0.01, 0]])
+            Path(folder, "a.geojsonseq").write_text("\x1e" + json.dumps(shared) + "\n\x1e" + json.dumps(way(8, [[1, 1], [1.01, 1]])) + "\n", encoding="utf-8")
+            Path(folder, "b.geojsonseq").write_text("\x1e" + json.dumps(shared) + "\n\x1e" + json.dumps(way(9, [[2, 2], [2.01, 2]])) + "\n", encoding="utf-8")
+
+            ids = [w["properties"]["@id"] for w in read_ways(folder)]
+
+        self.assertEqual(ids, [7, 8, 9])
 
     def test_normalizes_osm_and_rrn_references(self):
         self.assertEqual(normalize_ref("A 7;E 15"), {"A7"})

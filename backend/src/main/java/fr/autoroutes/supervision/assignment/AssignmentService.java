@@ -21,6 +21,11 @@ final class AssignmentService {
         this.minVehicles = Math.max(3, minVehicles);
     }
 
+    /** Chemins en cache (borné) : indicateur d'exploitation de l'affectation. */
+    int cachedPaths() {
+        return paths.cacheSize();
+    }
+
     SegmentLoads assign(OdSnapshot snapshot) {
         var perEdge = new long[graph.edges().size()];
         long routed = 0;
