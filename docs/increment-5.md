@@ -56,4 +56,4 @@ Défauts trouvés pendant la mise en place : le royaume importé n'avait pas d'e
 - **Régression visuelle : non faite.** Les captures WebGL en rendu logiciel ne sont pas reproductibles d'un environnement à l'autre (polices, rastérisation) : des références comparées en CI échoueraient sans cause réelle. À reprendre avec des références produites dans l'image de CI elle-même, une fois le fond de carte réel disponible.
 - **Fluidité d'affichage sur le poste de référence (Q20)** et **volumétrie réelle (Q4)** : toujours ouvertes ; le critère 7.3 (bascule éventuelle vers deck.gl) n'a donc pas été évalué.
 - **Rendu du réseau et des tronçons** : dépend des tuiles OSM, bloquées ici (Q21) ; voir `docs/increment-4.md`.
-- Section 11 : trois critères restent 🟡 (réseau lisible, fluidité, et la validation de la charge estimée sur 3 axes de l'incrément 4).
+- Section 11 : deux critères restent ouverts (fluidité sur le poste de référence, et la validation de la charge estimée sur 3 axes de l'incrément 4).

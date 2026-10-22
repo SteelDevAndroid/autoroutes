@@ -57,7 +57,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
 | `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` (exigés par Compose pour tous les profils) | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
-| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM` | Profil `tiles` | voir ci-dessous |
+| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (OpenStreetMap France) | voir ci-dessous |
 
 Les deux mots de passe sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
 `.env.example` fournit des valeurs de développement à changer partout ailleurs.
@@ -68,7 +68,7 @@ Sans tuiles, définir les quatre variables `VITE_*` vides dans `.env` (fond neut
 
 ```bash
 # PROTOMAPS_BUILD = date AAAAMMJJ d'un build listé sur https://maps.protomaps.com/builds
-echo "PROTOMAPS_BUILD=20260901" >> .env
+echo "PROTOMAPS_BUILD=20261021" >> .env
 docker compose --profile tiles run --rm tiles          # écrit cartographie/out/tiles et cartographie/out/basemaps-assets
 # retirer les VITE_* vides de .env, puis reconstruire le frontend :
 docker compose up -d --build frontend-live
@@ -112,5 +112,5 @@ Après `down -v`, le backend repart sans point de reprise : il relit Kafka depui
 - Les alertes sont **évaluées** par Prometheus mais pas **acheminées** : il manque un Alertmanager (e-mail, chat, astreinte).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
-- Le profil `tiles` n'a pas pu être exécuté pendant le développement (sources de tuiles inaccessibles) : le script de préparation des autoroutes est testé, la chaîne complète reste à valider.
+- La chaîne `tiles` a été exécutée de bout en bout sur l'hôte (voir `docs/increment-4.md`, section 4) ; **l'image `cartographie/Dockerfile` n'a pas pu être construite** dans l'environnement de développement (limite de débit de Docker Hub, accès réseau des conteneurs de construction). Les sources ont changé selon l'accessibilité : `OSM_MODE=regions` utilise les extraits régionaux d'OpenStreetMap France quand Geofabrik n'est pas joignable.
 - Les images sont construites par `docker compose --build` ; dans l'environnement de développement, `docker build` ne pouvait pas télécharger les dépendances (proxy TLS) et les images locales ont été construites à partir des artefacts. La CI exécute le build complet.

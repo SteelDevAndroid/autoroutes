@@ -80,7 +80,7 @@ Geofabrik france-latest.osm.pbf
 - **Rattachement des gares au tracé** : contrôle en phase d'intégration, écart gare → tronçon le plus proche < 500 m (critère de la phase 2, section 5.4). Les écarts sont listés dans la vue diagnostic.
 - **Reprojection** Lambert 93 → WGS84 : déjà faite par `scripts/export_geojson.py` (phase 1 vérifiée **[F]**).
 - **Polices et sprites auto-hébergés** (`/basemaps-assets/`) : aucun CDN tiers. **Sans polices, le style retire automatiquement les couches de texte** pour rester valide (mode démonstration hors ligne).
-- **Exécution [F] partielle** : `prepare_motorways.py` a été validé sur les points réels du référentiel (87 axes, 2 326 points de contrôle) ; le téléchargement Protomaps/Geofabrik/GitHub est **bloqué dans l'environnement de test** : la chaîne complète est à exécuter sur un poste avec accès réseau.
+- **Exécution [F]** : la chaîne a été exécutée de bout en bout en octobre 2026 (fond Protomaps z0–12, 61 367 tronçons, graphe de 58 974 nœuds, polices et sprites auto-hébergés) ; sources, mesures et écarts dans `increment-4.md`, section 4. L'image Docker de la chaîne n'a pas pu être construite dans l'environnement de test.
 
 ### 3.3 Attributions et licences
 
@@ -346,8 +346,8 @@ autoroutes/
 
 | Critère | État | Preuve / reste à faire |
 |---|---|---|
-| Réseau autoroutier crédible et lisible | 🟡 | Chaîne OSM et style prêts, style valide ; **rendu à exécuter** avec les tuiles (réseau bloqué ici) |
-| Toutes les gares correctement positionnées | 🟢 | 667 gares logiques reprojetées, > 600 dessinées dans l'E2E ; reste : contrôle gare ↔ tracé et arbitrage des 161 points |
+| Réseau autoroutier crédible et lisible | 🟢 | Rendu vérifié avec les vraies tuiles OSM et le fond Protomaps (captures, E2E réels verts) ; reste le jugement visuel sur le poste de référence |
+| Toutes les gares correctement positionnées | 🟢 | 667 gares logiques reprojetées, > 600 dessinées dans l'E2E ; contrôle gare ↔ tracé : **662 sur 667 à moins de 500 m** (médiane 13 m), les 5 autres sur routes nationales ; reste l'arbitrage des 161 points |
 | Mise à jour sans rechargement complet | 🟢 | Deltas → `setFeatureState` par lots ; React à ≤ 1 Hz |
 | Fluidité sous la charge cible | 🟡 | Architecture et dégradation en place ; côté serveur, 400 clients SSE mesurés (incrément 5) ; **fluidité d'affichage à mesurer sur le poste de référence** (section 7, Q20) |
 | Flux cohérents avec les données disponibles | 🟢 | Seuls des agrégats observés ; O/D filtrés au seuil ; pas de particules fictives |

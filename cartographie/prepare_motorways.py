@@ -52,13 +52,27 @@ def parse_speed(value, highway):
 
 
 def read_ways(path):
-    with open(path, encoding="utf-8") as stream:
-        for line in stream:
-            line = line.strip().lstrip("\x1e")
-            if not line:
-                continue
-            feature = json.loads(line)
-            if feature.get("geometry", {}).get("type") == "LineString":
+    """Voies LineString d'un fichier GeoJSON séquentiel, ou de tous les `*.geojsonseq` d'un dossier.
+
+    Les extraits régionaux d'OpenStreetMap se recouvrent : une voie à cheval sur deux régions figure dans les deux, entière
+    (vérifié : aucune voie tronquée). Elle n'est gardée qu'une fois, par identifiant OSM.
+    """
+    files = sorted(Path(path).glob("*.geojsonseq")) if Path(path).is_dir() else [Path(path)]
+    seen = set()
+    for file in files:
+        with open(file, encoding="utf-8") as stream:
+            for line in stream:
+                line = line.strip().lstrip("\x1e")
+                if not line:
+                    continue
+                feature = json.loads(line)
+                if feature.get("geometry", {}).get("type") != "LineString":
+                    continue
+                way_id = feature.get("properties", {}).get("@id")
+                if way_id is not None:
+                    if way_id in seen:
+                        continue
+                    seen.add(way_id)
                 yield feature
 
 

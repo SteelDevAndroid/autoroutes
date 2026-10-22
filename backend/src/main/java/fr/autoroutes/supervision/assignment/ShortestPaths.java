@@ -42,6 +42,10 @@ final class ShortestPaths {
         return cache.computeIfAbsent(new Pair(origin, destination), pair -> search(pair.origin(), pair.destination()));
     }
 
+    int cacheSize() {
+        return cache.size();
+    }
+
     /** Vrai si les deux gares sont rattachées au graphe (sinon aucun chemin n'est cherché). */
     boolean routable(String origin, String destination) {
         return attachment.nodes(origin) != null && attachment.nodes(destination) != null;

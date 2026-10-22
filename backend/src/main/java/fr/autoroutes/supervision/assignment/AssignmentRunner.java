@@ -6,6 +6,7 @@ import fr.autoroutes.supervision.aggregation.OdSnapshot;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -32,6 +33,7 @@ public class AssignmentRunner {
     private final StationAttachment.Report attachment;
     private final String graphVersion;
     private final AtomicReference<SegmentLoads> latest = new AtomicReference<>();
+    private final Timer computeTimer;
     private OdSnapshot lastSnapshot;
 
     AssignmentRunner(SupervisionProperties properties, StationCatalog catalog, LiveView liveView, SegmentPublisher publisher,
@@ -44,6 +46,8 @@ public class AssignmentRunner {
         this.graphVersion = graph.version();
         this.liveView = liveView;
         this.publisher = publisher;
+        this.computeTimer = Timer.builder("toll.segments.compute").description("Durée d'un cycle d'affectation (s)").register(meters);
+        Gauge.builder("toll.segments.path.cache", service, AssignmentService::cachedPaths).description("Chemins en cache").register(meters);
         Gauge.builder("toll.segments.routed.ratio", latest, l -> l.get() == null ? Double.NaN : l.get().routedRatio())
                 .description("Part des véhicules O/D affectés à un chemin du graphe (gares rattachées et reliées)")
                 .register(meters);
@@ -56,7 +60,7 @@ public class AssignmentRunner {
         liveView.odSnapshot().filter(snapshot -> snapshot != lastSnapshot).ifPresent(snapshot -> {
             lastSnapshot = snapshot;
             try {
-                var loads = service.assign(snapshot);
+                var loads = computeTimer.record(() -> service.assign(snapshot));
                 latest.set(loads);
                 publisher.publishSegments(loads);
             } catch (RuntimeException e) {
