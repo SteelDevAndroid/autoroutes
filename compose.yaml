@@ -236,6 +236,28 @@ services:
       resources:
         limits: { memory: 512m }
 
+  alertmanager:
+    profiles: [monitoring]
+    image: prom/alertmanager:v0.28.1
+    logging: *logging
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_PORT:-9093}:9093"
+    volumes:
+      - ./observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    deploy:
+      resources:
+        limits: { memory: 128m }
+
   # Grafana est sous licence AGPL-3.0 : usage interne sans modification sans obligation particulière ; voir docs/docker.md.
   grafana:
     profiles: [monitoring]
@@ -327,4 +349,5 @@ volumes:
   kafka-data:
   postgres-data:
   prometheus-data:
+  alertmanager-data:
   grafana-data:

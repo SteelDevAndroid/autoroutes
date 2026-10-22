@@ -22,7 +22,7 @@ Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,moni
 | Profil | Services | Usage |
 |---|---|---|
 | `full` | `simulator`, `kafka`, `kafka-init`, `postgres`, `backend`, `frontend-live` | Pile applicative complète. Les événements sont **simulés** (marqués `simulated: true`) |
-| `monitoring` | `prometheus`, `grafana` | Métriques, 14 alertes, tableau de bord. À combiner avec `full` |
+| `monitoring` | `prometheus`, `alertmanager`, `grafana` | Métriques, 14 alertes acheminées, tableau de bord. À combiner avec `full` |
 | `auth` | `keycloak` | Keycloak (OIDC) de développement, royaume `supervision` importé. Avec `SUPERVISION_PROFILE=auth`, la connexion devient obligatoire pour le backend. À combiner avec `full` |
 | `demo` | `frontend` | Interface seule, flux simulé dans le navigateur, sans backend (bandeau « données simulées »). Exclusif avec `full` : même port |
 | `infra` | `kafka`, `kafka-init`, `postgres` | Développer le backend ou le simulateur hors conteneur (`localhost:29092`, `localhost:5432`) |
@@ -109,7 +109,7 @@ Après `down -v`, le backend repart sans point de reprise : il relit Kafka depui
 
 - Kafka est un nœud unique (KRaft, facteur de réplication 1) et les liaisons sont en clair : adapté au développement et à la démonstration, pas à la production telle quelle.
 - **Authentification** : sans `SUPERVISION_PROFILE=auth`, le frontend et l'API sont ouverts à qui joint le port 8080 (démonstration, développement). Avec le profil, la connexion OIDC est obligatoire (voir `docs/increment-5.md`). Grafana n'est joignable que depuis la machine par défaut.
-- Les alertes sont **évaluées** par Prometheus mais pas **acheminées** : il manque un Alertmanager (e-mail, chat, astreinte).
+- Alertmanager (port 9093, `ALERTMANAGER_PORT`) regroupe les alertes (4 h de répétition, 1 h pour `critical`) et inhibe les autres alertes quand `BackendDown` est actif ; **aucun récepteur externe n'est configuré** : renseigner e-mail, webhook ou chat dans `observability/alertmanager/alertmanager.yml` (récepteur `equipe`, secrets via `url_file`/`password_file`).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
 - La chaîne `tiles` a été exécutée de bout en bout sur l'hôte (voir `docs/increment-4.md`, section 4) ; **l'image `cartographie/Dockerfile` n'a pas pu être construite** dans l'environnement de développement (limite de débit de Docker Hub, accès réseau des conteneurs de construction). Les sources ont changé selon l'accessibilité : `OSM_MODE=regions` utilise les extraits régionaux d'OpenStreetMap France quand Geofabrik n'est pas joignable.
