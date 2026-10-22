@@ -2,6 +2,7 @@ import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
+import { formatAxes } from '../map/axes';
 import { formatCount, formatSigned, formatTime } from './format';
 import { HistoryChart } from './HistoryChart';
 import { useStoreVersion } from './useStoreVersion';
@@ -29,7 +30,7 @@ export function StationDetail({ stations, store }: { readonly stations: StationC
         <div>
           <h2>{p.name}</h2>
           <span className="tag">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'}</span>{' '}
-          <span className="tag">{p.axes}</span>{' '}
+          <span className="tag">{formatAxes(p.axes)}</span>{' '}
           <span className="tag">Dép. {p.dept}</span>
         </div>
         <button type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail">✕</button>

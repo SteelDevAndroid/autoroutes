@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LayerVisibility } from '../state/uiStore';
 import { legendRows } from './legend';
 
-const layers = (overrides: Partial<LayerVisibility>): LayerVisibility => ({ stations: true, labels: true, od: false, segments: false, ...overrides });
+const layers = (overrides: Partial<LayerVisibility>): LayerVisibility => ({ stations: true, labels: true, od: false, segments: false, axes: false, ...overrides });
 const both = { echangeur: true, pleineVoie: true };
 
 describe('legendRows', () => {
@@ -10,6 +10,10 @@ describe('legendRows', () => {
     expect(legendRows(layers({}), both)).toEqual(['echangeur', 'pleine-voie', 'stale']);
     expect(legendRows(layers({ od: true }), both)).toEqual(['echangeur', 'pleine-voie', 'stale', 'od']);
     expect(legendRows(layers({ stations: false, segments: true }), both)).toEqual(['segments']);
+  });
+
+  it('adds the motorway names row when they are displayed', () => {
+    expect(legendRows(layers({ axes: true }), both)).toEqual(['echangeur', 'pleine-voie', 'stale', 'axes']);
   });
 
   it('follows the station kinds being shown', () => {

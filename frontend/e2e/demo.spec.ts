@@ -71,4 +71,44 @@ test.describe('démonstration (flux simulé)', () => {
     const serious = results.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
     expect(serious.map((v) => `${v.id}: ${v.help}`)).toEqual([]);
   });
+
+  test('les noms d’autoroutes sont posés sur la carte : survol, sélection et masquage', async ({ page }) => {
+    await page.goto('/');
+    const map = page.getByRole('region', { name: 'Carte des gares de péage' });
+    await expect(map).toHaveAttribute('data-ready', 'true');
+    const labels = page.locator('.axis-label[data-axis]');
+    await expect.poll(async () => labels.count(), { timeout: 15_000 }).toBeGreaterThan(10);
+
+    // Survol : les gares de l'axe sont mises en évidence tant que le pointeur reste sur le nom.
+    const first = labels.first();
+    const axis = await first.getAttribute('data-axis');
+    expect(axis).toBeTruthy();
+    await first.hover();
+    await expect(map).toHaveAttribute('data-active-axis', axis ?? '');
+    await page.mouse.move(700, 500);
+    await expect(map).toHaveAttribute('data-active-axis', '');
+
+    // Clic : l'axe reste sélectionné (filtre « Axe » des flux) et la couche des flux s'active ; un second clic le retire.
+    await first.click();
+    await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
+    await page.mouse.move(700, 500);
+    await expect(map).toHaveAttribute('data-active-axis', axis ?? '');
+    await expect(page.locator('.axis-label-active').first()).toBeVisible();
+    await page.locator(`.axis-label[data-axis="${axis ?? ''}"]`).first().click();
+    // Le pointeur est encore sur le nom : le survol garde l'axe en évidence jusqu'à ce qu'il le quitte.
+    await page.mouse.move(700, 500);
+    await expect(map).toHaveAttribute('data-active-axis', '');
+  });
+
+  test('les noms d’autoroutes se masquent depuis le panneau et apparaissent dans la légende', async ({ page }) => {
+    await page.goto('/');
+    await expect.poll(async () => page.locator('.axis-label[data-axis]').count(), { timeout: 15_000 }).toBeGreaterThan(10);
+    await page.getByRole('button', { name: 'Légende' }).click();
+    await expect(page.getByText('Nom d’autoroute : survol')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Couches et gares' }).click();
+    await page.getByLabel('Noms des autoroutes').uncheck();
+
+    await expect(page.locator('.axis-label[data-axis]')).toHaveCount(0);
+  });
 });

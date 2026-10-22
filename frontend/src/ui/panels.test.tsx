@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EMPTY_OD_VIEW } from '../od/odTypes';
 import type { OdView } from '../od/odTypes';
@@ -117,6 +117,34 @@ describe('OdPanel', () => {
 
     expect(useUiStore.getState().odFilters).not.toBe(before);
     expect(useUiStore.getState().odFilters).toEqual(before);
+  });
+});
+
+describe('OdPanel axis filter', () => {
+  const withVariants: StationCollection = {
+    type: 'FeatureCollection',
+    features: [
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [4.8, 45.7] }, properties: { id: 'A', name: 'a', kind: 'ECHANGEUR', axes: 'A0007', dept: '69', lanes: 2 } },
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [4.9, 45.0] }, properties: { id: 'B', name: 'b', kind: 'ECHANGEUR', axes: 'A0007N', dept: '26', lanes: 2 } },
+    ],
+  };
+
+  it('offers motorways under the name drivers know, with the grouped codes as the filter value', () => {
+    render(<OdPanel stations={withVariants} onFocusFlow={vi.fn()} />);
+    const select = screen.getByLabelText<HTMLSelectElement>('Axe');
+
+    expect([...select.options].map((o) => [o.textContent, o.value])).toEqual([['Tous', ''], ['A7', 'A0007,A0007N']]);
+    fireEvent.change(select, { target: { value: 'A0007,A0007N' } });
+
+    expect(useUiStore.getState().odFilters.axis).toBe('A0007,A0007N');
+  });
+
+  it('reflects an axis chosen by clicking its name on the map', () => {
+    render(<OdPanel stations={withVariants} onFocusFlow={vi.fn()} />);
+
+    act(() => { useUiStore.getState().chooseAxis('A0007,A0007N'); });
+
+    expect(screen.getByLabelText<HTMLSelectElement>('Axe').value).toBe('A0007,A0007N');
   });
 });
 

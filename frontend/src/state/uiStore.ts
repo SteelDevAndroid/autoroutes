@@ -13,6 +13,8 @@ export interface LayerVisibility {
   readonly labels: boolean;
   readonly od: boolean;
   readonly segments: boolean;
+  /** Noms des autoroutes posés sur la carte (cliquables : filtre « Axe » des flux O/D). */
+  readonly axes: boolean;
 }
 
 export interface Freshness {
@@ -81,6 +83,8 @@ export interface UiState {
   /** Flux survolé ou ciblé dans la liste : son arc est mis en évidence sur la carte. */
   readonly highlightedFlow: FlowKey | null;
   readonly hover: HoveredStation | null;
+  /** Axe survolé sur la carte (valeur du filtre « Axe ») : ses gares sont mises en évidence tant que le pointeur y reste. */
+  readonly hoverAxis: string | null;
   readonly quality: QualityLevel;
   readonly reducedMotion: boolean;
   readonly diagnosticOpen: boolean;
@@ -96,6 +100,9 @@ export interface UiState {
   readonly setOdIncludeInternal: (include: boolean) => void;
   readonly setHighlightedFlow: (flow: FlowKey | null) => void;
   readonly setHover: (hover: HoveredStation | null) => void;
+  readonly setHoverAxis: (axis: string | null) => void;
+  /** Clic sur le nom d'une autoroute : applique (ou retire, au second clic) le filtre « Axe » et montre les flux. */
+  readonly chooseAxis: (value: string) => void;
   readonly toggleKind: (kind: StationKind) => void;
   readonly setConnection: (status: ConnectionStatus) => void;
   readonly setFreshness: (freshness: Freshness) => void;
@@ -118,7 +125,7 @@ export interface UiState {
 /** État d'interface uniquement (sélection, filtres, statuts) : les métriques des gares restent hors React, dans StationStore. */
 export const useUiStore = create<UiState>()((set, get) => ({
   selectedIndex: null,
-  layers: { stations: true, labels: true, od: false, segments: false },
+  layers: { stations: true, labels: true, od: false, segments: false, axes: true },
   kinds: new Set<StationKind>(['ECHANGEUR', 'PLEINE_VOIE']),
   connection: 'connecting',
   freshness: null,
@@ -141,6 +148,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   odIncludeInternal: false,
   highlightedFlow: null,
   hover: null,
+  hoverAxis: null,
   replay: { status: 'paused', speed: 60, time: null, error: null, from: null, to: null },
   select: (selectedIndex) => { set({ selectedIndex }); },
   // Activer une couche à section propre l'ouvre : ses réglages sont ce que l'on cherche juste après.
@@ -158,6 +166,17 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setOdIncludeInternal: (odIncludeInternal) => { set({ odIncludeInternal }); },
   setHighlightedFlow: (highlightedFlow) => { set({ highlightedFlow }); },
   setHover: (hover) => { set({ hover }); },
+  setHoverAxis: (hoverAxis) => { set({ hoverAxis }); },
+  chooseAxis: (value) => {
+    set((s) => {
+      const same = s.odFilters.axis === value;
+      return {
+        odFilters: { ...s.odFilters, axis: same ? '' : value },
+        // Sans la couche des flux, le filtre ne se verrait pas : elle s'active et sa section s'ouvre.
+        ...(same ? {} : { layers: { ...s.layers, od: true }, openSection: 'od' as const }),
+      };
+    });
+  },
   toggleKind: (kind) => {
     set((s) => {
       const kinds = new Set(s.kinds);

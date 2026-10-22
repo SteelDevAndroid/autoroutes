@@ -139,10 +139,24 @@ export function businessLayers(): LayerSpecification[] {
       paint: {
         'circle-radius': stationRadius(),
         'circle-color': stationColor,
-        'circle-opacity': ['case', ['boolean', ['feature-state', 'stale'], false], 0.5, 0.9],
+        // Axe mis en évidence : les gares des autres axes s'estompent (états posés par MapController.setActiveAxis).
+        'circle-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.15, ['boolean', ['feature-state', 'stale'], false], 0.5, 0.9],
         'circle-stroke-color': theme.stationStroke,
+        'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
         // Indice de forme en plus de la couleur : contour épais pour les barrières pleine voie.
         'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'PLEINE_VOIE'], 2, 0.75],
+      },
+    },
+    {
+      id: 'stations-axis',
+      type: 'circle',
+      source: SOURCE.stations,
+      paint: {
+        'circle-radius': stationRadius(3),
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-stroke-color': theme.odFlow,
+        'circle-stroke-width': 2,
+        'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'axis'], false], 1, 0],
       },
     },
     {
