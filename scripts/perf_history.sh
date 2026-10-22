@@ -16,7 +16,7 @@ measure() {
   curl -s -o /dev/null --compressed -w "%{http_code} %{time_total}s %{size_download}o  $1\n" "http://localhost:8080$1"
 }
 NOW=$(date -u +%Y-%m-%dT%H:00:00Z)
-for run in 1 2 3; do
+for _ in 1 2 3; do
   measure "/api/v1/stations/$STATION/history?from=$(date -u -d '400 days ago' +%Y-%m-%dT%H:00:00Z)&to=$NOW&step=PT15M"
   measure "/api/v1/stations/$STATION/history?from=$(date -u -d '1095 days ago' +%Y-%m-%dT%H:00:00Z)&to=$NOW&step=PT1H"
   measure "/api/v1/history/network?from=$(date -u -d '30 days ago' +%Y-%m-%dT%H:00:00Z)&to=$NOW&step=PT1H"

@@ -1,0 +1,111 @@
+# Docker Compose
+
+Un seul fichier, `compose.yaml`, décrit toute la pile. Les profils choisissent ce qui démarre.
+
+## Démarrage rapide
+
+```bash
+cp .env.example .env                    # secrets locaux ; COMPOSE_PROFILES=full par défaut
+docker compose up -d --build            # simulateur → Kafka → backend → SSE → frontend
+# → http://localhost:8080
+```
+
+Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,monitoring` dans `.env`, ou passer
+`--profile full --profile monitoring`. Grafana : http://localhost:3000 (utilisateur `admin`, mot de passe `GRAFANA_PASSWORD`).
+
+![Tableau de bord Grafana](img/grafana.png)
+
+*Tableau de bord provisionné, sur la pile en fonctionnement avec le simulateur (80 événements par seconde).*
+
+## Profils
+
+| Profil | Services | Usage |
+|---|---|---|
+| `full` | `simulator`, `kafka`, `kafka-init`, `postgres`, `backend`, `frontend-live` | Pile applicative complète. Les événements sont **simulés** (marqués `simulated: true`) |
+| `monitoring` | `prometheus`, `grafana` | Métriques, 12 alertes, tableau de bord. À combiner avec `full` |
+| `demo` | `frontend` | Interface seule, flux simulé dans le navigateur, sans backend (bandeau « données simulées »). Exclusif avec `full` : même port |
+| `infra` | `kafka`, `kafka-init`, `postgres` | Développer le backend ou le simulateur hors conteneur (`localhost:29092`, `localhost:5432`) |
+| `tiles` | `tiles` (tâche ponctuelle) | Produire le fond de carte et le graphe routier |
+
+`--profile` sur la ligne de commande **remplace** `COMPOSE_PROFILES` : `docker compose --profile demo up -d` ne démarre que la démonstration.
+
+## Ports
+
+| Port | Service | Exposition |
+|---|---|---|
+| 8080 | Frontend (nginx : application, tuiles, relais de l'API et du SSE) | toutes interfaces |
+| 3000 | Grafana | `127.0.0.1` (`GRAFANA_BIND=0.0.0.0` pour l'ouvrir) |
+| 8081 | API du backend, Actuator (`/actuator/health`, `/actuator/prometheus`) | `127.0.0.1` |
+| 9090 | Prometheus | `127.0.0.1` |
+| 29092 | Kafka, listener externe | `127.0.0.1` |
+| 5432 | PostgreSQL | `127.0.0.1` |
+
+Les ports se changent dans `.env` (`FRONTEND_PORT`, `BACKEND_PORT`, `KAFKA_EXTERNAL_PORT`, `POSTGRES_PORT`, `PROMETHEUS_PORT`, `GRAFANA_PORT`).
+Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres:5432`, `backend:8080`).
+
+## Configuration (`.env`)
+
+| Variable | Rôle | Défaut |
+|---|---|---|
+| `COMPOSE_PROFILES` | Profils démarrés par `docker compose up` | `full` |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL (**obligatoire**) | `changez-moi` |
+| `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana (**obligatoire**) | `changez-moi` |
+| `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
+| `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
+| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM` | Profil `tiles` | voir ci-dessous |
+
+Les deux mots de passe sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
+`.env.example` fournit des valeurs de développement à changer partout ailleurs.
+
+## Fond de carte
+
+Sans tuiles, définir les quatre variables `VITE_*` vides dans `.env` (fond neutre). Pour produire le fond (accès Internet requis) :
+
+```bash
+# PROTOMAPS_BUILD = date AAAAMMJJ d'un build listé sur https://maps.protomaps.com/builds
+echo "PROTOMAPS_BUILD=20260901" >> .env
+docker compose --profile tiles run --rm tiles          # écrit cartographie/out/tiles et cartographie/out/basemaps-assets
+# retirer les VITE_* vides de .env, puis reconstruire le frontend :
+docker compose up -d --build frontend-live
+```
+
+Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuiles sont servies par requêtes HTTP Range, sans serveur de tuiles.
+
+## Durcissement et ressources
+
+- Conteneurs applicatifs (`backend`, `simulator`, `frontend-live`, `frontend`) : système de fichiers racine en **lecture seule** (écritures dans `/tmp`), `no-new-privileges`, utilisateur non root pour le backend et le simulateur.
+- Limites de mémoire : backend 1 Go (JVM à 75 %), simulateur 384 Mo, frontend 128 Mo, Kafka 1,5 Go, PostgreSQL 1 Go, Prometheus et Grafana 512 Mo. Utilisation mesurée avec 80 événements par seconde : backend ≈ 260 Mo, Kafka ≈ 500 Mo, simulateur ≈ 140 Mo, frontend ≈ 8 Mo.
+- Journaux `json-file` en rotation (3 fichiers de 10 Mo).
+- Ordre de démarrage garanti par `depends_on` + health checks (Kafka, PostgreSQL, backend, Prometheus, Grafana, frontend).
+- Arrêt propre du backend (45 s) : le point de reprise final est écrit avant la sortie.
+
+## Supervision
+
+- **Prometheus** collecte `backend:8080/actuator/prometheus` toutes les 15 s (conservation 15 jours) et évalue `observability/prometheus/alerts.yml` : backend injoignable, données périmées, retard du watermark, rattrapage Kafka persistant, file de l'écrivain saturée, quarantaine > 1 %, entrée inconnue > 2 % des sorties, messages rejetés, point de reprise en échec ou ancien, tas JVM, clients SSE.
+- **Grafana** charge sa source de données et le tableau de bord `observability/grafana/dashboards/supervision.json` par provisioning (non modifiable depuis l'interface). Ce fichier est **généré** : modifier `observability/grafana/build_dashboard.py` puis `python3 observability/grafana/build_dashboard.py`.
+- Métriques ajoutées pour l'exploitation : `toll_watermark_lag_seconds`, `toll_consumer_lag`, `toll_freshness_status` (0 LIVE, 1 RATTRAPAGE, 2 PÉRIMÉ), `toll_stations_stale`, `toll_checkpoint_age_seconds`, `toll_checkpoint_bytes`, `toll_events_rejected_total{reason}`, en plus de `toll_events_total{result}`, `toll_od_total{status}`, `toll_writer_queue`, `toll_dedup_entries`, `sse_clients`.
+- Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, les 12 règles et que chaque panneau reçoit des données (exécuté par la CI).
+
+## Données et maintenance
+
+```bash
+docker compose ps                                   # état et santé
+docker compose logs -f backend                      # journaux
+docker compose restart backend                      # redémarrage : reprise depuis le point de reprise, sans double comptage
+docker compose down                                 # arrêt, données conservées (volumes kafka-data, postgres-data, …)
+docker compose down -v                              # arrêt ET suppression des données
+docker compose exec -T postgres pg_dump -U supervision supervision > sauvegarde.sql      # sauvegarde de la base
+curl -s localhost:8081/api/v1/diagnostic | python3 -m json.tool                          # retard, quarantaine, rejets
+```
+
+Après `down -v`, le backend repart sans point de reprise : il relit Kafka depuis minuit (heure de Paris).
+
+## Limites connues
+
+- Kafka est un nœud unique (KRaft, facteur de réplication 1) et les liaisons sont en clair : adapté au développement et à la démonstration, pas à la production telle quelle.
+- Le frontend et Grafana n'ont pas d'authentification applicative (OIDC prévu à l'incrément 5) : Grafana n'est joignable que depuis la machine par défaut ; le frontend l'est de partout.
+- Les alertes sont **évaluées** par Prometheus mais pas **acheminées** : il manque un Alertmanager (e-mail, chat, astreinte).
+- Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
+- **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
+- Le profil `tiles` n'a pas pu être exécuté pendant le développement (sources de tuiles inaccessibles) : le script de préparation des autoroutes est testé, la chaîne complète reste à valider.
+- Les images sont construites par `docker compose --build` ; dans l'environnement de développement, `docker build` ne pouvait pas télécharger les dépendances (proxy TLS) et les images locales ont été construites à partir des artefacts. La CI exécute le build complet.

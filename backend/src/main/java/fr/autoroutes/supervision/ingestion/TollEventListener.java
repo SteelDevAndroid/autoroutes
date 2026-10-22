@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.TopicPartition;
 import org.slf4j.Logger;
@@ -31,24 +32,28 @@ public class TollEventListener implements ConsumerSeekAware {
     private final SupervisionProperties properties;
     private final Clock clock;
     private final ResumeOffsets resumeOffsets;
+    private final MeterRegistry meters;
     private final Set<TopicPartition> positioned = ConcurrentHashMap.newKeySet();
 
     TollEventListener(TollEventParser parser, TollEventSink sink, RejectionPublisher rejections,
-                      SupervisionProperties properties, Clock clock, ResumeOffsets resumeOffsets) {
+                      SupervisionProperties properties, Clock clock, ResumeOffsets resumeOffsets, MeterRegistry meters) {
         this.parser = parser;
         this.sink = sink;
         this.rejections = rejections;
         this.properties = properties;
         this.clock = clock;
         this.resumeOffsets = resumeOffsets;
+        this.meters = meters;
     }
 
     @KafkaListener(id = LISTENER_ID, idIsGroup = false, topics = "${supervision.kafka.topic}", autoStartup = "false")
     void onRecord(ConsumerRecord<String, String> record) {
         switch (parser.parse(record.value())) {
             case ParseResult.Valid valid -> sink.submit(IncomingEvent.fromKafka(record.partition(), record.offset(), valid.event()));
-            case ParseResult.Rejected rejected ->
-                    rejections.publish(record.partition(), record.offset(), rejected.eventId(), rejected.reason(), rejected.field());
+            case ParseResult.Rejected rejected -> {
+                meters.counter("toll.events.rejected", "reason", rejected.reason().name()).increment();
+                rejections.publish(record.partition(), record.offset(), rejected.eventId(), rejected.reason(), rejected.field());
+            }
         }
     }
 
