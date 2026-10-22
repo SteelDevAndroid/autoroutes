@@ -45,7 +45,7 @@ export function OdPanel({ stations }: { readonly stations: StationCollection }) 
   const filtered = !config.demo;
 
   return (
-    <section aria-label="Flux origine → destination">
+    <section aria-label="Panneau des flux O/D">
       <h2>Flux O/D</h2>
       {filtered && (
         <div className="od-filters">

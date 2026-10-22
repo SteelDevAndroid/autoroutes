@@ -79,7 +79,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/');
     await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
-    await page.getByLabel('Flux origine → destination').first().check();
+    await page.getByLabel('Flux origine → destination').check();
 
     const top = page.getByRole('list', { name: 'Principaux flux' }).getByRole('listitem');
     await expect(top.first()).toBeVisible({ timeout: 90_000 });
