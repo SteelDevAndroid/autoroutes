@@ -11,6 +11,7 @@
   --warn: #d29922;
   --danger: #f85149;
   --simulated: #a371f7;
+  --replay: #e3b341;
   --radius: 6px;
   font-family: 'Inter', 'Noto Sans', system-ui, sans-serif;
   font-size: 14px;
@@ -42,6 +43,15 @@ button, input { font: inherit; color: inherit; }
   letter-spacing: 0.04em;
 }
 
+.replay-banner {
+  grid-area: banner;
+  background: var(--replay);
+  color: #0e1116;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 8px;
+}
+
 .topbar {
   grid-area: topbar;
   display: flex;
@@ -62,6 +72,7 @@ button, input { font: inherit; color: inherit; }
 .status-ok { color: var(--ok); }
 .status-warn { color: var(--warn); }
 .status-danger { color: var(--danger); }
+.status-replay { color: var(--replay); }
 
 .side {
   grid-area: side;
@@ -119,6 +130,24 @@ button, input { font: inherit; color: inherit; }
 @media (max-width: 900px) {
   .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr auto; grid-template-areas: 'banner' 'topbar' 'map' 'side'; }
   .side { max-height: 40vh; border-right: 0; border-top: 1px solid var(--panel-border); }
-  .topbar { flex-wrap: wrap; gap: 12px; }
+  .replay-banner {
+  grid-area: banner;
+  background: var(--replay);
+  color: #0e1116;
+  font-weight: 700;
+  text-align: center;
+  padding: 4px 8px;
+}
+
+.topbar { flex-wrap: wrap; gap: 12px; }
   .detail { left: 12px; width: auto; }
 }
+
+.side select { background: var(--bg); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 2px 4px; }
+.side input[type='datetime-local'] { background: var(--bg); border: 1px solid var(--panel-border); border-radius: var(--radius); padding: 2px 4px; color-scheme: dark; }
+.replay-controls { display: flex; gap: 6px; align-items: center; }
+.history-chart { margin: 8px 0 0; }
+.history-chart svg { display: block; background: var(--bg); border-radius: 4px; }
+.series-today { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+.series-last-week { fill: none; stroke: var(--text-muted); stroke-width: 1; stroke-dasharray: 3 2; }
+.legend-today { color: var(--accent); }

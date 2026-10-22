@@ -1,7 +1,10 @@
 import { useMemo, useState } from 'react';
 import type { StationCollection } from '../map/referentiel';
+import { config } from '../config';
 import { theme } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
+import { ReplayPanel } from './ReplayPanel';
+import type { ReplayControls } from './ReplayPanel';
 
 const normalize = (value: string): string =>
   value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
@@ -33,10 +36,11 @@ function Search({ stations, onFocus }: { readonly stations: StationCollection; r
   );
 }
 
-export function SidePanel({ stations, onFocus, onResetView }: {
+export function SidePanel({ stations, onFocus, onResetView, replay }: {
   readonly stations: StationCollection;
   readonly onFocus: (index: number) => void;
   readonly onResetView: () => void;
+  readonly replay: ReplayControls;
 }) {
   const layers = useUiStore((s) => s.layers);
   const kinds = useUiStore((s) => s.kinds);
@@ -61,6 +65,7 @@ export function SidePanel({ stations, onFocus, onResetView }: {
         <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </section>
+      {!config.demo && <ReplayPanel controls={replay} />}
       <section aria-label="Légende">
         <h2>Légende</h2>
         <div className="legend-row"><span className="swatch" style={{ background: theme.stationEchangeur }} /> Gare d’échangeur</div>

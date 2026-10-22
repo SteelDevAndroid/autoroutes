@@ -1,7 +1,9 @@
+import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { formatCount, formatSigned, formatTime } from './format';
+import { HistoryChart } from './HistoryChart';
 import { useStoreVersion } from './useStoreVersion';
 
 export function StationDetail({ stations, store }: { readonly stations: StationCollection; readonly store: StationStore }) {
@@ -44,6 +46,7 @@ export function StationDetail({ stations, store }: { readonly stations: StationC
         Dernier passage : {formatTime(Number.isNaN(store.lastEventMs[index] ?? Number.NaN) ? null : store.lastEventMs[index] ?? null)}
         {stale && <strong className="status-warn"> — données périmées</strong>}
       </p>
+      {!config.demo && <HistoryChart stationId={p.id} />}
       <p className="note">{formatCount(p.lanes)} voies. Le solde n’est pas un nombre de véhicules présents.</p>
     </section>
   );

@@ -41,4 +41,36 @@ test.describe('flux réel (backend + simulateur)', () => {
     console.log(`latence (now − watermark affiché) : p50=${samples[Math.floor(samples.length / 2)]} s, p95=${p95} s`);
     expect(p95).toBeLessThanOrEqual(3);
   });
+
+  test('relit l’historique puis revient au direct', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+    const start = new Date(Date.now() - 2 * 3_600_000);
+    const local = new Date(start.getTime() - start.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    await page.getByLabel('Début de relecture').fill(local);
+    await page.getByLabel('Durée de relecture').selectOption('30');
+    await page.getByLabel('Vitesse de relecture').selectOption('300');
+    await page.getByRole('button', { name: 'Lancer la relecture' }).click();
+
+    const banner = page.getByText(/RELECTURE — données historiques observées/);
+    await expect(banner).toBeVisible();
+    await expect(page.getByRole('status')).toHaveText('Relecture ×300');
+    const first = await banner.innerText();
+    await page.waitForTimeout(2_000);
+    expect(await banner.innerText()).not.toEqual(first);
+    await page.screenshot({ path: 'test-results/replay.png' });
+
+    await page.getByRole('button', { name: 'Retour au direct' }).click();
+    await expect(banner).toHaveCount(0);
+    await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+  });
+
+  test('compare aujourd’hui et J-7 dans le détail d’une gare', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Nom de gare').fill('Ablis');
+    await page.getByRole('button', { name: 'Ablis' }).first().click();
+    const chart = page.getByRole('img', { name: /Passages par quart d’heure/ });
+    await expect(chart).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText(/J-7 même heure/)).toBeVisible();
+  });
 });

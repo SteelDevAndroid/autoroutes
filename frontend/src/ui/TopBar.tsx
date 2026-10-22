@@ -8,7 +8,11 @@ const sum = (array: Float64Array): number => array.reduce((total, value) => tota
 function ConnectionBadge() {
   const connection = useUiStore((s) => s.connection);
   const freshness = useUiStore((s) => s.freshness);
-  const [label, tone] = connection !== 'open'
+  const mode = useUiStore((s) => s.mode);
+  const speed = useUiStore((s) => s.replay.speed);
+  const [label, tone] = mode === 'replay'
+    ? [`Relecture ×${speed}`, 'status-replay']
+    : connection !== 'open'
     ? [connection === 'closed' ? 'Déconnecté' : 'Reconnexion…', 'status-danger']
     : freshness?.status === 'STALE'
       ? ['Données périmées', 'status-danger']
