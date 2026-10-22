@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Connexion OIDC réelle : navigateur → nginx → backend → Keycloak.

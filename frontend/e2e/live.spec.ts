@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 
 /**
  * Bout en bout réel : simulateur → Kafka → backend → SSE → navigateur.
