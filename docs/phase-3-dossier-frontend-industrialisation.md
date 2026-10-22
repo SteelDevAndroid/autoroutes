@@ -338,7 +338,7 @@ autoroutes/
 | **2. Historique** ✅ (`docs/increment-2.md`) | Agrégats persistés, séries dans le détail de gare, comparaison J/J-7, mode relecture (lecture, pause, vitesse) | Q5 (rétention) | Volumes `od_hour` | Requête sur 13 mois < 1 s ; relecture fluide ×60 |
 | **3. Flux O/D** ✅ ([détail](increment-3.md)) | Diffusion `od` réelle, seuil RGPD, filtres par axe et département | Incrément 1 | Lisibilité nationale | Cohérence Σ O/D = sorties − manquants (± 0,5 %) |
 | **4. Charge estimée des tronçons** 🟡 ([détail](increment-4.md)) | Graphe OSM → module `assignment`, couche `segments-load`, mention « estimé » | Incrément 3, Q10 (ODbL), H21 | Contestation de l'affectation | Validation métier sur 3 axes |
-| **5. Industrialisation** | OIDC Keycloak, Prometheus/Grafana, régression visuelle, banc de performance, durcissement | Q4, Q20 | Bascule vers deck.gl si critère 7.3 | Section 11 entièrement vérifiée |
+| **5. Industrialisation** 🟡 ([détail](increment-5.md)) | OIDC Keycloak, Prometheus/Grafana, régression visuelle, banc de performance, durcissement | Q4, Q20 | Bascule vers deck.gl si critère 7.3 | Section 11 entièrement vérifiée |
 
 ---
 
@@ -349,13 +349,14 @@ autoroutes/
 | Réseau autoroutier crédible et lisible | 🟡 | Chaîne OSM et style prêts, style valide ; **rendu à exécuter** avec les tuiles (réseau bloqué ici) |
 | Toutes les gares correctement positionnées | 🟢 | 667 gares logiques reprojetées, > 600 dessinées dans l'E2E ; reste : contrôle gare ↔ tracé et arbitrage des 161 points |
 | Mise à jour sans rechargement complet | 🟢 | Deltas → `setFeatureState` par lots ; React à ≤ 1 Hz |
-| Fluidité sous la charge cible | 🟡 | Architecture et dégradation en place ; **mesure sur poste de référence** à faire (section 7) |
+| Fluidité sous la charge cible | 🟡 | Architecture et dégradation en place ; côté serveur, 400 clients SSE mesurés (incrément 5) ; **fluidité d'affichage à mesurer sur le poste de référence** (section 7, Q20) |
 | Flux cohérents avec les données disponibles | 🟢 | Seuls des agrégats observés ; O/D filtrés au seuil ; pas de particules fictives |
 | Observé distingué de l'estimé | 🟢 | Tirets + légende « estimée » ; `nature` dans le protocole ; règle encodée dans le style |
-| Resynchronisation après interruption | 🟢 (client) / 🟡 (bout en bout) | Tests du client (trou, epoch, heartbeat, backoff) ; scénario complet avec le backend à l'incrément 1 |
+| Resynchronisation après interruption | 🟢 | Tests du client (trou, epoch, heartbeat, backoff) ; reprise par `Last-Event-ID` et changement d'epoch vérifiés avec Kafka et PostgreSQL réels (`SupervisionIT`) ; banc de 400 clients sans resynchronisation (incrément 5) |
 | Aucune dépendance propriétaire | 🟢 | Pile intégralement open source (section 12), aucune clé d'API |
 | Reproductibilité | 🟢 | Versions figées, lockfile, Compose, scripts ; démonstration hors ligne |
 | Licences documentées | 🟢 | Sections 3.3 et 12, attributions affichées sur la carte |
+| Accès authentifié et rôles | 🟢 | Connexion OIDC (Keycloak) vérifiée de bout en bout, 401 sans session, rôles VIEWER et ADMIN, CSRF sur l'administration, audit et budget des requêtes O/D (incrément 5) ; reste : Keycloak de production |
 
 ---
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { LOGIN_URL, checkSession } from './auth/session';
 import { config } from './config';
 import { DemoEventSource } from './demo/demoEventSource';
 import type { MapController } from './map/mapController';
@@ -39,6 +40,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const session = useRef<ReplaySession | null>(null);
   const mode = useUiStore((s) => s.mode);
   const replay = useUiStore((s) => s.replay);
+  const connection = useUiStore((s) => s.connection);
   const odLayer = useUiStore((s) => s.layers.od);
   const odFilters = useUiStore((s) => s.odFilters);
 
@@ -62,6 +64,17 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   }, [mode, odLayer, odFilters]);
 
   useEffect(() => { session.current?.refreshOd(); }, [odFilters]);
+
+  /** Flux coupé durablement : si la session a expiré (401), on relance la connexion plutôt que de reconnecter indéfiniment. */
+  useEffect(() => {
+    if (config.demo || connection === 'open') {
+      return undefined;
+    }
+    const timer = setTimeout(() => {
+      checkSession().then((result) => { if (result.kind === 'login') window.location.assign(LOGIN_URL); }, () => { /* serveur injoignable : la reconnexion continue */ });
+    }, 15_000);
+    return () => { clearTimeout(timer); };
+  }, [connection]);
 
   const startLive = useCallback(() => {
     stopLive.current = startRealtime({
@@ -158,18 +171,34 @@ export function App() {
   const [stations, setStations] = useState<StationCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [redirecting, setRedirecting] = useState(false);
+
   useEffect(() => {
     const abort = new AbortController();
-    loadStations(config.stationsUrl, abort.signal).then(setStations, (e: unknown) => {
+    const fail = (e: unknown) => {
       if (!abort.signal.aborted) {
         setError(e instanceof Error ? e.message : String(e));
       }
-    });
+    };
+    // Hors démonstration, l'identité est vérifiée avant toute donnée : sans session, on lance la connexion OIDC.
+    const session = config.demo ? Promise.resolve(null) : checkSession(fetch, abort.signal);
+    session.then((result) => {
+      if (result?.kind === 'login') {
+        setRedirecting(true);
+        window.location.assign(LOGIN_URL);
+        return undefined;
+      }
+      useUiStore.getState().setMe(result?.me ?? null);
+      return loadStations(config.stationsUrl, abort.signal).then(setStations);
+    }).catch(fail);
     return () => { abort.abort(); };
   }, []);
 
   if (error !== null) {
     return <div className="error" role="alert">{error}</div>;
+  }
+  if (redirecting) {
+    return <div className="loading">Redirection vers la connexion…</div>;
   }
   return stations === null ? <div className="loading">Chargement du référentiel…</div> : <Dashboard stations={stations} />;
 }

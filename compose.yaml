@@ -9,6 +9,7 @@
 #   monitoring  Prometheus (métriques, 14 alertes) et Grafana (tableau de bord provisionné) ; à combiner avec « full »
 #   demo        frontend seul, flux SIMULÉ dans le navigateur, sans backend (port 8080 : exclusif avec « full »)
 #   infra       Kafka et PostgreSQL seuls, pour développer le backend en local
+#   auth        Keycloak (OIDC) ; avec SUPERVISION_PROFILE=auth dans .env, la connexion devient obligatoire
 #   tiles       tâche ponctuelle : produit le fond de carte et le graphe routier (accès réseau requis)
 #
 # Sécurité : seuls le frontend (8080) et, avec « monitoring », Grafana (3000) sont destinés à être joints ;
@@ -79,6 +80,12 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Charge estimée des tronçons : chemin DANS le conteneur du graphe produit par le profil « tiles » (vide = inactive).
       ASSIGNMENT_GRAPH_FILE: ${ASSIGNMENT_GRAPH_FILE:-}
+      # « auth » : connexion OIDC obligatoire (profil Compose « auth » pour Keycloak) ; vide : sans authentification.
+      SPRING_PROFILES_ACTIVE: ${SUPERVISION_PROFILE:-}
+      OIDC_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:-}
+      OIDC_AUTHORIZATION_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision/protocol/openid-connect/auth
+      OIDC_TOKEN_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/token
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
     volumes:
       - ./cartographie/out/graph:/app/graph:ro
     depends_on:
@@ -260,6 +267,42 @@ services:
     deploy:
       resources:
         limits: { memory: 512m }
+
+  # ───────────────────────── Authentification ─────────────────────────
+
+  # Keycloak (Apache-2.0) en mode développement avec import du royaume : suffisant pour valider la chaîne OIDC, pas pour la production
+  # (base H2 éphémère : royaume réimporté à chaque démarrage, HTTP). Voir docs/increment-5.md pour le passage en production.
+  keycloak:
+    profiles: [auth]
+    image: quay.io/keycloak/keycloak:26.4
+    logging: *logging
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"]
+    ports:
+      - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?définir KEYCLOAK_ADMIN_PASSWORD dans .env (profil auth)}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
+      # Les appels serveur à serveur (jeton, clés) passent par keycloak:8080 : le nom d'hôte y est déduit de la requête.
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HEALTH_ENABLED: "true"
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+      SUPERVISION_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:?définir SUPERVISION_CLIENT_SECRET dans .env (profil auth)}
+      KEYCLOAK_VIEWER_PASSWORD: ${KEYCLOAK_VIEWER_PASSWORD:?définir KEYCLOAK_VIEWER_PASSWORD dans .env (profil auth)}
+      KEYCLOAK_ADMIN_USER_PASSWORD: ${KEYCLOAK_ADMIN_USER_PASSWORD:?définir KEYCLOAK_ADMIN_USER_PASSWORD dans .env (profil auth)}
+    volumes:
+      - ./auth/realm-supervision.json:/opt/keycloak/data/import/realm-supervision.json:ro
+    healthcheck:
+      # Pas de curl dans l'image : sonde /dev/tcp sur le port de gestion (9000).
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    deploy:
+      resources:
+        limits: { memory: 1g }
 
   # ───────────────────────── Tâche ponctuelle ─────────────────────────
 
