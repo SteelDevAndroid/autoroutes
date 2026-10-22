@@ -51,6 +51,15 @@ export interface FlowKey {
   readonly destinationId: string;
 }
 
+/** Autoroute choisie par la recherche : sert à revenir à l'affichage d'avant (flux, filtre, cadrage). */
+export interface AxisFocus {
+  readonly id: string;
+  /** Valeur du filtre « Axe » posée par la recherche. */
+  readonly value: string;
+  /** La couche des flux était déjà affichée avant la recherche : on ne l'éteint pas au retour. */
+  readonly odWasOn: boolean;
+}
+
 export interface SegmentsState {
   readonly graphVersion: string;
   readonly algorithm: string;
@@ -73,6 +82,7 @@ export interface UiState {
   readonly me: Me | null;
   /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
   readonly segments: SegmentsState | null;
+  readonly axisFocus: AxisFocus | null;
   readonly openSection: SectionId | null;
   /** Petit écran : le panneau latéral est un tiroir, ouvert ou fermé. Sans effet au-delà de 900 px. */
   readonly drawerOpen: boolean;
@@ -93,6 +103,10 @@ export interface UiState {
   readonly replay: ReplayState;
   readonly select: (index: number | null) => void;
   readonly toggleLayer: (layer: keyof LayerVisibility) => void;
+  /** Recherche d'une autoroute : pose le filtre « Axe » (sans jamais le retirer) et mémorise l'état d'avant pour `clearAxisFocus`. */
+  readonly focusAxis: (id: string, value: string) => void;
+  /** Retour à l'affichage d'avant la recherche d'autoroute : filtre retiré, couche des flux rétablie. */
+  readonly clearAxisFocus: () => void;
   readonly setOpenSection: (section: SectionId | null) => void;
   readonly setDrawerOpen: (open: boolean) => void;
   readonly setAboutOpen: (open: boolean) => void;
@@ -141,6 +155,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   diagnosticOpen: false,
   resyncCount: 0,
   mode: 'live',
+  axisFocus: null,
   openSection: 'layers',
   drawerOpen: false,
   aboutOpen: false,
@@ -157,6 +172,28 @@ export const useUiStore = create<UiState>()((set, get) => ({
       const enabled = !s.layers[layer];
       const opens = enabled && (layer === 'od' || layer === 'segments');
       return { layers: { ...s.layers, [layer]: enabled }, ...(opens ? { openSection: layer } : {}) };
+    });
+  },
+  focusAxis: (id, value) => {
+    const { axisFocus, odFilters, layers } = get();
+    // Une seconde recherche garde l'état d'origine : seul le premier choix sait ce qu'était l'affichage d'avant.
+    const active = axisFocus !== null && odFilters.axis === axisFocus.value;
+    const odWasOn = active ? axisFocus.odWasOn : layers.od;
+    if (odFilters.axis !== value) {
+      get().chooseAxis(value);
+    }
+    set({ axisFocus: { id, value, odWasOn } });
+  },
+  clearAxisFocus: () => {
+    set((s) => {
+      if (s.axisFocus === null) {
+        return {};
+      }
+      const ours = s.odFilters.axis === s.axisFocus.value;
+      return {
+        axisFocus: null,
+        ...(ours ? { odFilters: { ...s.odFilters, axis: '' }, layers: { ...s.layers, od: s.axisFocus.odWasOn } } : {}),
+      };
     });
   },
   setOpenSection: (openSection) => { set({ openSection }); },

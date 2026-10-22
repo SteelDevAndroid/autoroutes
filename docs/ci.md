@@ -55,7 +55,7 @@ Dans *Settings → Branches → Branch protection rules* pour `main` :
 ## Vérifié avant la mise en place, hors GitHub
 
 - Les workflows passent `actionlint` (avec `shellcheck` sur les scripts embarqués) ; les scripts shell passent `shellcheck`.
-- Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts (incrément 2). Incrément 5 : 85 + 7 tests backend verts sous JDK 21 (`-Djava.version=21`, JDK 25 non rejoué), 160 tests frontend, 5 scénarios navigateur réels en CI et 4 d'authentification (Keycloak réel) (+ 1 sur les tronçons, local : `E2E_SEGMENTS=1`, graphe requis) et la vérification de supervision (Alertmanager joint, 14 règles, 16 panneaux alimentés).
+- Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts (incrément 2). Incrément 5 : 85 + 7 tests backend verts sous JDK 21 (`-Djava.version=21`, JDK 25 non rejoué), 167 tests frontend, 5 scénarios navigateur réels en CI et 4 d'authentification (Keycloak réel) (+ 1 sur les tronçons, local : `E2E_SEGMENTS=1`, graphe requis) et la vérification de supervision (Alertmanager joint, 14 règles, 16 panneaux alimentés).
 - La procédure du job « E2E chaîne complète et supervision » rejouée de bout en bout en local (volumes neufs, `.env` généré comme dans le job) : 4 scénarios navigateur et la vérification de supervision au vert.
 - L'étape « référentiel à jour » rejouée : aucune différence ; la logique du job « CI réussie » simulée (vert et rouge).
 - Les commandes `package` et d'extraction des couches des Dockerfiles du backend et du simulateur rejouées sans réseau.

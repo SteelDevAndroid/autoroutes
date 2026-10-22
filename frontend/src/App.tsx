@@ -13,6 +13,7 @@ import { ReplaySession } from './replay/replaySession';
 import type { EventSourceFactory } from './realtime/streamClient';
 import { StationStore } from './state/stationStore';
 import { useUiStore } from './state/uiStore';
+import { AxisFocusChip } from './ui/AxisFocusChip';
 import { DiagnosticPanel } from './ui/DiagnosticPanel';
 import { MapView } from './ui/MapView';
 import { SidePanel } from './ui/SidePanel';
@@ -213,11 +214,25 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const focusAxis = useCallback((group: AxisGroup) => {
     const ui = useUiStore.getState();
     ui.setDrawerOpen(false);
-    // Le filtre « Axe » se pose, sans jamais se retirer : chercher deux fois la même autoroute ne doit pas l'annuler.
-    if (ui.odFilters.axis !== group.value) {
-      ui.chooseAxis(group.value);
-    }
+    // Le filtre « Axe » se pose, sans jamais se retirer ; la puce « Revenir à la vue d'ensemble » défait le tout.
+    ui.focusAxis(group.id, group.value);
     controller.current?.focusAxis(group.stations);
+  }, []);
+
+  /** Échap revient à l'affichage d'avant la recherche d'une autoroute (hors saisie et fenêtres ouvertes). */
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      const ui = useUiStore.getState();
+      const target = event.target as HTMLElement | null;
+      const typing = target !== null && (target.isContentEditable || ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName));
+      if (event.key !== 'Escape' || typing || ui.axisFocus === null || ui.aboutOpen || ui.tourActive || ui.drawerOpen) {
+        return;
+      }
+      ui.clearAxisFocus();
+      controller.current?.resetView();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); };
   }, []);
 
   /** « / » met le focus sur la recherche (et ouvre le tiroir sur petit écran), sauf pendant une saisie ou devant une fenêtre ouverte. */
@@ -254,6 +269,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); }} />}
       <main className="map-area" data-tour="map">
         <MapView stations={stations} store={store} onReady={onReady} />
+        <AxisFocusChip onBack={() => { controller.current?.resetView(); }} />
         <StationTooltip stations={stations} store={store} />
         <StationDetail stations={stations} store={store}
           onFocusFlow={(flow) => { controller.current?.focusFlow(flow); }} />
