@@ -153,12 +153,55 @@ class SupervisionIT {
         });
         assertThat(get("/api/v1/history/network?from=%s&to=%s&step=PT1H".formatted(from, to)).path("points").size()).isPositive();
         assertThat(get("/api/v1/history/minutes?from=%s&to=%s".formatted(Instant.now().minus(Duration.ofHours(1)), to)).size()).isPositive();
-        assertThat(get("/api/v1/history/od?from=%s&to=%s&minVehicles=1".formatted(from, to)).path("minVehicles").asLong()).isEqualTo(3);
+        assertThat(get("/api/v1/history/od?from=%s&to=%s&minVehicles=1".formatted(from, to)).path("result").path("minVehicles").asLong()).isEqualTo(3);
 
         var tooLong = http.send(HttpRequest.newBuilder(uri("/api/v1/history/minutes?from=%s&to=%s".formatted(from, to))).build(),
                 HttpResponse.BodyHandlers.ofString());
         assertThat(tooLong.statusCode()).isEqualTo(400);
         assertThat(tooLong.body()).contains("Plage trop longue");
+    }
+
+    @Test
+    void originDestinationFlowsAreFilteredThresholdedAndReconciledLiveAndInHistory() throws Exception {
+        for (var i = 0; i < 4; i++) {
+            send(event(UUID.randomUUID().toString(), "Montabon", "ENTRY", null));
+            send(event(UUID.randomUUID().toString(), "Mont-Choisy Sortie", "EXIT", "Montabon"));
+        }
+        send(event(UUID.randomUUID().toString(), "Chignin Barriere", "EXIT", null));
+        var origin = stationId("Montabon");
+        var destination = stationId("Mont-Choisy Sortie");
+        var from = Instant.now().minus(Duration.ofHours(1));
+        var to = Instant.now().plus(Duration.ofHours(1));
+
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            var stations = get("/api/v1/od?limit=2000&department=51");
+            assertThat(stations.path("minVehicles").asLong()).isEqualTo(3);
+            assertThat(stations.path("flows")).anySatisfy(flow -> {
+                assertThat(flow.path("originId").asString()).isEqualTo(origin);
+                assertThat(flow.path("destinationId").asString()).isEqualTo(destination);
+                assertThat(flow.path("vehicles").asLong()).isGreaterThanOrEqualTo(4);
+            });
+        });
+        var departments = get("/api/v1/od?level=DEPARTMENT&department=51&role=DESTINATION");
+        assertThat(departments.path("flows")).anySatisfy(flow -> {
+            assertThat(flow.path("originId").asString()).isEqualTo("72");
+            assertThat(flow.path("destinationId").asString()).isEqualTo("51");
+        });
+        assertThat(get("/api/v1/od?department=72&role=DESTINATION").path("flows")).noneSatisfy(flow ->
+                assertThat(flow.path("originId").asString()).isEqualTo(origin));
+        assertThat(get("/api/v1/od?axis=A0028&role=ORIGIN").path("flows")).anySatisfy(flow ->
+                assertThat(flow.path("originId").asString()).isEqualTo(origin));
+
+        var coverage = get("/api/v1/od/coverage");
+        assertThat(coverage.path("gap").asLong()).as("sorties des gares = issues O/D").isZero();
+        assertThat(coverage.path("coverage").path("recorded").asLong()).isGreaterThanOrEqualTo(4);
+        assertThat(coverage.path("coverage").path("openSystem").asLong()).isPositive();
+
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> assertThat(
+                get("/api/v1/history/od?from=%s&to=%s&department=51".formatted(from, to)).path("result").path("flows"))
+                .anySatisfy(flow -> assertThat(flow.path("destinationId").asString()).isEqualTo(destination)));
+        assertThat(get("/api/v1/history/od?from=%s&to=%s&level=DEPARTMENT&department=51&role=DESTINATION".formatted(from, to))
+                .path("result").path("flows")).anySatisfy(flow -> assertThat(flow.path("originId").asString()).isEqualTo("72"));
     }
 
     @Test

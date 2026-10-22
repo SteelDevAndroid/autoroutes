@@ -12,9 +12,6 @@ import fr.autoroutes.supervision.referentiel.LogicalStation;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -69,7 +66,7 @@ class LiveController {
                 @RequestParam(defaultValue = "ANY") OdFilter.Role role,
                 @RequestParam(defaultValue = "3") long minVehicles,
                 @RequestParam(defaultValue = "500") int limit) {
-        var filter = new OdFilter(level, csv(department), csv(axis), role, minVehicles, limit);
+        var filter = new OdFilter(level, OdParams.csv(department), OdParams.csv(axis), role, minVehicles, limit);
         return odQueries.query(filter).orElseThrow(LiveController::starting);
     }
 
@@ -78,10 +75,6 @@ class LiveController {
         OdSnapshot snapshot = liveView.odSnapshot().orElseThrow(LiveController::starting);
         return new OdCoverageView(snapshot.reference(), snapshot.window(), snapshot.coverage(), snapshot.stationExits(),
                 snapshot.reconciliationGap(), snapshot.reconciliationGapRatio(), Double.isNaN(snapshot.coverage().originKnownRatio()) ? null : snapshot.coverage().originKnownRatio());
-    }
-
-    private static Set<String> csv(String value) {
-        return value == null ? Set.of() : Arrays.stream(value.split(",")).map(String::trim).filter(v -> !v.isEmpty()).collect(Collectors.toSet());
     }
 
     private static ResponseStatusException starting() {

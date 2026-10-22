@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +25,22 @@ public class OdQueryService {
     public OdQueryService(LiveView liveView, StationCatalog catalog) {
         this.liveView = liveView;
         this.catalog = catalog;
+    }
+
+    /**
+     * Gares à lire dans la source (superset du filtre exact) : le département prime sur l'axe, car le filtre exact exige les deux.
+     * Vide = aucune restriction.
+     */
+    public Optional<Set<String>> candidateStations(OdFilter filter) {
+        if (!filter.departments().isEmpty()) {
+            return Optional.of(catalog.stations().stream().filter(s -> filter.departments().contains(department(s)))
+                    .map(LogicalStation::id).collect(Collectors.toSet()));
+        }
+        if (!filter.axes().isEmpty()) {
+            return Optional.of(catalog.stations().stream().filter(s -> s.axes().stream().anyMatch(filter.axes()::contains))
+                    .map(LogicalStation::id).collect(Collectors.toSet()));
+        }
+        return Optional.empty();
     }
 
     public Optional<OdResult> query(OdFilter filter) {

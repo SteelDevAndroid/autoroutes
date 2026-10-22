@@ -1,9 +1,14 @@
 package fr.autoroutes.supervision.api;
 
-import fr.autoroutes.supervision.aggregation.OdFlow;
+import fr.autoroutes.supervision.aggregation.OdCoverage;
+import fr.autoroutes.supervision.aggregation.OdFilter;
+import fr.autoroutes.supervision.aggregation.OdQueryService;
+import fr.autoroutes.supervision.aggregation.OdResult;
+import fr.autoroutes.supervision.aggregation.OdSnapshot;
 import fr.autoroutes.supervision.history.HistoryQueries;
 import fr.autoroutes.supervision.history.Resolution;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -28,15 +33,17 @@ class HistoryController {
     record NetworkSeries(Resolution step, List<HistoryQueries.Point> points) {
     }
 
-    record OdHistory(Instant from, Instant to, String nature, long minVehicles, List<OdFlow> flows) {
+    record OdHistory(Instant from, Instant to, String nature, OdResult result) {
     }
 
     private final HistoryQueries history;
     private final StationCatalog catalog;
+    private final OdQueryService odQueries;
 
-    HistoryController(HistoryQueries history, StationCatalog catalog) {
+    HistoryController(HistoryQueries history, StationCatalog catalog, OdQueryService odQueries) {
         this.history = history;
         this.catalog = catalog;
+        this.odQueries = odQueries;
     }
 
     @GetMapping("/stations/{id}/history")
@@ -69,14 +76,21 @@ class HistoryController {
         return history.totals(from, to);
     }
 
+    /** Mêmes niveaux, filtres et seuil (au moins 3 véhicules, après agrégation) que le temps réel ({@code /api/v1/od}). */
     @GetMapping("/history/od")
     OdHistory od(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
                  @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+                 @RequestParam(defaultValue = "STATION") OdFilter.Level level,
+                 @RequestParam(required = false) String department,
+                 @RequestParam(required = false) String axis,
+                 @RequestParam(defaultValue = "ANY") OdFilter.Role role,
                  @RequestParam(defaultValue = "3") long minVehicles,
                  @RequestParam(defaultValue = "500") int limit) {
-        // Seuil de diffusion RGPD : jamais en dessous de 3 véhicules.
-        var threshold = Math.max(3, minVehicles);
-        return new OdHistory(from, to, "OBSERVED", threshold, history.od(from, to, threshold, Math.min(Math.max(limit, 1), 2_000)));
+        var filter = new OdFilter(level, OdParams.csv(department), OdParams.csv(axis), role, minVehicles, limit);
+        var stations = odQueries.candidateStations(filter).orElse(null);
+        var cells = history.odCells(from, to, HistoryQueries.Side.valueOf(role.name()), stations);
+        var snapshot = new OdSnapshot(to, Duration.between(from, to), cells, OdCoverage.EMPTY, 0);
+        return new OdHistory(from, to, "OBSERVED", odQueries.query(snapshot, filter));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

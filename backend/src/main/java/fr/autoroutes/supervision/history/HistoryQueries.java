@@ -1,12 +1,13 @@
 package fr.autoroutes.supervision.history;
 
 import fr.autoroutes.supervision.SupervisionProperties;
-import fr.autoroutes.supervision.aggregation.OdFlow;
+import fr.autoroutes.supervision.aggregation.OdCell;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Set;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Component;
 
@@ -85,19 +86,34 @@ public class HistoryQueries {
                 .list();
     }
 
-    /** Flux O/D OBSERVÉS sur une plage, au-dessus du seuil de diffusion. */
-    public List<OdFlow> od(Instant from, Instant to, long minVehicles, int limit) {
+    /**
+     * Cellules O/D OBSERVÉES cumulées sur une plage, sans seuil : il s'applique après agrégation (OdQueryService).
+     *
+     * @param stations gares retenues du côté {@code side} (superset du filtre exact), {@code null} = toutes
+     */
+    public List<OdCell> odCells(Instant from, Instant to, Side side, Set<String> stations) {
         validate(from, to, Duration.ofDays(93));
-        return jdbc.sql("""
-                        select origin_id, destination_id, sum(vehicles) as vehicles from od_hour
-                        where bucket >= :from and bucket < :to group by origin_id, destination_id
-                        having sum(vehicles) >= :min order by vehicles desc, origin_id, destination_id limit :limit""")
+        var restriction = stations == null ? "" : switch (side) {
+            case ORIGIN -> " and origin_id = any(:stations)";
+            case DESTINATION -> " and destination_id = any(:stations)";
+            case ANY -> " and (origin_id = any(:stations) or destination_id = any(:stations))";
+        };
+        var statement = jdbc.sql("""
+                select origin_id, destination_id, sum(vehicles) as vehicles from od_hour
+                where bucket >= :from and bucket < :to""" + restriction + " group by origin_id, destination_id")
                 .param("from", utc(from))
-                .param("to", utc(to))
-                .param("min", minVehicles)
-                .param("limit", limit)
-                .query(OdFlow.class)
-                .list();
+                .param("to", utc(to));
+        if (stations != null) {
+            statement = statement.param("stations", stations.toArray(String[]::new));
+        }
+        return statement.query(OdCell.class).list();
+    }
+
+    /** Côté du flux auquel s'applique la restriction de gares. */
+    public enum Side {
+        ORIGIN,
+        DESTINATION,
+        ANY
     }
 
     private static void validate(Instant from, Instant to, Duration maxSpan) {
