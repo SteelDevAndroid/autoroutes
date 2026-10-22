@@ -47,6 +47,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
     const start = new Date(Date.now() - 2 * 3_600_000);
     const local = new Date(start.getTime() - start.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+    await page.getByRole('button', { name: /Relecture/ }).click();
     await page.getByLabel('Début de relecture').fill(local);
     await page.getByLabel('Durée de relecture').selectOption('30');
     await page.getByLabel('Vitesse de relecture').selectOption('300');
@@ -83,10 +84,14 @@ test.describe('flux réel (backend + simulateur)', () => {
 
     const top = page.getByRole('list', { name: 'Principaux flux' }).getByRole('listitem');
     await expect(top.first()).toBeVisible({ timeout: 90_000 });
-    await expect(top.first()).toContainText('observé');
+    await expect(page.getByRole('region', { name: 'Panneau des flux O/D' })).toContainText('observé');
 
+    // Flux internes (même département) masqués par défaut, affichés à la demande.
     await page.getByLabel('Niveau des flux').selectOption('DEPARTMENT');
+    await expect(page.getByText('(interne)')).toHaveCount(0);
+    await page.getByLabel(/Inclure les flux internes/).check();
     await expect(top.first()).toContainText('Département', { timeout: 30_000 });
+    await expect(page.getByText('(interne)').first()).toBeVisible();
 
     const coverage = await (await request.get('/api/v1/od/coverage')).json() as { gapRatio: number; coverage: { recorded: number } };
     expect(coverage.coverage.recorded).toBeGreaterThan(0);

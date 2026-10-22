@@ -1,8 +1,13 @@
 import { useMemo } from 'react';
+import { visibleFlows } from '../od/odList';
 import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
+import { DEFAULT_OD_FILTERS, isDefaultFilters } from '../od/odTypes';
 import type { OdLevel, OdRole } from '../od/odTypes';
 import { useUiStore } from '../state/uiStore';
+import type { FlowKey } from '../state/uiStore';
+import { EmptyState } from './EmptyState';
+import { Section } from './Section';
 import { formatCount } from './format';
 
 const LEVELS: readonly { readonly value: OdLevel; readonly label: string }[] = [
@@ -29,10 +34,17 @@ export function filterOptions(stations: StationCollection): { departments: strin
   return { departments: [...departments].sort(), axes: [...axes].sort() };
 }
 
-export function OdPanel({ stations }: { readonly stations: StationCollection }) {
+export function OdPanel({ stations, onFocusFlow }: {
+  readonly stations: StationCollection;
+  /** Cadre la carte sur le flux choisi dans la liste. */
+  readonly onFocusFlow: (flow: FlowKey) => void;
+}) {
   const view = useUiStore((s) => s.odView);
   const filters = useUiStore((s) => s.odFilters);
   const setFilters = useUiStore((s) => s.setOdFilters);
+  const includeInternal = useUiStore((s) => s.odIncludeInternal);
+  const setIncludeInternal = useUiStore((s) => s.setOdIncludeInternal);
+  const highlight = useUiStore((s) => s.setHighlightedFlow);
   const error = useUiStore((s) => s.odError);
   const mode = useUiStore((s) => s.mode);
   const options = useMemo(() => filterOptions(stations), [stations]);
@@ -41,12 +53,13 @@ export function OdPanel({ stations }: { readonly stations: StationCollection }) 
     view.nodes.forEach((n) => { map.set(n.id, n.name); });
     return map;
   }, [stations, view.nodes]);
+  const { shown, hiddenInternal } = useMemo(() => visibleFlows(view.flows, includeInternal), [view.flows, includeInternal]);
   const label = (id: string) => names.get(id) ?? id;
   const filtered = !config.demo;
+  const departments = filters.level === 'DEPARTMENT';
 
   return (
-    <section aria-label="Panneau des flux O/D">
-      <h2>Flux O/D</h2>
+    <Section id="od" title="Flux O/D" label="Panneau des flux O/D" badge={<span className="tag section-tag">observé</span>}>
       {filtered && (
         <div className="od-filters">
           <label>Niveau
@@ -73,18 +86,42 @@ export function OdPanel({ stations }: { readonly stations: StationCollection }) 
           </label>
         </div>
       )}
-      {error !== null && <p className="note" role="alert">Flux O/D indisponibles : {error}</p>}
-      {view.flows.length === 0
-        ? <p className="note">Aucun flux d’au moins 3 véhicules sur l’heure pour ces critères.</p>
-        : (
-          <ol className="od-top" aria-label="Principaux flux">
-            {view.flows.slice(0, TOP).map((f) => (
+      {departments && (
+        <label className="check-row">
+          <input type="checkbox" checked={includeInternal} onChange={(e) => { setIncludeInternal(e.target.checked); }} /> Inclure les flux internes à un département
+        </label>
+      )}
+      {error !== null && (
+        <EmptyState tone="error" title="Flux O/D indisponibles" actions={[{ label: 'Réessayer', onClick: () => { setFilters({}); } }]}>
+          {error}. La lecture reprend seule toutes les 10 s.
+        </EmptyState>
+      )}
+      {error === null && shown.length === 0 && (
+        <EmptyState title="Aucun flux à afficher" actions={emptyActions()}>
+          {hiddenInternal > 0
+            ? `${formatCount(hiddenInternal)} flux internes sont masqués.`
+            : 'Les flux de moins de 3 véhicules sur l’heure ne sont jamais affichés (protection des données personnelles).'}
+        </EmptyState>
+      )}
+      {shown.length > 0 && (
+        <ol className="od-top" aria-label="Principaux flux">
+          {shown.slice(0, TOP).map((f) => {
+            const key = { originId: f.originId, destinationId: f.destinationId };
+            return (
               <li key={`${f.originId}>${f.destinationId}`}>
-                {f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`} <strong>{formatCount(f.vehicles)}</strong> véh. <span className="tag">observé</span>
+                <button type="button" className="od-row" onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
+                  onFocus={() => { highlight(key); }} onBlur={() => { highlight(null); }} onClick={() => { onFocusFlow(key); }}>
+                  <span className="od-route">{f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`}</span>
+                  <span className="od-count">{formatCount(f.vehicles)} véh.</span>
+                </button>
               </li>
-            ))}
-          </ol>
-        )}
+            );
+          })}
+        </ol>
+      )}
+      {departments && hiddenInternal > 0 && shown.length > 0 && (
+        <p className="note">{formatCount(hiddenInternal)} flux internes masqués.</p>
+      )}
       {view.maskedFlows > 0 && (
         <p className="note" data-testid="od-masked">
           {formatCount(view.maskedFlows)} flux de moins de 3 véhicules non affichés ({formatCount(view.maskedVehicles)} véh.), protection des données personnelles.
@@ -92,6 +129,20 @@ export function OdPanel({ stations }: { readonly stations: StationCollection }) 
       )}
       {view.truncated && <p className="note">Liste tronquée aux flux les plus importants.</p>}
       {mode === 'replay' && <p className="note">Relecture : flux de l’heure écoulée, mêmes filtres.</p>}
-    </section>
+    </Section>
   );
+
+  /** Issues concrètes selon la cause probable du vide : filtres trop étroits, flux internes écartés, ou niveau trop fin. */
+  function emptyActions() {
+    if (hiddenInternal > 0) {
+      return [{ label: 'Afficher les flux internes', onClick: () => { setIncludeInternal(true); } }];
+    }
+    if (!isDefaultFilters(filters)) {
+      return [{ label: 'Retirer les filtres', onClick: () => { setFilters(DEFAULT_OD_FILTERS); } }];
+    }
+    if (!departments && filtered) {
+      return [{ label: 'Voir par départements', onClick: () => { setFilters({ level: 'DEPARTMENT' }); } }];
+    }
+    return [];
+  }
 }

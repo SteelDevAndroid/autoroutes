@@ -30,6 +30,7 @@ export function MapView({ stations, store, onReady }: {
       },
       onSelect: (index) => { useUiStore.getState().select(index); },
       onQualityChange: (level) => { useUiStore.getState().setQuality(level); },
+      onHover: (hover) => { useUiStore.getState().setHover(hover); },
     });
     controller.setLayers(ui.layers);
     controller.setKinds(ui.kinds);
@@ -38,6 +39,7 @@ export function MapView({ stations, store, onReady }: {
       if (state.layers !== previous.layers) controller.setLayers(state.layers);
       if (state.kinds !== previous.kinds) controller.setKinds(state.kinds);
       if (state.segments !== previous.segments && state.segments !== null) controller.setSegmentLoads(state.segments.loads);
+      if (state.highlightedFlow !== previous.highlightedFlow) controller.setHighlightedFlow(state.highlightedFlow);
       if (state.odView !== previous.odView) controller.setOd(state.odView);
       if (state.reducedMotion !== previous.reducedMotion) controller.setReducedMotion(state.reducedMotion);
       if (state.selectedIndex !== previous.selectedIndex) controller.setSelected(state.selectedIndex, false);

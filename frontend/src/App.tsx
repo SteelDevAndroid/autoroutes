@@ -17,7 +17,9 @@ import { MapView } from './ui/MapView';
 import { SidePanel } from './ui/SidePanel';
 import { StationDetail } from './ui/StationDetail';
 import { formatTime } from './ui/format';
-import type { ReplayControls } from './ui/ReplayPanel';
+import { ReplayBar } from './ui/ReplayBar';
+import type { ReplayControls } from './ui/ReplayBar';
+import { StationTooltip } from './ui/StationTooltip';
 import { TopBar } from './ui/TopBar';
 
 function streamFactory(stations: StationCollection): EventSourceFactory {
@@ -101,7 +103,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       session.current?.dispose();
       session.current = null;
       ui().setMode('live');
-      ui().setReplay({ status: 'paused', time: null, error: null });
+      ui().setReplay({ status: 'paused', time: null, error: null, from: null, to: null });
       startLive();
     };
     return {
@@ -114,7 +116,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         stopLive.current?.();
         stopLive.current = null;
         ui().setMode('replay');
-        ui().setReplay({ speed, error: null });
+        ui().setReplay({ speed, error: null, from: from.toISOString(), to: new Date(from.getTime() + durationMinutes * 60_000).toISOString() });
         const replaySession = new ReplaySession(store, {
           onData: () => { controller.current?.onData(); },
           onTime: (time) => { ui().setWatermark(time.toISOString()); ui().setReplay({ time: time.toISOString() }); },
@@ -157,10 +159,13 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         </div>
       )}
       <TopBar store={store} />
-      <SidePanel stations={stations} onFocus={focus} onResetView={() => { controller.current?.resetView(); }} replay={replayControls} />
+      <SidePanel stations={stations} onFocus={focus} onFocusFlow={(flow) => { controller.current?.focusFlow(flow); }}
+        onResetView={() => { controller.current?.resetView(); }} />
       <main className="map-area">
         <MapView stations={stations} store={store} onReady={onReady} />
+        <StationTooltip stations={stations} store={store} />
         <StationDetail stations={stations} store={store} />
+        {!config.demo && <ReplayBar controls={replayControls} />}
         <DiagnosticPanel store={store} />
       </main>
     </div>
