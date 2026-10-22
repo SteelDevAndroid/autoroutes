@@ -24,3 +24,6 @@ hs_err_pid*
 replay_pid*
 
 __pycache__/
+/.env
+cartographie/out/
+cartographie/work/
