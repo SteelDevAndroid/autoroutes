@@ -557,7 +557,7 @@
           "mode": "multi"
         }
       },
-      "description": "RECORDED : flux observé ; ENTRY_MISSING : système ouvert ou champ absent ; ENTRY_UNKNOWN : gare d'entrée inconnue."
+      "description": "RECORDED : flux observé ; OPEN_SYSTEM : sortie en système ouvert (pas d'origine attendue) ; ENTRY_MISSING : origine absente en système fermé ; ENTRY_UNKNOWN : gare d'entrée inconnue."
     },
     {
       "id": 10,
@@ -849,6 +849,65 @@
     {
       "id": 15,
       "type": "timeseries",
+      "title": "Couverture et rapprochement des flux O/D (%)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * toll_od_origin_known_ratio",
+          "legendFormat": "sorties en système fermé avec origine connue",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "100 * toll_od_reconciliation_gap_ratio",
+          "legendFormat": "écart sorties des gares / issues O/D",
+          "refId": "B"
+        }
+      ],
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "stacking": {
+              "mode": "none"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "description": "Fenêtre d'une heure. L'écart doit rester nul ; critère d'acceptation de la roadmap : ± 0,5 %."
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
       "title": "Requêtes HTTP (hors métriques, /s)",
       "datasource": {
         "type": "prometheus",
@@ -866,9 +925,9 @@
         }
       ],
       "gridPos": {
-        "x": 0,
+        "x": 12,
         "y": 36,
-        "w": 24,
+        "w": 12,
         "h": 8
       },
       "fieldConfig": {
