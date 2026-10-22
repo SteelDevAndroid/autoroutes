@@ -3,6 +3,8 @@ import type { StationCollection } from '../map/referentiel';
 import { config } from '../config';
 import { theme } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
+import { OdPanel } from './OdPanel';
+import { SegmentsPanel } from './SegmentsPanel';
 import { ReplayPanel } from './ReplayPanel';
 import type { ReplayControls } from './ReplayPanel';
 
@@ -65,6 +67,8 @@ export function SidePanel({ stations, onFocus, onResetView, replay }: {
         <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </section>
+      {layers.od && <OdPanel stations={stations} />}
+      {layers.segments && <SegmentsPanel />}
       {!config.demo && <ReplayPanel controls={replay} />}
       <section aria-label="Légende">
         <h2>Légende</h2>
@@ -72,7 +76,7 @@ export function SidePanel({ stations, onFocus, onResetView, replay }: {
         <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>
         <div className="legend-row"><span className="swatch" style={{ background: theme.stationStale }} /> Gare sans données récentes</div>
         <p className="note">Surface du cercle ∝ passages sur 1 h (observés). Halo bref = nouveaux passages.</p>
-        <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D observé (≥ 3 véh./h), clair → foncé = origine → destination</div>
+        <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D observé (≥ 3 véh. sur 1 h, seuil appliqué après regroupement), clair → foncé = origine → destination</div>
         <div className="legend-row"><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} /> Charge de tronçon <strong>estimée</strong></div>
         <p className="note">Données de péage : le trafic gratuit et les trajets entre deux gares ne sont pas mesurés.</p>
       </section>

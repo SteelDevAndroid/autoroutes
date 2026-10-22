@@ -22,7 +22,7 @@ Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,moni
 | Profil | Services | Usage |
 |---|---|---|
 | `full` | `simulator`, `kafka`, `kafka-init`, `postgres`, `backend`, `frontend-live` | Pile applicative complète. Les événements sont **simulés** (marqués `simulated: true`) |
-| `monitoring` | `prometheus`, `grafana` | Métriques, 12 alertes, tableau de bord. À combiner avec `full` |
+| `monitoring` | `prometheus`, `grafana` | Métriques, 14 alertes, tableau de bord. À combiner avec `full` |
 | `demo` | `frontend` | Interface seule, flux simulé dans le navigateur, sans backend (bandeau « données simulées »). Exclusif avec `full` : même port |
 | `infra` | `kafka`, `kafka-init`, `postgres` | Développer le backend ou le simulateur hors conteneur (`localhost:29092`, `localhost:5432`) |
 | `tiles` | `tiles` (tâche ponctuelle) | Produire le fond de carte et le graphe routier |
@@ -52,6 +52,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana (**obligatoire**) | `changez-moi` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
+| `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
 | `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM` | Profil `tiles` | voir ci-dessous |
 
 Les deux mots de passe sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
@@ -81,10 +82,10 @@ Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuil
 
 ## Supervision
 
-- **Prometheus** collecte `backend:8080/actuator/prometheus` toutes les 15 s (conservation 15 jours) et évalue `observability/prometheus/alerts.yml` : backend injoignable, données périmées, retard du watermark, rattrapage Kafka persistant, file de l'écrivain saturée, quarantaine > 1 %, entrée inconnue > 2 % des sorties, messages rejetés, point de reprise en échec ou ancien, tas JVM, clients SSE.
+- **Prometheus** collecte `backend:8080/actuator/prometheus` toutes les 15 s (conservation 15 jours) et évalue `observability/prometheus/alerts.yml` : backend injoignable, données périmées, retard du watermark, rattrapage Kafka persistant, file de l'écrivain saturée, quarantaine > 1 %, entrée inconnue > 2 % des sorties, origine connue < 90 % ou écart de rapprochement O/D > 0,5 %, messages rejetés, point de reprise en échec ou ancien, tas JVM, clients SSE.
 - **Grafana** charge sa source de données et le tableau de bord `observability/grafana/dashboards/supervision.json` par provisioning (non modifiable depuis l'interface). Ce fichier est **généré** : modifier `observability/grafana/build_dashboard.py` puis `python3 observability/grafana/build_dashboard.py`.
-- Métriques ajoutées pour l'exploitation : `toll_watermark_lag_seconds`, `toll_consumer_lag`, `toll_freshness_status` (0 LIVE, 1 RATTRAPAGE, 2 PÉRIMÉ), `toll_stations_stale`, `toll_checkpoint_age_seconds`, `toll_checkpoint_bytes`, `toll_events_rejected_total{reason}`, en plus de `toll_events_total{result}`, `toll_od_total{status}`, `toll_writer_queue`, `toll_dedup_entries`, `sse_clients`.
-- Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, les 12 règles et que chaque panneau reçoit des données (exécuté par la CI).
+- Métriques ajoutées pour l'exploitation : `toll_watermark_lag_seconds`, `toll_consumer_lag`, `toll_freshness_status` (0 LIVE, 1 RATTRAPAGE, 2 PÉRIMÉ), `toll_stations_stale`, `toll_checkpoint_age_seconds`, `toll_checkpoint_bytes`, `toll_events_rejected_total{reason}`, en plus de `toll_events_total{result}`, `toll_od_total{status}`, `toll_od_origin_known_ratio`, `toll_od_reconciliation_gap_ratio`, `toll_writer_queue`, `toll_dedup_entries`, `sse_clients`.
+- Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, les 14 règles et que chaque panneau reçoit des données (exécuté par la CI).
 
 ## Données et maintenance
 

@@ -336,8 +336,8 @@ autoroutes/
 | **0. Socle données** ✅ en grande partie | Référentiel, alias, GeoJSON, frontend démo, Compose infra | Validation métier des 161 points à arbitrer | Regroupement contesté | Table validée ; 100 % des gares positionnées |
 | **1. MVP temps réel** ✅ sauf chaîne cartographique | Backend : listener Kafka, écrivain unique, SSE, API référentiel, checkpoint ; chaîne cartographique exécutée ; profil `full` ; simulateur | **Q14** (noms réels du topic), Q3, accès réseau aux sources de tuiles | H7 (noms) ; taille du fond (H20) | Bout en bout sur données simulées puis réelles ; latence ≤ 3 s au 95e centile ; quarantaine < 1 % |
 | **2. Historique** ✅ (`docs/increment-2.md`) | Agrégats persistés, séries dans le détail de gare, comparaison J/J-7, mode relecture (lecture, pause, vitesse) | Q5 (rétention) | Volumes `od_hour` | Requête sur 13 mois < 1 s ; relecture fluide ×60 |
-| **3. Flux O/D** | Diffusion `od` réelle, seuil RGPD, filtres par axe et département | Incrément 1 | Lisibilité nationale | Cohérence Σ O/D = sorties − manquants (± 0,5 %) |
-| **4. Charge estimée des tronçons** | Graphe OSM → module `assignment`, couche `segments-load`, mention « estimé » | Incrément 3, Q10 (ODbL), H21 | Contestation de l'affectation | Validation métier sur 3 axes |
+| **3. Flux O/D** ✅ ([détail](increment-3.md)) | Diffusion `od` réelle, seuil RGPD, filtres par axe et département | Incrément 1 | Lisibilité nationale | Cohérence Σ O/D = sorties − manquants (± 0,5 %) |
+| **4. Charge estimée des tronçons** 🟡 ([détail](increment-4.md)) | Graphe OSM → module `assignment`, couche `segments-load`, mention « estimé » | Incrément 3, Q10 (ODbL), H21 | Contestation de l'affectation | Validation métier sur 3 axes |
 | **5. Industrialisation** | OIDC Keycloak, Prometheus/Grafana, régression visuelle, banc de performance, durcissement | Q4, Q20 | Bascule vers deck.gl si critère 7.3 | Section 11 entièrement vérifiée |
 
 ---

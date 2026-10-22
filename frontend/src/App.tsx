@@ -3,6 +3,8 @@ import { config } from './config';
 import { DemoEventSource } from './demo/demoEventSource';
 import type { MapController } from './map/mapController';
 import { loadStations } from './map/referentiel';
+import { liveOd } from './od/odApi';
+import { OdPoller } from './od/odPoller';
 import type { StationCollection } from './map/referentiel';
 import { startRealtime } from './realtime/runtime';
 import { ReplaySession } from './replay/replaySession';
@@ -37,6 +39,29 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const session = useRef<ReplaySession | null>(null);
   const mode = useUiStore((s) => s.mode);
   const replay = useUiStore((s) => s.replay);
+  const odLayer = useUiStore((s) => s.layers.od);
+  const odFilters = useUiStore((s) => s.odFilters);
+
+  /** Flux O/D filtrés par le serveur (hors démonstration) : relus toutes les 10 s, et aussitôt à chaque changement de filtre. */
+  useEffect(() => {
+    const ui = useUiStore.getState;
+    if (config.demo) {
+      return undefined;
+    }
+    ui().setOdSource('rest');
+    if (mode !== 'live' || !odLayer) {
+      return undefined;
+    }
+    const poller = new OdPoller({
+      fetch: liveOd,
+      onView: (view) => { ui().setOdView(view); },
+      onError: (error) => { ui().setOdError(error instanceof Error ? error.message : 'erreur inconnue'); },
+    });
+    poller.start(odFilters);
+    return () => { poller.stop(); };
+  }, [mode, odLayer, odFilters]);
+
+  useEffect(() => { session.current?.refreshOd(); }, [odFilters]);
 
   const startLive = useCallback(() => {
     stopLive.current = startRealtime({
@@ -81,7 +106,8 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
           onData: () => { controller.current?.onData(); },
           onTime: (time) => { ui().setWatermark(time.toISOString()); ui().setReplay({ time: time.toISOString() }); },
           onStatus: (status, message) => { ui().setReplay({ status, error: message ?? null }); },
-          onOd: (flows) => { ui().setOdFlows(flows); },
+          onOd: (view) => { ui().setOdView(view); },
+          odFilters: () => ui().odFilters,
         });
         session.current = replaySession;
         replaySession.load({ from, durationMinutes, speed }).then(() => { replaySession.play(); }, () => {

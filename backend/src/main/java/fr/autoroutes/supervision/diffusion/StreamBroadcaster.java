@@ -8,6 +8,8 @@ import fr.autoroutes.supervision.aggregation.ReplayBuffer;
 import fr.autoroutes.supervision.aggregation.Snapshot;
 import fr.autoroutes.supervision.aggregation.StreamEpoch;
 import fr.autoroutes.supervision.aggregation.StreamPublisher;
+import fr.autoroutes.supervision.assignment.SegmentLoads;
+import fr.autoroutes.supervision.assignment.SegmentPublisher;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -29,7 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
  * (reprise par Last-Event-ID), soit le snapshot courant, puis tous les deltas suivants, sans trou ni doublon.
  */
 @Component
-public class StreamBroadcaster implements StreamPublisher {
+public class StreamBroadcaster implements StreamPublisher, SegmentPublisher {
 
     private final JsonMapper json;
     private final Clock clock;
@@ -43,6 +45,7 @@ public class StreamBroadcaster implements StreamPublisher {
     private Snapshot snapshot;
     private StreamFrame lastOd;
     private StreamFrame lastFreshness;
+    private StreamFrame lastSegments;
 
     StreamBroadcaster(JsonMapper json, Clock clock, StreamEpoch epoch, StationCatalog catalog,
                       SupervisionProperties properties, MeterRegistry meters) {
@@ -123,6 +126,19 @@ public class StreamBroadcaster implements StreamPublisher {
     }
 
     @Override
+    public void publishSegments(SegmentLoads loads) {
+        var frame = frame("segments", null, snapshotWatermark(), Map.of("window", loads.window().toString(), "nature", "ESTIMATED",
+                "graphVersion", loads.graphVersion(), "algorithm", loads.algorithm(), "loads", loads.loads()));
+        lock.lock();
+        try {
+            lastSegments = frame;
+            broadcast(frame);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    @Override
     public void publishFreshness(Freshness freshness) {
         var frame = frame("freshness", null, snapshotWatermark(), freshness);
         lock.lock();
@@ -154,6 +170,9 @@ public class StreamBroadcaster implements StreamPublisher {
                         Map.of("stations", snapshot.stations(), "referentielVersion", referentielVersion))));
         if (lastOd != null) {
             frames.add(lastOd);
+        }
+        if (lastSegments != null) {
+            frames.add(lastSegments);
         }
         if (lastFreshness != null) {
             frames.add(lastFreshness);

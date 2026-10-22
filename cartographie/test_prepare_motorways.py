@@ -36,6 +36,13 @@ class PrepareMotorwaysTest(unittest.TestCase):
         self.assertEqual(graph["edges"][1]["speedKmh"], 130)
         self.assertAlmostEqual(graph["edges"][0]["lengthM"], 1361, delta=5)
 
+    def test_edges_carry_normalized_axes_and_link_flag(self):
+        _, graph = build([way(4, [[0, 0], [0.01, 0]], ref="A 7;E 15"), way(5, [[0.01, 0], [0.02, 0]], highway="motorway_link")], {})
+
+        self.assertEqual(graph["edges"][0]["refs"], ["A7"])
+        self.assertFalse(graph["edges"][0]["link"])
+        self.assertTrue(graph["edges"][1]["link"])
+
     def test_bidirectional_way_creates_two_edges(self):
         _, graph = build([way(3, [[0, 0], [0.01, 0]], oneway="no")], {})
 

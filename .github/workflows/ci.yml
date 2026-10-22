@@ -244,7 +244,7 @@ jobs:
           E2E_LIVE: "1"
           E2E_BASE_URL: http://localhost:8080
         run: npx playwright test e2e/live.spec.ts
-      # Prometheus : cibles saines, 12 règles chargées ; Grafana : tableau de bord provisionné ; chaque panneau reçoit des données.
+      # Prometheus : cibles saines, 14 règles chargées ; Grafana : tableau de bord provisionné ; chaque panneau reçoit des données.
       - name: Supervision de bout en bout
         run: python3 scripts/verify_observability.py --timeout 300
       - name: Journaux des services

@@ -5,11 +5,14 @@ import { Protocol } from 'pmtiles';
 import { FrameLoop } from '../animation/frameLoop';
 import type { QualityLevel } from '../animation/frameLoop';
 import { StationAnimator } from '../animation/stationAnimator';
-import type { OdFlow } from '../realtime/protocol';
+import { EMPTY_OD_VIEW } from '../od/odTypes';
+import type { OdView } from '../od/odTypes';
 import type { StationStore } from '../state/stationStore';
 import type { LayerVisibility } from '../state/uiStore';
-import { SOURCE } from './layers';
+import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
+import { diffSegmentLoads } from './segmentLoads';
+import type { SegmentLoad } from '../realtime/protocol';
 import type { StationCollection, StationKind } from './referentiel';
 import { StationLayerRenderer } from './stationLayerRenderer';
 import { buildStyle } from './style';
@@ -34,8 +37,9 @@ export class MapController {
   private readonly loop: FrameLoop;
   private readonly coordinates: ReadonlyMap<string, readonly [number, number]>;
   private ready = false;
-  private odFlows: readonly OdFlow[] = [];
+  private od: OdView = EMPTY_OD_VIEW;
   private selectedId: string | null = null;
+  private segmentIntensity: ReadonlyMap<string, number> = new Map();
 
   constructor(
     container: HTMLElement,
@@ -96,16 +100,35 @@ export class MapController {
     this.loop.wake();
   }
 
-  setOdFlows(flows: readonly OdFlow[]): void {
-    this.odFlows = flows;
+  setOd(view: OdView): void {
+    this.od = view;
     this.renderOd();
   }
 
   private renderOd(): void {
     if (this.ready) {
-      const visible = selectFlows(this.odFlows, this.selectedId);
-      (this.map.getSource(SOURCE.od) as GeoJSONSource).setData(buildOdFeatures(visible, this.coordinates)).catch(reportError);
+      // Aux départements, l'extrémité d'un arc est le centre de ses gares ; la gare sélectionnée ne filtre alors rien.
+      const departments = this.od.level === 'DEPARTMENT';
+      const coordinates = departments
+        ? new Map(this.od.nodes.map((n) => [n.id, [n.longitude, n.latitude] as const]))
+        : this.coordinates;
+      const visible = selectFlows(this.od.flows, departments ? null : this.selectedId);
+      (this.map.getSource(SOURCE.od) as GeoJSONSource).setData(buildOdFeatures(visible, coordinates)).catch(reportError);
     }
+  }
+
+  /** Charge ESTIMÉE : intensité 0 à 1 posée en feature-state sur les tronçons de la couche autoroutes (promoteId segmentId). */
+  setSegmentLoads(loads: readonly SegmentLoad[]): void {
+    this.whenStyleReady(() => {
+      if (this.map.getSource(SOURCE.motorways) === undefined) {
+        return;
+      }
+      const target = (id: string) => ({ source: SOURCE.motorways, sourceLayer: MOTORWAYS_SOURCE_LAYER, id });
+      const diff = diffSegmentLoads(this.segmentIntensity, loads);
+      diff.set.forEach(([id, load]) => { this.map.setFeatureState(target(id), { load }); });
+      diff.clear.forEach((id) => { this.map.removeFeatureState(target(id), 'load'); });
+      this.segmentIntensity = diff.next;
+    });
   }
 
   setLayers(visibility: LayerVisibility): void {

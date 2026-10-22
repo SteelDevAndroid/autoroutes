@@ -67,6 +67,22 @@ groups:
           summary: Plus de 2 % des sorties avec une gare d'entrée inconnue
           description: Les flux origine-destination sont sous-estimés ; la gare d'entrée n'est pas dans la table d'alias.
 
+      - alert: OdOrigineConnueFaible
+        expr: toll_od_origin_known_ratio < 0.9
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: Moins de 90 % des sorties en système fermé ont une gare d'entrée connue
+          description: Les flux origine-destination ne représentent qu'une part du trafic ; voir /api/v1/od/coverage (entryMissing, entryUnknown).
+
+      - alert: OdRapprochementEnEcart
+        expr: abs(toll_od_reconciliation_gap_ratio) > 0.005
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: Écart de plus de 0,5 % entre les sorties des gares et les issues des flux origine-destination
+          description: Invariant rompu (somme des issues = sorties des gares). Attendu pendant l'heure qui suit une montée de version du point de reprise ; sinon, défaut de comptage à investiguer.
+
       - alert: MessagesRejetes
         expr: sum(rate(toll_events_rejected_total[5m])) > 0.1
         for: 5m

@@ -4,7 +4,7 @@ Entrée : GeoJSON séquentiel produit par
   osmium export motorways.osm.pbf -f geojsonseq -a type,id -o motorways.geojsonseq
 Sorties :
   - segments.geojsonseq : tronçons (segmentId, ref, concede, link) pour tippecanoe ;
-  - graph.json : graphe orienté (nœuds lon/lat, arêtes longueur/vitesse) pour l'affectation (phase 2, module assignment).
+  - graph.json : graphe orienté (nœuds lon/lat, arêtes longueur/vitesse/axes/bretelle) pour l'affectation (phase 2, module assignment).
 
 Usage : python3 prepare_motorways.py motorways.geojsonseq ../referentiel/gares-logiques-proposition.csv \
           ../echangeurs-rrnc-2025.csv out/
@@ -122,7 +122,7 @@ def build(ways, reference_points):
         a = nodes.setdefault(key(coords[0]), len(nodes))
         b = nodes.setdefault(key(coords[-1]), len(nodes))
         edge = {"id": segment_id, "from": a, "to": b, "lengthM": round(length(coords), 1),
-                "speedKmh": parse_speed(props.get("maxspeed"), highway)}
+                "speedKmh": parse_speed(props.get("maxspeed"), highway), "refs": sorted(refs), "link": highway == "motorway_link"}
         edges.append(edge)
         # Les autoroutes OSM sont tracées par chaussée (oneway implicite) ; une voie explicitement bidirectionnelle crée deux arêtes.
         if props.get("oneway") == "no":

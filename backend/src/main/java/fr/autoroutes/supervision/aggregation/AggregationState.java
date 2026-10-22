@@ -84,6 +84,15 @@ public final class AggregationState {
     public record StationCheckpoint(String stationId, Instant lastEventTime, List<long[]> minutes) {
     }
 
+    /** Sorties de toutes les gares entre deux minutes (incluses) : source indépendante du rapprochement des flux O/D. */
+    public long exitsBetween(long fromMinuteInclusive, long toMinuteInclusive) {
+        long total = 0;
+        for (var ring : rings.values()) {
+            total += ring.sum(fromMinuteInclusive, toMinuteInclusive).exits();
+        }
+        return total;
+    }
+
     public Set<String> stationIds() {
         return Set.copyOf(rings.keySet());
     }

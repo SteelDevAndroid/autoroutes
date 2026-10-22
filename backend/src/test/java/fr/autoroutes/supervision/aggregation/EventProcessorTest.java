@@ -49,7 +49,7 @@ class EventProcessorTest {
         processor = new EventProcessor(resolver,
                 new WatermarkTracker(Duration.ofSeconds(30), new MutableClock(T0)),
                 new LatenessPolicy(Duration.ofMinutes(10), Duration.ofHours(2)),
-                new EventDeduplicator(Duration.ofHours(2)), state, od, history);
+                new EventDeduplicator(Duration.ofHours(2)), state, od, history, id -> id.startsWith("GL-PV-"));
     }
 
     private static TollEvent exit(String id, Instant at, String entry) {
@@ -115,5 +115,41 @@ class EventProcessorTest {
                 .isEqualTo(new Outcome.Applied("GL-ECH-LA-BOISSE", true, OdStatus.ENTRY_MISSING));
         assertThat(processor.process(0, exit("e-7", T0.minus(Duration.ofHours(3)), null)))
                 .isEqualTo(new Outcome.Rejected("e-7", RejectReason.TOO_LATE));
+    }
+
+    @Test
+    void everyExitHasExactlyOneOutcomeSoOdReconcilesWithStationExits() {
+        var random = new java.util.Random(42);
+        var entries = new String[] {"Bellegarde Entrée", null, "Gare Inconnue"};
+        for (var i = 0; i < 2_000; i++) {
+            var at = T0.minusSeconds(random.nextInt(3_000));
+            var type = random.nextInt(4) == 0 ? EventType.ENTRY : EventType.EXIT;
+            var entry = type == EventType.EXIT ? entries[random.nextInt(entries.length)] : null;
+            processor.process(0, new TollEvent("e-" + i, "La Boisse", type, at, entry, null, 1 + random.nextInt(4), null, false));
+            // Doublons rejoués : ne doivent rien changer au rapprochement.
+            if (random.nextInt(10) == 0) {
+                processor.process(1, new TollEvent("e-" + i, "La Boisse", type, at, entry, null, 1, null, false));
+            }
+        }
+
+        var window = Duration.ofHours(1);
+        var coverage = od.coverage(T0, window);
+        var stationExits = state.exitsBetween(OdCounters.firstMinute(T0, window), OdCounters.lastMinute(T0));
+
+        assertThat(coverage.totalExits()).isEqualTo(stationExits).isPositive();
+        assertThat(coverage.recorded()).isEqualTo(od.cells(T0, window).stream().mapToLong(OdCell::vehicles).sum());
+        assertThat(coverage.entryMissing()).isPositive();
+        assertThat(coverage.entryUnknown()).isPositive();
+    }
+
+    @Test
+    void exitAtOpenSystemStationIsNotAnAnomaly() {
+        when(resolver.resolve("Barrière Test")).thenReturn(Optional.of("GL-PV-TEST"));
+
+        var outcome = processor.process(0,
+                new TollEvent("e-pv", "Barrière Test", EventType.EXIT, T0, null, null, 3, null, false));
+
+        assertThat(outcome).isEqualTo(new Outcome.Applied("GL-PV-TEST", false, OdStatus.OPEN_SYSTEM));
+        assertThat(od.coverage(T0, Duration.ofHours(1))).isEqualTo(new OdCoverage(0, 3, 0, 0));
     }
 }

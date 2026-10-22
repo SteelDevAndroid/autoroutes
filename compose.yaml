@@ -6,7 +6,7 @@
 #
 # Profils (combinables : docker compose --profile full --profile monitoring up -d --build) :
 #   full        simulateur, Kafka (KRaft), PostgreSQL, backend, frontend de production (+ supervision recommandée)
-#   monitoring  Prometheus (métriques, 12 alertes) et Grafana (tableau de bord provisionné) ; à combiner avec « full »
+#   monitoring  Prometheus (métriques, 14 alertes) et Grafana (tableau de bord provisionné) ; à combiner avec « full »
 #   demo        frontend seul, flux SIMULÉ dans le navigateur, sans backend (port 8080 : exclusif avec « full »)
 #   infra       Kafka et PostgreSQL seuls, pour développer le backend en local
 #   tiles       tâche ponctuelle : produit le fond de carte et le graphe routier (accès réseau requis)
@@ -77,6 +77,10 @@ services:
       DATABASE_USER: supervision
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env (voir .env.example)}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Charge estimée des tronçons : chemin DANS le conteneur du graphe produit par le profil « tiles » (vide = inactive).
+      ASSIGNMENT_GRAPH_FILE: ${ASSIGNMENT_GRAPH_FILE:-}
+    volumes:
+      - ./cartographie/out/graph:/app/graph:ro
     depends_on:
       postgres:
         condition: service_healthy

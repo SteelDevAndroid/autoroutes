@@ -68,7 +68,7 @@ panels = [
            description="Publiés sur toll-events.rejected, sans le message brut."),
     series("Flux origine-destination (par statut, /s)",
            [target('sum by (status) (rate(toll_od_total[1m]))', "{{status}}")], 0, 12, unit="ops", stack=True,
-           description="RECORDED : flux observé ; ENTRY_MISSING : système ouvert ou champ absent ; ENTRY_UNKNOWN : gare d'entrée inconnue."),
+           description="RECORDED : flux observé ; OPEN_SYSTEM : sortie en système ouvert (pas d'origine attendue) ; ENTRY_MISSING : origine absente en système fermé ; ENTRY_UNKNOWN : gare d'entrée inconnue."),
     series("Retards (watermark et consommateur)",
            [target("toll_watermark_lag_seconds", "watermark (s)"), target("toll_consumer_lag", "Kafka (messages)", "B")], 12, 12),
     series("File de l'écrivain et fenêtre de déduplication",
@@ -81,8 +81,12 @@ panels = [
            0, 28, unit="bytes"),
     series("CPU du processus et connexions base",
            [target("process_cpu_usage", "CPU (0 à 1)"), target('hikaricp_connections_active{pool="HikariPool-1"}', "connexions actives", "B")], 12, 28),
+    series("Couverture et rapprochement des flux O/D (%)",
+           [target("100 * toll_od_origin_known_ratio", "sorties en système fermé avec origine connue"),
+            target("100 * toll_od_reconciliation_gap_ratio", "écart sorties des gares / issues O/D", "B")], 0, 36, unit="percent",
+           description="Fenêtre d'une heure. L'écart doit rester nul ; critère d'acceptation de la roadmap : ± 0,5 %."),
     series("Requêtes HTTP (hors métriques, /s)",
-           [target('sum by (uri) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1m]))', "{{uri}}")], 0, 36, w=24, unit="reqps"),
+           [target('sum by (uri) (rate(http_server_requests_seconds_count{uri!~"/actuator.*"}[1m]))', "{{uri}}")], 12, 36, unit="reqps"),
 ]
 
 dashboard = {

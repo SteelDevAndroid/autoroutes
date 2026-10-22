@@ -46,6 +46,8 @@ export function startRealtime(options: RealtimeOptions): () => void {
         options.onReferentielChanged();
         return undefined;
       case 'segments':
+        ui.setSegments({ graphVersion: message.payload.graphVersion, algorithm: message.payload.algorithm, loads: message.payload.loads });
+        return undefined;
       case 'heartbeat':
         return undefined;
     }

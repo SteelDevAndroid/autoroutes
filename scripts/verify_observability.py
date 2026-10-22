@@ -19,7 +19,7 @@ import urllib.request
 PROMETHEUS = os.environ.get("PROMETHEUS_URL", "http://localhost:9090")
 GRAFANA = os.environ.get("GRAFANA_URL", "http://localhost:3000")
 AUTH = "admin:" + os.environ.get("GRAFANA_PASSWORD", "changez-moi")
-EXPECTED_RULES = 12
+EXPECTED_RULES = 14
 
 
 def get(url, auth=None):

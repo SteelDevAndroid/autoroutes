@@ -5,6 +5,7 @@ import fr.autoroutes.supervision.ingestion.EventType;
 import fr.autoroutes.supervision.ingestion.RejectReason;
 import fr.autoroutes.supervision.ingestion.TollEvent;
 import fr.autoroutes.supervision.referentiel.StationResolver;
+import java.util.function.Predicate;
 
 /**
  * Chaîne de traitement d'un événement validé, exécutée par le thread d'agrégation (écrivain unique) :
@@ -13,9 +14,15 @@ import fr.autoroutes.supervision.referentiel.StationResolver;
 public final class EventProcessor {
 
     public enum OdStatus {
+        /** Entrée : pas de flux. */
         NOT_APPLICABLE,
+        /** Sortie dont la gare d'entrée est connue : flux observé. */
         RECORDED,
+        /** Sortie sans gare d'entrée à une gare en système ouvert : aucune origine attendue. */
+        OPEN_SYSTEM,
+        /** Sortie sans gare d'entrée à une gare en système fermé : anomalie de données. */
         ENTRY_MISSING,
+        /** Gare d'entrée absente de la table d'alias. */
         ENTRY_UNKNOWN
     }
 
@@ -42,9 +49,12 @@ public final class EventProcessor {
     private final AggregationState state;
     private final OdCounters od;
     private final HistoryIncrements history;
+    private final Predicate<String> openSystem;
 
+    /** @param openSystem vrai pour une gare logique en système ouvert (barrière pleine voie) : pas d'origine attendue */
     public EventProcessor(StationResolver resolver, WatermarkTracker watermarks, LatenessPolicy lateness,
-                          EventDeduplicator deduplicator, AggregationState state, OdCounters od, HistoryIncrements history) {
+                          EventDeduplicator deduplicator, AggregationState state, OdCounters od, HistoryIncrements history,
+                          Predicate<String> openSystem) {
         this.resolver = resolver;
         this.watermarks = watermarks;
         this.lateness = lateness;
@@ -52,6 +62,7 @@ public final class EventProcessor {
         this.state = state;
         this.od = od;
         this.history = history;
+        this.openSystem = openSystem;
     }
 
     public Outcome process(int partition, TollEvent event) {
@@ -97,8 +108,15 @@ public final class EventProcessor {
         if (event.type() != EventType.EXIT) {
             return OdStatus.NOT_APPLICABLE;
         }
+        var status = classifyExit(event, destinationId);
+        // Toute sortie appliquée a exactement une issue : c'est ce qui rend le rapprochement avec les sorties des gares exact.
+        od.addCoverage(status, event.eventTime(), event.vehicleCount());
+        return status;
+    }
+
+    private OdStatus classifyExit(TollEvent event, String destinationId) {
         if (event.entryStation().isEmpty()) {
-            return OdStatus.ENTRY_MISSING;
+            return openSystem.test(destinationId) ? OdStatus.OPEN_SYSTEM : OdStatus.ENTRY_MISSING;
         }
         return event.entryStation()
                 .flatMap(resolver::resolve)

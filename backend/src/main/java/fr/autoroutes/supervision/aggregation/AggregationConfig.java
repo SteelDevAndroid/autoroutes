@@ -2,6 +2,8 @@ package fr.autoroutes.supervision.aggregation;
 
 import fr.autoroutes.supervision.SupervisionProperties;
 import fr.autoroutes.supervision.ingestion.EventDeduplicator;
+import fr.autoroutes.supervision.referentiel.LogicalStation;
+import fr.autoroutes.supervision.referentiel.StationCatalog;
 import fr.autoroutes.supervision.referentiel.StationResolver;
 import java.time.Clock;
 import java.util.UUID;
@@ -46,10 +48,12 @@ class AggregationConfig {
     @Bean
     EventProcessor eventProcessor(StationResolver resolver, WatermarkTracker watermarks, EventDeduplicator deduplicator,
                                   AggregationState state, OdCounters od, HistoryIncrements history,
-                                  SupervisionProperties properties) {
+                                  SupervisionProperties properties, StationCatalog catalog) {
         var aggregation = properties.aggregation();
+        // Système ouvert = barrière pleine voie : un seul passage, sans gare d'entrée attendue (phase 1, section 6).
         return new EventProcessor(resolver, watermarks,
-                new LatenessPolicy(aggregation.allowedLateness(), aggregation.dedupHorizon()), deduplicator, state, od, history);
+                new LatenessPolicy(aggregation.allowedLateness(), aggregation.dedupHorizon()), deduplicator, state, od, history,
+                id -> catalog.find(id).map(s -> s.kind() == LogicalStation.Kind.PLEINE_VOIE).orElse(false));
     }
 
     @Bean
