@@ -5,6 +5,7 @@ test.describe('démonstration (flux simulé)', () => {
   test('affiche la carte, le bandeau simulé et l’activité des gares', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
+    page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
     await page.goto('/');
 
     await expect(page.getByRole('note')).toHaveText(/DONNÉES SIMULÉES/);

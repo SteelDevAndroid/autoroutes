@@ -1,11 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// E2E_BASE_URL : cible déjà déployée (ex. conteneur nginx, http://localhost:8080) ; sinon build de démo + vite preview.
+const externalBaseUrl = process.env.E2E_BASE_URL;
+
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: externalBaseUrl ?? 'http://localhost:4173',
     viewport: { width: 1440, height: 900 },
     trace: 'retain-on-failure',
   },
@@ -24,10 +27,12 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: 'npm run build:demo && npx vite preview --mode demo --port 4173 --strictPort',
-    url: 'http://localhost:4173',
-    timeout: 120_000,
-    reuseExistingServer: true,
-  },
+  ...(externalBaseUrl === undefined ? {
+    webServer: {
+      command: 'npm run build:demo && npx vite preview --mode demo --port 4173 --strictPort',
+      url: 'http://localhost:4173',
+      timeout: 120_000,
+      reuseExistingServer: true,
+    },
+  } : {}),
 });

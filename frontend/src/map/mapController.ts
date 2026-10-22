@@ -125,7 +125,8 @@ export class MapController {
   setKinds(kinds: ReadonlySet<StationKind>): void {
     this.whenStyleReady(() => {
       const filter: maplibregl.FilterSpecification = ['in', ['get', 'kind'], ['literal', [...kinds]]];
-      STATION_LAYERS.forEach((id) => { this.map.setFilter(id, filter); });
+      // Les libellés sont absents sans polices auto-hébergées.
+      STATION_LAYERS.filter((id) => this.map.getLayer(id) !== undefined).forEach((id) => { this.map.setFilter(id, filter); });
     });
   }
 
