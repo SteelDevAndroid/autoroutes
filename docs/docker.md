@@ -23,6 +23,7 @@ Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,moni
 |---|---|---|
 | `full` | `simulator`, `kafka`, `kafka-init`, `postgres`, `backend`, `frontend-live` | Pile applicative complète. Les événements sont **simulés** (marqués `simulated: true`) |
 | `monitoring` | `prometheus`, `grafana` | Métriques, 14 alertes, tableau de bord. À combiner avec `full` |
+| `auth` | `keycloak` | Keycloak (OIDC) de développement, royaume `supervision` importé. Avec `SUPERVISION_PROFILE=auth`, la connexion devient obligatoire pour le backend. À combiner avec `full` |
 | `demo` | `frontend` | Interface seule, flux simulé dans le navigateur, sans backend (bandeau « données simulées »). Exclusif avec `full` : même port |
 | `infra` | `kafka`, `kafka-init`, `postgres` | Développer le backend ou le simulateur hors conteneur (`localhost:29092`, `localhost:5432`) |
 | `tiles` | `tiles` (tâche ponctuelle) | Produire le fond de carte et le graphe routier |
@@ -34,6 +35,7 @@ Avec la supervision (Prometheus et Grafana) : mettre `COMPOSE_PROFILES=full,moni
 | Port | Service | Exposition |
 |---|---|---|
 | 8080 | Frontend (nginx : application, tuiles, relais de l'API et du SSE) | toutes interfaces |
+| 8180 | Keycloak (profil `auth`) | `127.0.0.1` |
 | 3000 | Grafana | `127.0.0.1` (`GRAFANA_BIND=0.0.0.0` pour l'ouvrir) |
 | 8081 | API du backend, Actuator (`/actuator/health`, `/actuator/prometheus`) | `127.0.0.1` |
 | 9090 | Prometheus | `127.0.0.1` |
@@ -52,6 +54,8 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana (**obligatoire**) | `changez-moi` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
+| `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
+| `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` (exigés par Compose pour tous les profils) | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
 | `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM` | Profil `tiles` | voir ci-dessous |
 
@@ -104,7 +108,7 @@ Après `down -v`, le backend repart sans point de reprise : il relit Kafka depui
 ## Limites connues
 
 - Kafka est un nœud unique (KRaft, facteur de réplication 1) et les liaisons sont en clair : adapté au développement et à la démonstration, pas à la production telle quelle.
-- Le frontend et Grafana n'ont pas d'authentification applicative (OIDC prévu à l'incrément 5) : Grafana n'est joignable que depuis la machine par défaut ; le frontend l'est de partout.
+- **Authentification** : sans `SUPERVISION_PROFILE=auth`, le frontend et l'API sont ouverts à qui joint le port 8080 (démonstration, développement). Avec le profil, la connexion OIDC est obligatoire (voir `docs/increment-5.md`). Grafana n'est joignable que depuis la machine par défaut.
 - Les alertes sont **évaluées** par Prometheus mais pas **acheminées** : il manque un Alertmanager (e-mail, chat, astreinte).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.

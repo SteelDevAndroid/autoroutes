@@ -169,7 +169,7 @@ jobs:
       - name: Compose valide
         run: |
           cp .env.example .env
-          for profile in demo infra full monitoring tiles; do docker compose --profile "$profile" config -q; done
+          for profile in demo infra full monitoring auth tiles; do docker compose --profile "$profile" config -q; done
       - name: Image backend
         uses: docker/build-push-action@v6
         with:
@@ -214,6 +214,11 @@ jobs:
             echo "COMPOSE_PROFILES=full,monitoring"
             echo "POSTGRES_PASSWORD=ci-$(openssl rand -hex 8)"
             echo "GRAFANA_PASSWORD=$GRAFANA_PASSWORD"
+            # Exigés par Compose pour tous les profils (interpolation de tout le fichier), inutilisés sans le profil auth.
+            echo "KEYCLOAK_ADMIN_PASSWORD=unused"
+            echo "SUPERVISION_CLIENT_SECRET=unused"
+            echo "KEYCLOAK_VIEWER_PASSWORD=unused"
+            echo "KEYCLOAK_ADMIN_USER_PASSWORD=unused"
             echo "SIMULATOR_RATE=80"
             echo "VITE_BASEMAP_URL="
             echo "VITE_MOTORWAYS_URL="
@@ -263,11 +268,84 @@ jobs:
         if: always()
         run: docker compose down -v
 
+  e2e-auth:
+    name: E2E authentification OIDC (navigateur → nginx → backend → Keycloak)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Pile avec connexion obligatoire (profils full et auth)
+        run: |
+          VIEWER_PASSWORD="ci-$(openssl rand -hex 8)"
+          ADMIN_PASSWORD="ci-$(openssl rand -hex 8)"
+          echo "E2E_VIEWER_PASSWORD=$VIEWER_PASSWORD" >> "$GITHUB_ENV"
+          echo "E2E_ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$GITHUB_ENV"
+          {
+            echo "COMPOSE_PROFILES=full,auth"
+            echo "SUPERVISION_PROFILE=auth"
+            echo "POSTGRES_PASSWORD=ci-$(openssl rand -hex 8)"
+            echo "GRAFANA_PASSWORD=ci-$(openssl rand -hex 8)"
+            echo "KEYCLOAK_ADMIN_PASSWORD=ci-$(openssl rand -hex 8)"
+            echo "SUPERVISION_CLIENT_SECRET=ci-$(openssl rand -hex 16)"
+            echo "KEYCLOAK_VIEWER_PASSWORD=$VIEWER_PASSWORD"
+            echo "KEYCLOAK_ADMIN_USER_PASSWORD=$ADMIN_PASSWORD"
+            echo "SIMULATOR_RATE=20"
+            echo "VITE_BASEMAP_URL="
+            echo "VITE_MOTORWAYS_URL="
+            echo "VITE_GLYPHS_URL="
+            echo "VITE_SPRITE_URL="
+          } > .env
+          mkdir -p cartographie/out/tiles cartographie/out/basemaps-assets
+          docker compose up -d --build
+      - name: Attente de Keycloak, du backend et du frontend
+        run: |
+          for i in $(seq 1 120); do
+            if [ "$(docker compose ps keycloak --format '{{.Health}}')" = "healthy" ] \
+               && [ "$(docker compose ps backend --format '{{.Health}}')" = "healthy" ] \
+               && curl -fsS -o /dev/null http://localhost:8080/healthz; then
+              echo "prêt après ${i} tentatives"; exit 0
+            fi
+            sleep 2
+          done
+          docker compose ps -a
+          exit 1
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npx playwright install --with-deps chromium
+        working-directory: frontend
+      # 4 scénarios : 401 sans session puis connexion, lecteur refusé en administration, CSRF de l'administrateur, déconnexion.
+      - name: E2E authentification
+        working-directory: frontend
+        env:
+          E2E_AUTH: "1"
+          E2E_BASE_URL: http://localhost:8080
+        run: npx playwright test e2e/auth.spec.ts
+      - name: Journaux des services
+        if: failure()
+        run: docker compose logs --no-color --tail=300 > compose-logs.txt || true
+      - name: Artefacts de diagnostic
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-auth
+          path: |
+            compose-logs.txt
+            frontend/test-results
+          retention-days: 7
+      - name: Arrêt de la pile
+        if: always()
+        run: docker compose down -v
+
   # Point d'entrée unique pour la protection de branche : « CI réussie ».
   ci-ok:
     name: CI réussie
     if: always()
-    needs: [backend, simulator, frontend, cartographie, observabilite, shell, docker, e2e-live]
+    needs: [backend, simulator, frontend, cartographie, observabilite, shell, docker, e2e-live, e2e-auth]
     runs-on: ubuntu-latest
     steps:
       - name: Tous les jobs sont verts

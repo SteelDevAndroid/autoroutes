@@ -14,7 +14,8 @@ public record SupervisionProperties(
         @DefaultValue Aggregation aggregation,
         @DefaultValue Stream stream,
         @DefaultValue History history,
-        @DefaultValue Assignment assignment) {
+        @DefaultValue Assignment assignment,
+        @DefaultValue Security security) {
 
     /** Fichiers produits par scripts/analyse_referentiel.py. */
     /** Chemins en chaînes : la conversion Spring vers Path passe par les ressources et refuse « ../ ». */
@@ -79,5 +80,17 @@ public record SupervisionProperties(
         public boolean enabled() {
             return !graphFile.isBlank();
         }
+    }
+
+    /**
+     * Authentification OIDC (Keycloak). Désactivée par défaut : profil de démonstration et développement, sans authentification (Q12).
+     *
+     * @param odQueriesPerMinute budget de requêtes O/D par utilisateur (ou par adresse sans authentification) : freine le
+     *                           recoupement de flux masqués par interrogations successives
+     */
+    public record Security(
+            @DefaultValue("false") boolean enabled,
+            @DefaultValue("roles") String rolesClaim,
+            @DefaultValue("120") int odQueriesPerMinute) {
     }
 }

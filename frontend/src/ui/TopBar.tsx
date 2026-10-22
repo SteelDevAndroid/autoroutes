@@ -22,6 +22,19 @@ function ConnectionBadge() {
   return <span className={`status ${tone}`} role="status" aria-live="polite">{label}</span>;
 }
 
+function Account() {
+  const me = useUiStore((s) => s.me);
+  if (me?.authenticated !== true) {
+    return null;
+  }
+  return (
+    <form method="post" action="/logout" className="account">
+      <span className="account-name" title={me.roles.join(', ')}>{me.name}</span>
+      <button type="submit" className="icon-button">Déconnexion</button>
+    </form>
+  );
+}
+
 export function TopBar({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
   const watermark = useUiStore((s) => s.watermark);
@@ -41,6 +54,7 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       <span className="topbar-spacer" />
       <div className="kpi"><span className="kpi-label">Données à</span><span className="kpi-value">{formatTime(watermark)}</span></div>
       <ConnectionBadge />
+      <Account />
     </header>
   );
 }

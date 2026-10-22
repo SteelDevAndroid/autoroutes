@@ -32,7 +32,14 @@ spring:
       acks: all
 
 server:
+  forward-headers-strategy: framework
   shutdown: graceful
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        # Lax et non Strict : le retour de Keycloak est une navigation inter-sites qui doit emporter le cookie de session.
+        same-site: lax
   compression:
     # Séries et relecture volumineuses ; jamais text/event-stream (le gzip mettrait le flux SSE en tampon).
     enabled: true
@@ -57,6 +64,10 @@ supervision:
   referentiel:
     stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
     aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
+  security:
+    # true : connexion OIDC (Keycloak) obligatoire, rôles VIEWER / ADMIN ; voir docs/increment-5.md
+    enabled: ${SUPERVISION_SECURITY_ENABLED:false}
+    roles-claim: ${SUPERVISION_ROLES_CLAIM:roles}
   assignment:
     # Graphe produit par cartographie/build.sh (out/graph/graph.json) ; vide = charge estimée des tronçons inactive.
     graph-file: ${ASSIGNMENT_GRAPH_FILE:}

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Me } from '../auth/session';
 import type { OdFilters, OdView } from '../od/odTypes';
 import { DEFAULT_OD_FILTERS, EMPTY_OD_VIEW, streamOdView } from '../od/odTypes';
 import type { FreshnessStatus, OdFlow, SegmentLoad } from '../realtime/protocol';
@@ -48,6 +49,8 @@ export interface UiState {
   /** « rest » : le serveur filtre (flux O/D lus par l'API) ; « stream » : flux SSE brut (démonstration). */
   readonly odSource: 'rest' | 'stream';
   readonly odError: string | null;
+  /** Identité connectée (null : démonstration ou chargement en cours). */
+  readonly me: Me | null;
   /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
   readonly segments: SegmentsState | null;
   readonly quality: QualityLevel;
@@ -67,6 +70,7 @@ export interface UiState {
   readonly setOdFilters: (filters: Partial<OdFilters>) => void;
   readonly setOdSource: (source: 'rest' | 'stream') => void;
   readonly setOdError: (message: string | null) => void;
+  readonly setMe: (me: Me | null) => void;
   readonly setSegments: (segments: SegmentsState) => void;
   readonly setQuality: (level: QualityLevel) => void;
   readonly setReducedMotion: (reduced: boolean) => void;
@@ -88,6 +92,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   odFilters: DEFAULT_OD_FILTERS,
   odSource: 'stream',
   odError: null,
+  me: null,
   segments: null,
   quality: 0,
   reducedMotion: false,
@@ -117,6 +122,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setOdFilters: (filters) => { set((s) => ({ odFilters: { ...s.odFilters, ...filters } })); },
   setOdSource: (odSource) => { set({ odSource }); },
   setOdError: (odError) => { set({ odError }); },
+  setMe: (me) => { set({ me }); },
   setSegments: (segments) => { set({ segments }); },
   setQuality: (quality) => { set({ quality }); },
   setReducedMotion: (reducedMotion) => { set({ reducedMotion }); },
