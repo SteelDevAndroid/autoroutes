@@ -15,6 +15,9 @@ describe('filterOptions', () => {
       features: [feature('a', '69', 'A0007, A0006'), feature('b', '13', 'A0007'), feature('c', '', 'A0001')],
     };
 
-    expect(filterOptions(stations)).toEqual({ departments: ['13', '69'], axes: ['A0001', 'A0006', 'A0007'] });
+    const { departments, axes } = filterOptions(stations);
+
+    expect(departments).toEqual(['13', '69']);
+    expect(axes.map((a) => [a.id, a.value])).toEqual([['A1', 'A0001'], ['A6', 'A0006'], ['A7', 'A0007']]);
   });
 });

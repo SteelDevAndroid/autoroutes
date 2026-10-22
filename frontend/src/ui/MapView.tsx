@@ -31,12 +31,20 @@ export function MapView({ stations, store, onReady }: {
       onSelect: (index) => { useUiStore.getState().select(index); },
       onQualityChange: (level) => { useUiStore.getState().setQuality(level); },
       onHover: (hover) => { useUiStore.getState().setHover(hover); },
+      onAxisHover: (axis) => { useUiStore.getState().setHoverAxis(axis); },
+      onAxisClick: (axis) => { useUiStore.getState().chooseAxis(axis); },
     });
     controller.setLayers(ui.layers);
     controller.setKinds(ui.kinds);
     controller.setReducedMotion(ui.reducedMotion);
+    controller.setAxisLabelsVisible(ui.layers.axes);
+    controller.setActiveAxis(ui.hoverAxis ?? (ui.odFilters.axis || null));
     const unsubscribe = useUiStore.subscribe((state, previous) => {
       if (state.layers !== previous.layers) controller.setLayers(state.layers);
+      if (state.layers.axes !== previous.layers.axes) controller.setAxisLabelsVisible(state.layers.axes);
+      if (state.hoverAxis !== previous.hoverAxis || state.odFilters.axis !== previous.odFilters.axis) {
+        controller.setActiveAxis(state.hoverAxis ?? (state.odFilters.axis || null));
+      }
       if (state.kinds !== previous.kinds) controller.setKinds(state.kinds);
       if (state.segments !== previous.segments && state.segments !== null) controller.setSegmentLoads(state.segments.loads);
       if (state.highlightedFlow !== previous.highlightedFlow) controller.setHighlightedFlow(state.highlightedFlow);

@@ -9,6 +9,7 @@ import { EMPTY_OD_VIEW } from '../od/odTypes';
 import type { OdView } from '../od/odTypes';
 import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
+import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
 import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
@@ -27,9 +28,18 @@ export interface MapControllerOptions {
   readonly onQualityChange: (level: QualityLevel) => void;
   /** Gare sous le pointeur (null : aucune). Appelé au plus une fois par image. */
   readonly onHover: (hover: HoveredStation | null) => void;
+  /** Survol (valeur du filtre « Axe », ou null en sortant) et clic sur le nom d'une autoroute. */
+  readonly onAxisHover: (axis: string | null) => void;
+  readonly onAxisClick: (axis: string) => void;
 }
 
-const STATION_LAYERS = ['stations', 'stations-halo', 'stations-selected', 'stations-label'] as const;
+const STATION_LAYERS = ['stations', 'stations-halo', 'stations-axis', 'stations-selected', 'stations-label'] as const;
+
+interface AxisLabel {
+  readonly marker: maplibregl.Marker;
+  readonly element: HTMLElement;
+  readonly value: string;
+}
 
 /** Unique point de contact avec MapLibre : React ne manipule jamais la carte directement. */
 export class MapController {
@@ -46,6 +56,14 @@ export class MapController {
   private odFeatureKeys: readonly FlowKey[] = [];
   private odCoordinates: ReadonlyMap<string, readonly [number, number]> = new Map();
   private pendingHover: HoveredStation | null | undefined;
+  private readonly axisGroups;
+  private readonly axisPositions: readonly (readonly [number, number])[];
+  private readonly axisLabels = new Map<string, AxisLabel>();
+  private axisLabelsOn = true;
+  private activeAxis: string | null = null;
+  private highlightedStations: ReadonlySet<number> = new Set();
+  private readonly options: MapControllerOptions;
+  private readonly container: HTMLElement;
 
   constructor(
     container: HTMLElement,
@@ -59,6 +77,10 @@ export class MapController {
       maplibregl.addProtocol('pmtiles', new Protocol().tile);
       pmtilesRegistered = true;
     }
+    this.options = options;
+    this.container = container;
+    this.axisGroups = buildAxisGroups(stations);
+    this.axisPositions = stations.features.map((f) => f.geometry.coordinates as [number, number]);
     this.coordinates = new Map(stations.features.map((f) => [f.properties.id, f.geometry.coordinates as [number, number]]));
     this.map = new maplibregl.Map({
       container,
@@ -84,7 +106,10 @@ export class MapController {
       container.dataset.ready = 'true';
       this.onData();
       this.renderOd();
+      this.layoutAxisLabels();
     });
+    this.map.on('moveend', () => { this.layoutAxisLabels(); });
+    this.map.on('resize', () => { this.layoutAxisLabels(); });
     // Exposé pour les tests de bout en bout et la supervision synthétique : nombre de gares effectivement dessinées.
     this.map.on('idle', () => {
       container.dataset.renderedStations = String(this.map.queryRenderedFeatures({ layers: ['stations'] }).length);
@@ -101,6 +126,83 @@ export class MapController {
     this.map.on('mousemove', 'stations', (event: MapLayerMouseEvent) => {
       const id = event.features?.[0]?.id;
       this.emitHover(typeof id === 'number' ? { index: id, x: event.point.x, y: event.point.y } : null, options);
+    });
+  }
+
+  /** Noms des autoroutes : affichés ou masqués. Quand ils sont affichés, ils remplacent la couche native de références (pas de doublon). */
+  setAxisLabelsVisible(visible: boolean): void {
+    this.axisLabelsOn = visible;
+    this.whenStyleReady(() => {
+      if (this.map.getLayer('motorways-ref') !== undefined) {
+        this.map.setLayoutProperty('motorways-ref', 'visibility', visible ? 'none' : 'visible');
+      }
+    });
+    this.layoutAxisLabels();
+  }
+
+  /**
+   * Étiquettes recalculées à chaque fin de déplacement : leur nombre croît avec le zoom et les collisions sont évitées.
+   * Les marqueurs existants sont conservés (pas de clignotement), seuls les écarts sont ajoutés ou retirés.
+   */
+  private layoutAxisLabels(): void {
+    if (!this.ready) {
+      return;
+    }
+    const wanted = this.axisLabelsOn
+      ? layoutLabels(this.axisGroups, this.axisPositions, ([lon, lat]) => { const p = this.map.project([lon, lat]); return [p.x, p.y]; },
+        this.map.getZoom(), { width: this.container.clientWidth, height: this.container.clientHeight })
+      : [];
+    const keys = new Set(wanted.map((l) => l.key));
+    for (const [key, label] of this.axisLabels) {
+      if (!keys.has(key)) {
+        label.marker.remove();
+        this.axisLabels.delete(key);
+      }
+    }
+    for (const candidate of wanted) {
+      if (this.axisLabels.has(candidate.key)) {
+        continue;
+      }
+      const element = document.createElement('div');
+      element.className = 'axis-label';
+      element.textContent = candidate.text;
+      element.dataset.axis = candidate.value;
+      // Aide visuelle à la souris et au toucher : le clavier et les lecteurs d'écran passent par la liste « Axe » du panneau.
+      element.setAttribute('aria-hidden', 'true');
+      element.addEventListener('mouseenter', () => { this.options.onAxisHover(candidate.value); });
+      element.addEventListener('mouseleave', () => { this.options.onAxisHover(null); });
+      element.addEventListener('click', (event) => { event.stopPropagation(); this.options.onAxisClick(candidate.value); });
+      const marker = new maplibregl.Marker({ element, anchor: 'bottom', offset: [0, -7] })
+        .setLngLat([candidate.lon, candidate.lat]).addTo(this.map);
+      this.axisLabels.set(candidate.key, { marker, element, value: candidate.value });
+    }
+    this.styleAxisLabels();
+  }
+
+  private styleAxisLabels(): void {
+    for (const { element, value } of this.axisLabels.values()) {
+      element.classList.toggle('axis-label-active', value === this.activeAxis);
+    }
+  }
+
+  /**
+   * Met en évidence les gares d'un axe (anneau) et estompe les autres ; `null` rétablit l'affichage.
+   * Les états sont écrits seulement pour les gares dont l'état change.
+   */
+  setActiveAxis(value: string | null): void {
+    this.activeAxis = value === '' ? null : value;
+    this.container.dataset.activeAxis = this.activeAxis ?? '';
+    this.styleAxisLabels();
+    this.whenStyleReady(() => {
+      const next = new Set(this.activeAxis === null ? [] : stationsOnAxes(this.stations, this.activeAxis));
+      const dimming = this.activeAxis !== null;
+      const wasDimming = this.highlightedStations.size > 0;
+      const touched = dimming !== wasDimming ? this.stations.features.keys() : new Set([...this.highlightedStations, ...next]).values();
+      for (const index of touched) {
+        const active = next.has(index);
+        this.map.setFeatureState({ source: SOURCE.stations, id: index }, { axis: active, dim: dimming && !active });
+      }
+      this.highlightedStations = next;
     });
   }
 
@@ -197,7 +299,7 @@ export class MapController {
           this.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         }
       };
-      ['stations', 'stations-halo', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
+      ['stations', 'stations-halo', 'stations-axis', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
       show('stations-label', visibility.stations && visibility.labels);
       show('od-flows', visibility.od);
       show('segments-load', visibility.segments);

@@ -46,3 +46,31 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 - La visite et l'aide sont en français uniquement, comme le reste de l'interface.
 - Les textes de l'aide décrivent l'état actuel du produit (seuil, fenêtres de retard, relecture sur 7 jours) : à tenir à jour avec lui.
 - Tablette en paysage entre 900 et 1 100 px : le panneau reste fixe à 300 px ; non revu.
+
+---
+
+# Noms des autoroutes sur la carte
+
+Étiquettes « A7 », « A6 »… posées sur la carte, qui mettent l'axe en évidence et s'accordent avec le filtre « Axe » des flux O/D.
+
+| Élément | Choix |
+|---|---|
+| Source | Le référentiel des gares porte l'axe de chaque gare (`A0007`, `A0007N`, `N0159`). Les codes d'une même autoroute sont **regroupés** (A0007 et A0007N → « A7 »). Aucune tuile ni police n'est nécessaire : les étiquettes sont des éléments HTML posés sur de vraies gares de l'axe. |
+| Placement | Une étiquette par axe à l'échelle du pays, davantage en zoomant (1, 2, 3, 5 puis 8 par axe), réparties le long de l'axe ; évitement des collisions en gardant les axes les mieux fournis en gares. Recalcul à chaque fin de déplacement, marqueurs conservés (pas de clignotement). |
+| Survol | Les gares de l'axe reçoivent un anneau, les autres s'estompent ; l'étiquette s'illumine. |
+| Clic | Applique le filtre **Axe** des flux O/D (la valeur regroupe tous les codes de l'axe), active la couche des flux et ouvre sa section ; un second clic retire le filtre. Choisir un axe dans la liste du panneau produit la même mise en évidence : liste et carte sont liées dans les deux sens. |
+| Panneau | Case « Noms des autoroutes » (affichés par défaut), ligne dédiée dans la légende ; la liste « Axe » affiche « A7 » au lieu de « A0007 » ; les gares (info-bulle, détail) affichent aussi les noms usuels. |
+| Accessibilité | Étiquettes `aria-hidden` (aide à la souris et au toucher) ; le clavier et les lecteurs d'écran passent par la liste « Axe » du panneau. |
+| Couche native | Quand les tuiles OSM seront produites, la couche native de références (`motorways-ref`) est masquée tant que ces étiquettes sont affichées, pour éviter les doublons. |
+
+## Vérifications
+
+- 131 tests Vitest (regroupement des codes, libellés, répartition le long de l'axe, évitement de collision et priorité, nombre d'étiquettes selon le zoom, sélection par clic et second clic, liste « Axe » regroupée).
+- E2E de démonstration (étiquettes posées, survol, sélection, masquage, légende) et E2E réel : le clic sur un nom émet bien la requête `/api/v1/od?…axis=…` et la liste « Axe » prend la valeur.
+- Vérifié visuellement (captures) : étiquettes lisibles à l'échelle du pays ; survol de l'A7 : gares de l'axe cerclées, autres estompées.
+
+## Limites
+
+- Les étiquettes sont placées **sur des gares** et non sur le tracé : sur un axe peu pourvu en gares, le nom est approximatif. Elles seront remplacées par la couche native quand le tracé OSM existera.
+- En démonstration, le clic met l'axe en évidence mais ne filtre pas les flux (le filtre est appliqué par le serveur ; le flux simulé du navigateur n'en tient pas compte).
+- Les routes nationales du référentiel (N159, N523…) sont étiquetées comme les autoroutes.

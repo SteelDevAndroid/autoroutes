@@ -1,6 +1,6 @@
 import type { LayerVisibility } from '../state/uiStore';
 
-export type LegendRowId = 'echangeur' | 'pleine-voie' | 'stale' | 'od' | 'segments';
+export type LegendRowId = 'echangeur' | 'pleine-voie' | 'stale' | 'od' | 'segments' | 'axes';
 
 /** La légende ne décrit que ce qui est affiché : une ligne par couche active, dans l'ordre de lecture. */
 export function legendRows(layers: LayerVisibility, kinds: { echangeur: boolean; pleineVoie: boolean }): LegendRowId[] {
@@ -10,6 +10,7 @@ export function legendRows(layers: LayerVisibility, kinds: { echangeur: boolean;
     if (kinds.pleineVoie) rows.push('pleine-voie');
     rows.push('stale');
   }
+  if (layers.axes) rows.push('axes');
   if (layers.od) rows.push('od');
   if (layers.segments) rows.push('segments');
   return rows;

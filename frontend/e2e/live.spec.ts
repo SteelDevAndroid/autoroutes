@@ -118,4 +118,19 @@ test.describe('flux réel (backend + simulateur)', () => {
     await expect(panel.getByTestId('segments-info')).toContainText('tronçons', { timeout: 90_000 });
     expect(errors).toEqual([]);
   });
+
+  test('clic sur le nom d’une autoroute : filtre « Axe » appliqué côté serveur', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+    const labels = page.locator('.axis-label[data-axis]');
+    await expect.poll(async () => labels.count(), { timeout: 15_000 }).toBeGreaterThan(10);
+    const axis = await labels.first().getAttribute('data-axis');
+
+    const request = page.waitForRequest((r) => r.url().includes('/api/v1/od?') && r.url().includes(`axis=${encodeURIComponent(axis ?? '')}`));
+    await labels.first().click();
+    await request;
+
+    await expect(page.getByLabel('Axe')).toHaveValue(axis ?? '');
+    await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
+  });
 });

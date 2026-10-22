@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
+import { formatAxes } from '../map/axes';
 import { formatCount, formatTime } from './format';
 import { tooltipPosition } from './tooltipPosition';
 import { useStoreVersion } from './useStoreVersion';
@@ -34,7 +35,7 @@ export function StationTooltip({ stations, store }: { readonly stations: Station
   return (
     <div ref={ref} className="station-tooltip" role="tooltip">
       <strong>{p.name}</strong>
-      <span className="tooltip-meta">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'} · {p.axes}</span>
+      <span className="tooltip-meta">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'} · {formatAxes(p.axes)}</span>
       <span>15 min : {formatCount(store.entries15m[hover.index] ?? 0)} entrées · {formatCount(store.exits15m[hover.index] ?? 0)} sorties</span>
       <span className={stale ? 'status-warn' : 'tooltip-meta'}>
         {stale ? 'Données périmées' : `Dernier passage ${formatTime(last === undefined || Number.isNaN(last) ? null : last)}`}

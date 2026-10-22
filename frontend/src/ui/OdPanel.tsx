@@ -1,4 +1,6 @@
 import { useMemo } from 'react';
+import { buildAxisGroups } from '../map/axes';
+import type { AxisGroup } from '../map/axes';
 import { visibleFlows } from '../od/odList';
 import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
@@ -23,15 +25,13 @@ const ROLES: readonly { readonly value: OdRole; readonly label: string }[] = [
 
 const TOP = 10;
 
-/** Valeurs distinctes triées : départements et axes proposés par le référentiel chargé. */
-export function filterOptions(stations: StationCollection): { departments: string[]; axes: string[] } {
+/** Départements et axes proposés par le référentiel chargé ; les axes sont regroupés (A0007 et A0007N sont « A7 »). */
+export function filterOptions(stations: StationCollection): { departments: string[]; axes: AxisGroup[] } {
   const departments = new Set<string>();
-  const axes = new Set<string>();
   for (const { properties } of stations.features) {
     if (properties.dept !== '') departments.add(properties.dept);
-    properties.axes.split(',').map((a) => a.trim()).filter((a) => a !== '').forEach((a) => axes.add(a));
   }
-  return { departments: [...departments].sort(), axes: [...axes].sort() };
+  return { departments: [...departments].sort(), axes: buildAxisGroups(stations) };
 }
 
 export function OdPanel({ stations, onFocusFlow }: {
@@ -76,7 +76,7 @@ export function OdPanel({ stations, onFocusFlow }: {
           <label>Axe
             <select aria-label="Axe" value={filters.axis} onChange={(e) => { setFilters({ axis: e.target.value }); }}>
               <option value="">Tous</option>
-              {options.axes.map((a) => <option key={a} value={a}>{a}</option>)}
+              {options.axes.map((a) => <option key={a.id} value={a.value}>{a.id}</option>)}
             </select>
           </label>
           <label>Le filtre porte sur

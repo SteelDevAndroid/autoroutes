@@ -243,3 +243,9 @@ button, input { font: inherit; color: inherit; }
 .tour-card .tour-step { color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin: 0; }
 .tour-actions { display: flex; align-items: center; gap: 6px; }
 .tour-spacer { flex: 1; }
+
+/* Noms des autoroutes sur la carte */
+.axis-label { background: rgb(14 17 22 / 82%); color: var(--text); border: 1px solid var(--panel-border); border-radius: 4px; padding: 0 5px;
+  font-size: 11px; font-weight: 700; line-height: 16px; letter-spacing: 0.02em; cursor: pointer; user-select: none; white-space: nowrap; }
+.axis-label:hover, .axis-label-active { background: var(--accent); color: #0e1116; border-color: var(--accent); }
+.axis-label-sample { display: inline-block; cursor: default; flex: none; }
