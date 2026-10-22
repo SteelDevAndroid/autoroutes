@@ -52,6 +52,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana (**obligatoire**) | `changez-moi` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
+| `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
 | `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM` | Profil `tiles` | voir ci-dessous |
 
 Les deux mots de passe sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :

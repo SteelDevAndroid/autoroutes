@@ -4,6 +4,7 @@ import { config } from '../config';
 import { theme } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
 import { OdPanel } from './OdPanel';
+import { SegmentsPanel } from './SegmentsPanel';
 import { ReplayPanel } from './ReplayPanel';
 import type { ReplayControls } from './ReplayPanel';
 
@@ -67,6 +68,7 @@ export function SidePanel({ stations, onFocus, onResetView, replay }: {
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </section>
       {layers.od && <OdPanel stations={stations} />}
+      {layers.segments && <SegmentsPanel />}
       {!config.demo && <ReplayPanel controls={replay} />}
       <section aria-label="Légende">
         <h2>Légende</h2>

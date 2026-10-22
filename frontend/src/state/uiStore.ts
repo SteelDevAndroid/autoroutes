@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { OdFilters, OdView } from '../od/odTypes';
 import { DEFAULT_OD_FILTERS, EMPTY_OD_VIEW, streamOdView } from '../od/odTypes';
-import type { FreshnessStatus, OdFlow } from '../realtime/protocol';
+import type { FreshnessStatus, OdFlow, SegmentLoad } from '../realtime/protocol';
 import type { ConnectionStatus } from '../realtime/streamClient';
 import type { QualityLevel } from '../animation/frameLoop';
 import type { StationKind } from '../map/referentiel';
@@ -30,6 +30,12 @@ export interface ReplayState {
   readonly error: string | null;
 }
 
+export interface SegmentsState {
+  readonly graphVersion: string;
+  readonly algorithm: string;
+  readonly loads: readonly SegmentLoad[];
+}
+
 export interface UiState {
   readonly selectedIndex: number | null;
   readonly layers: LayerVisibility;
@@ -42,6 +48,8 @@ export interface UiState {
   /** « rest » : le serveur filtre (flux O/D lus par l'API) ; « stream » : flux SSE brut (démonstration). */
   readonly odSource: 'rest' | 'stream';
   readonly odError: string | null;
+  /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
+  readonly segments: SegmentsState | null;
   readonly quality: QualityLevel;
   readonly reducedMotion: boolean;
   readonly diagnosticOpen: boolean;
@@ -59,6 +67,7 @@ export interface UiState {
   readonly setOdFilters: (filters: Partial<OdFilters>) => void;
   readonly setOdSource: (source: 'rest' | 'stream') => void;
   readonly setOdError: (message: string | null) => void;
+  readonly setSegments: (segments: SegmentsState) => void;
   readonly setQuality: (level: QualityLevel) => void;
   readonly setReducedMotion: (reduced: boolean) => void;
   readonly toggleDiagnostic: () => void;
@@ -79,6 +88,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   odFilters: DEFAULT_OD_FILTERS,
   odSource: 'stream',
   odError: null,
+  segments: null,
   quality: 0,
   reducedMotion: false,
   diagnosticOpen: false,
@@ -107,6 +117,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setOdFilters: (filters) => { set((s) => ({ odFilters: { ...s.odFilters, ...filters } })); },
   setOdSource: (odSource) => { set({ odSource }); },
   setOdError: (odError) => { set({ odError }); },
+  setSegments: (segments) => { set({ segments }); },
   setQuality: (quality) => { set({ quality }); },
   setReducedMotion: (reducedMotion) => { set({ reducedMotion }); },
   toggleDiagnostic: () => { set((s) => ({ diagnosticOpen: !s.diagnosticOpen })); },

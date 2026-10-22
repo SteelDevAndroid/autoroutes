@@ -98,4 +98,19 @@ test.describe('flux réel (backend + simulateur)', () => {
     await page.screenshot({ path: 'test-results/live-od.png' });
     expect(errors).toEqual([]);
   });
+
+  test('charge estimée des tronçons : étiquetée « estimation », alimentée par le flux', async ({ page }) => {
+    test.skip(process.env.E2E_SEGMENTS !== '1', 'E2E_SEGMENTS=1 requis (backend démarré avec ASSIGNMENT_GRAPH_FILE)');
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/');
+    await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+    await page.getByLabel('Charge des tronçons (estimée)').check();
+
+    const panel = page.getByRole('region', { name: 'Charge estimée des tronçons' });
+    await expect(panel).toContainText('Estimation');
+    await expect(panel).toContainText('pas une mesure');
+    await expect(panel.getByTestId('segments-info')).toContainText('tronçons', { timeout: 90_000 });
+    expect(errors).toEqual([]);
+  });
 });

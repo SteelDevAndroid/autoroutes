@@ -43,7 +43,7 @@ import tools.jackson.databind.json.JsonMapper;
  * l'application peut donc écrire son point de reprise final à l'arrêt.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "supervision.aggregation.checkpoint-interval=2s")
+        properties = {"supervision.aggregation.checkpoint-interval=2s", "supervision.assignment.graph-file=src/test/resources/graph-it.json"})
 class SupervisionIT {
 
     @ServiceConnection
@@ -202,6 +202,18 @@ class SupervisionIT {
                 .anySatisfy(flow -> assertThat(flow.path("destinationId").asString()).isEqualTo(destination)));
         assertThat(get("/api/v1/history/od?from=%s&to=%s&level=DEPARTMENT&department=51&role=DESTINATION".formatted(from, to))
                 .path("result").path("flows")).anySatisfy(flow -> assertThat(flow.path("originId").asString()).isEqualTo("72"));
+
+        // Charge estimée : le flux Montabon → Mont-Choisy (≥ 4 véhicules) est affecté à l'unique tronçon du graphe de test.
+        await().atMost(Duration.ofSeconds(60)).untilAsserted(() -> {
+            var segments = get("/api/v1/segments/load");
+            assertThat(segments.path("algorithm").asString()).isEqualTo("all-or-nothing-fastest-v1");
+            assertThat(segments.path("graphVersion").asString()).startsWith("graph-");
+            assertThat(segments.path("loads")).anySatisfy(load -> {
+                assertThat(load.path("segmentId").asString()).isEqualTo("it-1");
+                assertThat(load.path("vehicles").asLong()).isGreaterThanOrEqualTo(4);
+            });
+        });
+        assertThat(get("/api/v1/diagnostic").path("graph").path("attachedStations").asInt()).isGreaterThanOrEqualTo(2);
     }
 
     @Test
