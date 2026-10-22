@@ -16,5 +16,6 @@ public record CheckpointData(
         Map<Integer, Instant> watermarks,
         List<AggregationState.StationCheckpoint> stations,
         List<OdCounters.OdCheckpoint> od,
+        List<OdCounters.CoverageCheckpoint> odCoverage,
         Map<Long, long[]> dedup) {
 }

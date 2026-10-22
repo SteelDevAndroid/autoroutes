@@ -16,7 +16,7 @@ import java.util.zip.GZIPOutputStream;
 /** Format binaire versionné et compressé ; aucune désérialisation Java générique (pas de surface d'attaque). */
 public final class CheckpointCodec {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;
     private static final long NO_INSTANT = Long.MIN_VALUE;
 
     public byte[] encode(CheckpointData data) {
@@ -52,6 +52,13 @@ public final class CheckpointCodec {
                 out.writeUTF(flow.destinationId());
                 out.writeLong(flow.vehicles());
             }
+            out.writeInt(data.odCoverage().size());
+            for (var c : data.odCoverage()) {
+                out.writeLong(c.bucket());
+                for (var count : c.counts()) {
+                    out.writeLong(count);
+                }
+            }
             out.writeInt(data.dedup().size());
             for (var e : data.dedup().entrySet()) {
                 out.writeLong(e.getKey());
@@ -69,7 +76,8 @@ public final class CheckpointCodec {
     public CheckpointData decode(byte[] payload) {
         try (var in = new DataInputStream(new GZIPInputStream(new ByteArrayInputStream(payload)))) {
             var version = in.readInt();
-            if (version != VERSION) {
+            // La version 1 ne contient pas la couverture O/D : elle redémarre à vide, les flux O/D restent intacts.
+            if (version != VERSION && version != 1) {
                 throw new IllegalArgumentException("Version de point de reprise non prise en charge : " + version);
             }
             var createdAt = Instant.ofEpochMilli(in.readLong());
@@ -95,6 +103,13 @@ public final class CheckpointCodec {
             for (int i = 0, n = in.readInt(); i < n; i++) {
                 od.add(new OdCounters.OdCheckpoint(in.readLong(), in.readUTF(), in.readUTF(), in.readLong()));
             }
+            var odCoverage = new ArrayList<OdCounters.CoverageCheckpoint>();
+            if (version >= 2) {
+                for (int i = 0, n = in.readInt(); i < n; i++) {
+                    odCoverage.add(new OdCounters.CoverageCheckpoint(in.readLong(),
+                            new long[] {in.readLong(), in.readLong(), in.readLong(), in.readLong()}));
+                }
+            }
             var dedup = new HashMap<Long, long[]>();
             for (int i = 0, n = in.readInt(); i < n; i++) {
                 var minute = in.readLong();
@@ -108,7 +123,7 @@ public final class CheckpointCodec {
             if (in.read() != -1) {
                 throw new IllegalArgumentException("Point de reprise : données en excès");
             }
-            return new CheckpointData(createdAt, offsets, watermarks, stations, od, dedup);
+            return new CheckpointData(createdAt, offsets, watermarks, stations, od, odCoverage, dedup);
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

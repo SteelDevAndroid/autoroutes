@@ -294,7 +294,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     /** Sur le thread de l'écrivain : copie cohérente, l'encodage et l'écriture se font ensuite hors chemin critique. */
     private PendingCheckpoint captureCheckpoint() {
         var data = new CheckpointData(clock.instant(), Map.copyOf(nextOffsets), watermarks.export(), state.export(),
-                od.export(), deduplicator.export());
+                od.export(), od.exportCoverage(), deduplicator.export());
         var batch = failedHistory.getAndSet(HistoryBatch.EMPTY).merge(history.drain());
         var marks = List.copyOf(quarantineMarks);
         quarantineMarks.clear();
@@ -319,7 +319,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     private void restore() {
         checkpoints.latest().map(codec::decode).ifPresentOrElse(data -> {
             state.restore(data.stations());
-            od.restore(data.od());
+            od.restore(data.od(), data.odCoverage());
             deduplicator.restore(data.dedup());
             watermarks.restore(data.watermarks());
             nextOffsets.putAll(data.nextOffsets());
