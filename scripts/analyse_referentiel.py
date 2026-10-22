@@ -2,7 +2,8 @@
 
 Usage : python3 scripts/analyse_referentiel.py
 Dépendances : pandas, numpy, pyproj
-Produit : referentiel/gares-logiques-proposition.csv, referentiel/gares-logiques-a-arbitrer.csv
+Produit : referentiel/gares-logiques-proposition.csv, referentiel/gares-logiques-a-arbitrer.csv,
+          referentiel/alias-gares.csv (table nom → gare logique utilisée par le backend)
 """
 import re
 import unicodedata
@@ -83,6 +84,9 @@ def main():
             "nbVoies", "depPr", "lon", "lat", "aArbitrer"]
     gares[cols].sort_values(["gareLogiqueId", "pointId"]).to_csv(OUT / "gares-logiques-proposition.csv", sep=";", index=False)
     pd.DataFrame(pairs, columns=["cleA", "cleB", "distanceM"]).to_csv(OUT / "gares-logiques-a-arbitrer.csv", sep=";", index=False)
+    aliases = gares.assign(name=gares.nomGare.str.strip())[["name", "gareLogiqueId"]].drop_duplicates()
+    aliases = aliases.rename(columns={"gareLogiqueId": "stationId"}).sort_values("name")
+    aliases.to_csv(OUT / "alias-gares.csv", sep=";", index=False)
 
     print(f"points={len(gares)} noms={gares.nomGare.nunique()} gares logiques={len(ids)} "
           f"(Ech={gares[is_ech].cle.nunique()}, Bpv={gares[~is_ech].cle.nunique()})")
@@ -91,6 +95,7 @@ def main():
     print(f"paires de gares logiques < {NEIGHBOUR_MAX_M} m : {len(pairs)}")
     print("distance gare Ech -> diffuseur (m) :", gares[is_ech].distEchangeurM.describe(percentiles=[.5, .9, .99]).round().to_dict())
     print(f"points à arbitrer : {gares.aArbitrer.sum()}")
+    print(f"alias : {len(aliases)}")
 
 
 if __name__ == "__main__":
