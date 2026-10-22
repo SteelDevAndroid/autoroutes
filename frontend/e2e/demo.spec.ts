@@ -43,6 +43,33 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(detail).toBeHidden();
   });
 
+  test('« / » met le focus sur la recherche, qui trouve une autoroute et cadre ses gares', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('region', { name: 'Carte des gares de péage' }).waitFor();
+
+    await page.keyboard.press('/');
+    await expect(page.getByRole('searchbox')).toBeFocused();
+    await page.keyboard.type('a7');
+    await expect(page.getByRole('list', { name: 'Résultats de la recherche' }).getByRole('button').first()).toContainText('A7');
+    await page.keyboard.press('Enter');
+
+    // Choisir une autoroute active la couche des flux et ouvre sa section (le filtre « Axe » n'existe pas en démonstration).
+    await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
+    await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  test('la section « Gares les plus actives » classe les gares et ouvre leur détail', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Gares les plus actives' }).click();
+    const list = page.getByRole('list', { name: 'Gares les plus actives' });
+    await expect(list.getByRole('listitem').first()).toBeVisible({ timeout: 20_000 });
+    const name = (await list.getByRole('listitem').first().locator('.activity-name').textContent()) ?? '';
+
+    await list.getByRole('listitem').first().getByRole('button').click();
+
+    await expect(page.getByRole('region', { name: new RegExp(`Détail de la gare ${name}`) })).toBeVisible();
+  });
+
   test('affiche les flux origine → destination à la demande', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Flux origine → destination').check();

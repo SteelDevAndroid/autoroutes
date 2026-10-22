@@ -74,3 +74,26 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 - Les étiquettes sont placées **sur des gares** et non sur le tracé : sur un axe peu pourvu en gares, le nom est approximatif. Elles seront remplacées par la couche native quand le tracé OSM existera.
 - En démonstration, le clic met l'axe en évidence mais ne filtre pas les flux (le filtre est appliqué par le serveur ; le flux simulé du navigateur n'en tient pas compte).
 - Les routes nationales du référentiel (N159, N523…) sont étiquetées comme les autoroutes.
+
+---
+
+# Recherche, fiche de gare, légende chiffrée et gares les plus actives
+
+| Élément | Choix |
+|---|---|
+| Recherche | Un seul champ pour les **gares** (nom, sans accents ni casse) et les **autoroutes** (« A7 », « a 07 », « A0007 »). Axes d'abord quand le texte en désigne un, puis noms commençant par le texte, puis noms le contenant ou gares de l'axe ; 12 résultats au plus, chacun avec son axe et son département. Gare : cadrage et fiche. Autoroute : filtre « Axe » posé (jamais retiré par une seconde recherche), couche des flux activée, carte cadrée sur les gares de l'axe. |
+| Clavier | `/` met le focus sur le champ (ouvre le tiroir sur petit écran), sauf pendant une saisie ou devant une fenêtre ; ↓ descend dans les résultats, ↑ remonte, Entrée ouvre le premier, Échap vide. |
+| Fiche de gare | La fiche (fenêtres 5 min à aujourd'hui, courbe J / J-7) gagne les **principaux flux** de la gare (5 au plus, « Vers » / « Depuis »), lus dans la liste déjà chargée : mêmes filtres et même seuil de 3 véhicules que la section « Flux O/D », survol = arc mis en évidence, clic = carte cadrée. Sans la couche des flux, un bouton l'affiche ; au niveau départements, la fiche l'explique. |
+| Légende | La charge estimée a une **échelle continue** (dégradé de la carte, repères 0 / moitié / maximum arrondis à 2 chiffres, « ≥ » pour le plafond), calculée sur les mêmes charges que la carte (95e centile, comme `diffSegmentLoads`) ; l'estimation reste signalée par ses tirets. |
+| Gares les plus actives | Section « Gares les plus actives » (observé) : 8 gares au plus, classées sur 1 h, rafraîchies toutes les 10 s, avec une **courbe** des 3 dernières heures par quart d'heure (historique du serveur, rechargée toutes les minutes) ; chiffre sans courbe en démonstration et en relecture. Texte accessible : maximum et sens (hausse, baisse, stable à ±10 %). |
+
+## Vérifications
+
+- 160 tests Vitest dont la recherche (accents, graphies d'axe, classement, plafond), le clavier, les courbes, le classement, les flux de gare, l'échelle de légende.
+- E2E de démonstration : `/` puis « a7 » + Entrée, et la section des gares les plus actives jusqu'à la fiche.
+
+## Limites
+
+- **Pas de répartition par classe de véhicule** dans la fiche : le flux temps réel ne la porte pas. Les principaux flux dépendent de la couche et des filtres de la section « Flux O/D » (au plus 500 flux lus par l'API).
+- Pas de courbe par flux ni par autoroute : l'historique est par gare ; les « autoroutes les plus actives » avec courbe demanderaient un endpoint d'agrégation.
+- En démonstration, l'historique n'existe pas : le classement n'a pas de courbes.

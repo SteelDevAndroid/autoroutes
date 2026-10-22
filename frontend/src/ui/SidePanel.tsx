@@ -1,45 +1,20 @@
-import { useMemo, useState } from 'react';
+import type { AxisGroup } from '../map/axes';
 import type { StationCollection } from '../map/referentiel';
+import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import type { FlowKey } from '../state/uiStore';
+import { ActivityPanel } from './ActivityPanel';
 import { Legend } from './Legend';
 import { OdPanel } from './OdPanel';
+import { SearchBox } from './SearchBox';
 import { Section } from './Section';
 import { SegmentsPanel } from './SegmentsPanel';
 
-const normalize = (value: string): string =>
-  value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase();
-
-function Search({ stations, onFocus }: { readonly stations: StationCollection; readonly onFocus: (index: number) => void }) {
-  const [query, setQuery] = useState('');
-  const matches = useMemo(() => {
-    const q = normalize(query.trim());
-    if (q.length < 2) {
-      return [];
-    }
-    return stations.features
-      .map((feature, index) => ({ index, name: feature.properties.name, key: normalize(feature.properties.name) }))
-      .filter((s) => s.key.includes(q))
-      .slice(0, 12);
-  }, [query, stations]);
-  return (
-    <section className="search" aria-label="Recherche de gare">
-      <h2>Rechercher</h2>
-      <input id="station-search" type="search" placeholder="Nom de gare…" value={query} onChange={(e) => { setQuery(e.target.value); }} aria-label="Nom de gare" />
-      {matches.length > 0 && (
-        <ul>
-          {matches.map((m) => (
-            <li key={m.index}><button type="button" onClick={() => { onFocus(m.index); }}>{m.name}</button></li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
-
-export function SidePanel({ stations, onFocus, onFocusFlow, onResetView }: {
+export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, onResetView }: {
   readonly stations: StationCollection;
+  readonly store: StationStore;
   readonly onFocus: (index: number) => void;
+  readonly onFocusAxis: (group: AxisGroup) => void;
   readonly onFocusFlow: (flow: FlowKey) => void;
   readonly onResetView: () => void;
 }) {
@@ -53,7 +28,7 @@ export function SidePanel({ stations, onFocus, onFocusFlow, onResetView }: {
   const drawerOpen = useUiStore((s) => s.drawerOpen);
   return (
     <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel">
-      <Search stations={stations} onFocus={onFocus} />
+      <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
       <Section id="layers" title="Couches et gares">
         <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
         <label><input type="checkbox" checked={kinds.has('PLEINE_VOIE')} onChange={() => { toggleKind('PLEINE_VOIE'); }} /> Barrières pleine voie</label>
@@ -65,6 +40,7 @@ export function SidePanel({ stations, onFocus, onFocusFlow, onResetView }: {
         <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </Section>
+      <ActivityPanel stations={stations} store={store} onFocus={onFocus} />
       {layers.od && <OdPanel stations={stations} onFocusFlow={onFocusFlow} />}
       {layers.segments && <SegmentsPanel />}
       <Legend />

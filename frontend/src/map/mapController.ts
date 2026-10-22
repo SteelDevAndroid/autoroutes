@@ -338,6 +338,20 @@ export class MapController {
     this.animator.setReducedMotion(reduced);
   }
 
+  /** Cadre la carte sur l'ensemble des gares d'une autoroute. */
+  focusAxis(stationIndices: readonly number[]): void {
+    const points = stationIndices.flatMap((i) => {
+      const coordinates = this.stations.features[i]?.geometry.coordinates;
+      return coordinates === undefined ? [] : [coordinates as [number, number]];
+    });
+    if (points.length === 0) {
+      return;
+    }
+    const lons = points.map((p) => p[0]);
+    const lats = points.map((p) => p[1]);
+    this.map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]], { padding: 80, maxZoom: 9 });
+  }
+
   resetView(): void {
     this.map.fitBounds(FRANCE_BOUNDS, { padding: 24 });
   }
