@@ -65,7 +65,7 @@ Nouveaux indicateurs : `toll_segments_compute_seconds` (durée d'un cycle) et `t
 ## 5. Reste à faire
 
 - **Critère de la roadmap (validation métier sur 3 axes) : non évalué.** Les charges calculées sont celles d'un trafic **simulé** : la comparaison à des comptages réels exige les événements réels (Q4) et un jeu de comptages de référence.
-- **H21** (drapeau `concede`) : 25 395 tronçons sur 61 367 sont classés concédés ; la revue visuelle sur les sections limites (A7 urbaine, A6 au nord d'Évry) reste à faire.
+- **H21** (drapeau `concede`) : 25 395 tronçons sur 61 367 sont classés concédés. Revue sur les sections limites, à partir du graphe réel : A7 concédée de Pierre-Bénite (45,70 °N) à Septèmes-les-Vallons (43,40 °N, 5,31 °E), les tronçons urbains de Marseille (≥ 43,40 °N, 5,34 °E) sont non concédés ; A6 concédée à partir de 48,62 °N (Évry, 2,42 °E), la section parisienne est non concédée. Les limites sont cohérentes avec le réseau concédé ; un contrôle visuel sur la carte reste utile mais aucune exception n'est à verser.
 - **Voies hors `motorway`** : les gares sur routes nationales ne sont pas rattachées, et les raccords par voies express (`trunk`) manquent au graphe. Les inclure rattacherait les 5 gares et réduirait les couples sans chemin ; c'est un choix de périmètre (licence ODbL, taille du graphe) à valider.
 - **Fond de carte à z14** (4,9 Go) plutôt que z12 (1,2 Go) : à décider selon le besoin de détail à fort zoom ; au-delà de z12, MapLibre agrandit les tuiles.
 - **Image `cartographie/Dockerfile`** (Ubuntu 24.04 + `go install`) : non construite ici (limite de débit de Docker Hub puis accès réseau des conteneurs de construction) ; les mêmes commandes ont été exécutées avec succès sur l'hôte.
