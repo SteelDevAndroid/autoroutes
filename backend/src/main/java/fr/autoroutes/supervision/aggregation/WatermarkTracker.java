@@ -34,6 +34,19 @@ public final class WatermarkTracker {
                 previous.maxEventTime().isAfter(eventTime) ? previous.maxEventTime() : eventTime, now));
     }
 
+    /** Plus grand eventTime vu par partition, pour le point de reprise. */
+    public Map<Integer, Instant> export() {
+        var exported = new HashMap<Integer, Instant>();
+        partitions.forEach((partition, progress) -> exported.put(partition, progress.maxEventTime()));
+        return exported;
+    }
+
+    public void restore(Map<Integer, Instant> checkpoint) {
+        partitions.clear();
+        var now = clock.instant();
+        checkpoint.forEach((partition, maxEventTime) -> partitions.put(partition, new Progress(maxEventTime, now)));
+    }
+
     public Optional<Instant> watermark() {
         var activeSince = clock.instant().minus(idleTimeout);
         var active = partitions.values().stream()

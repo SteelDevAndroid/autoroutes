@@ -5,8 +5,9 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.TreeMap;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeMap;
 
 /**
  * Matrice origine-destination creuse, par tranche de 15 min de l'heure de SORTIE.
@@ -48,6 +49,22 @@ public final class OdCounters {
                         .thenComparing(OdFlow::destinationId))
                 .limit(limit)
                 .toList();
+    }
+
+    public List<OdCheckpoint> export() {
+        var exported = new ArrayList<OdCheckpoint>();
+        buckets.forEach((bucket, counts) -> counts.forEach((key, vehicles) ->
+                exported.add(new OdCheckpoint(bucket, key.originId(), key.destinationId(), vehicles))));
+        return exported;
+    }
+
+    public void restore(List<OdCheckpoint> checkpoint) {
+        buckets.clear();
+        checkpoint.forEach(c -> buckets.computeIfAbsent(c.bucket(), b -> new HashMap<>())
+                .put(new OdKey(c.originId(), c.destinationId()), c.vehicles()));
+    }
+
+    public record OdCheckpoint(long bucket, String originId, String destinationId, long vehicles) {
     }
 
     private static long bucketOf(Instant instant) {

@@ -33,6 +33,9 @@ public class TollEventParser {
     }
 
     public ParseResult parse(String payload) {
+        if (payload == null) {
+            return new ParseResult.Rejected(null, RejectReason.INVALID_JSON, null);
+        }
         JsonNode root;
         try {
             root = mapper.readTree(payload);

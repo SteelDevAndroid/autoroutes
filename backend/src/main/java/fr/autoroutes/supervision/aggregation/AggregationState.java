@@ -4,8 +4,11 @@ import fr.autoroutes.supervision.ingestion.EventType;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashMap;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -45,6 +48,40 @@ public final class AggregationState {
                 ring.sum(now - 59, now),
                 ring.sum(midnight, now),
                 lastEventTime.get(stationId));
+    }
+
+    public Optional<Instant> lastEventTime(String stationId) {
+        return Optional.ofNullable(lastEventTime.get(stationId));
+    }
+
+    /** Copie pour le point de reprise ; appelée par l'écrivain unique. */
+    public List<StationCheckpoint> export() {
+        var exported = new ArrayList<StationCheckpoint>(rings.size());
+        rings.forEach((id, ring) -> {
+            var minutes = new ArrayList<long[]>();
+            ring.forEachSlot((minute, in, out) -> minutes.add(new long[] {minute, in, out}));
+            exported.add(new StationCheckpoint(id, lastEventTime.get(id), List.copyOf(minutes)));
+        });
+        return exported;
+    }
+
+    public void restore(List<StationCheckpoint> checkpoint) {
+        rings.clear();
+        lastEventTime.clear();
+        dirty.clear();
+        for (var station : checkpoint) {
+            var ring = new MinuteRing();
+            station.minutes().forEach(m -> ring.restoreSlot(m[0], m[1], m[2]));
+            rings.put(station.stationId(), ring);
+            if (station.lastEventTime() != null) {
+                lastEventTime.put(station.stationId(), station.lastEventTime());
+            }
+            dirty.add(station.stationId());
+        }
+    }
+
+    /** @param minutes triplets {minute epoch, entrées, sorties} des minutes non vides */
+    public record StationCheckpoint(String stationId, Instant lastEventTime, List<long[]> minutes) {
     }
 
     public Set<String> stationIds() {

@@ -54,6 +54,18 @@ public final class EventProcessor {
 
     public Outcome process(int partition, TollEvent event) {
         watermarks.observe(partition, event.eventTime());
+        return apply(event);
+    }
+
+    /**
+     * Rejeu d'un événement sorti de quarantaine : il ne fait pas progresser le watermark,
+     * sinon un événement ancien ferait reculer le temps de référence de toutes les fenêtres.
+     */
+    public Outcome reprocess(TollEvent event) {
+        return apply(event);
+    }
+
+    private Outcome apply(TollEvent event) {
         var stationId = resolver.resolve(event.stationName());
         if (stationId.isEmpty()) {
             return new Outcome.Quarantined(event);

@@ -35,6 +35,25 @@ final class MinuteRing {
         }
     }
 
+    interface SlotConsumer {
+        void accept(long minute, long entries, long exits);
+    }
+
+    void forEachSlot(SlotConsumer consumer) {
+        for (var slot = 0; slot < SIZE; slot++) {
+            if (minuteStamp[slot] != Long.MIN_VALUE && (entries[slot] != 0 || exits[slot] != 0)) {
+                consumer.accept(minuteStamp[slot], entries[slot], exits[slot]);
+            }
+        }
+    }
+
+    void restoreSlot(long minute, long entryCount, long exitCount) {
+        var slot = (int) Math.floorMod(minute, SIZE);
+        minuteStamp[slot] = minute;
+        entries[slot] = entryCount;
+        exits[slot] = exitCount;
+    }
+
     WindowCounts sum(long fromMinuteInclusive, long toMinuteInclusive) {
         long in = 0;
         long out = 0;
