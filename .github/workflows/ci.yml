@@ -492,7 +492,8 @@ jobs:
             prefix=${{ matrix.image }}-,onlatest=true
           tags: |
             type=edge,branch=main
-            type=sha,format=short
+            # Préfixe explicite : celui du type « sha » prime sur le préfixe de `flavor`, et les 5 images écraseraient le même tag.
+            type=sha,prefix=${{ matrix.image }}-sha-,format=short
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
           labels: |
