@@ -1,0 +1,6 @@
+# Contexte de construction de l'image : seuls Dockerfile et ca/ servent (le dépôt est monté à l'exécution).
+# Sans ce fichier, out/ (tuiles, plus d'un Go) serait envoyé au démon à chaque construction.
+out
+work
+__pycache__
+*.pyc

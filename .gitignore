@@ -27,3 +27,7 @@ __pycache__/
 /.env
 cartographie/out/
 cartographie/work/
+
+# Certificats racine d'entreprise déposés pour la construction de l'image cartographique (jamais versionnés)
+cartographie/ca/*.crt
+cartographie/ca/*.pem
