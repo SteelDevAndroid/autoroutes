@@ -84,6 +84,8 @@ echo "ASSIGNMENT_GRAPH_FILE=/app/graph/graph-20261022.json" >> .env   # nom du f
 docker compose up -d backend
 ```
 
+**Réseau d'entreprise qui intercepte le TLS** : la construction de l'image échoue avec `tls: failed to verify certificate: x509: certificate signed by unknown authority` (modules Go de `pmtiles`). Déposer le certificat racine du proxy, en PEM avec l'extension `.crt`, dans `cartographie/ca/` (jamais versionné, voir son `README.md`) puis `docker compose --profile tiles build tiles` : il est installé dans les deux étapes de l'image avant tout téléchargement. Si le proxy est aussi obligatoire pour sortir (pas d'accès direct), passer ses adresses en `--build-arg HTTPS_PROXY=… --build-arg HTTP_PROXY=…` à la construction.
+
 Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Mesures de la première exécution réelle : `docs/increment-4.md`, section 4.
 
 ## Durcissement et ressources

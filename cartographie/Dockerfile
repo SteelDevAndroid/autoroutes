@@ -6,12 +6,17 @@ ARG UBUNTU_IMAGE=ubuntu:24.04
 
 FROM ${GOLANG_IMAGE} AS pmtiles
 ARG PMTILES_VERSION=v1.31.2
+# Réseau d'entreprise qui intercepte le TLS : le certificat racine du proxy (cartographie/ca/*.crt) est installé avant tout téléchargement.
+COPY ca/ /usr/local/share/ca-certificates/extra/
+RUN update-ca-certificates
 RUN go install github.com/protomaps/go-pmtiles@${PMTILES_VERSION}
 
 # tippecanoe 2.49 et osmium-tool 1.16 viennent des paquets Ubuntu 24.04 : plus de compilation depuis GitHub.
 FROM ${UBUNTU_IMAGE}
 RUN apt-get update && apt-get install -y --no-install-recommends tippecanoe osmium-tool python3 python3-pyproj curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+COPY ca/ /usr/local/share/ca-certificates/extra/
+RUN update-ca-certificates
 COPY --from=pmtiles /go/bin/go-pmtiles /usr/local/bin/pmtiles
 WORKDIR /repo
 ENTRYPOINT ["/repo/cartographie/build.sh"]
