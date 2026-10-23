@@ -1,0 +1,25 @@
+# Images publiées sur Docker Hub (compagnonsdudev/autoroutes) au lieu d'images construites sur le poste.
+#
+#   docker compose -f compose.yaml -f compose.hub.yaml pull
+#   docker compose -f compose.yaml -f compose.hub.yaml up -d --no-build
+#
+# AUTOROUTES_TAG choisit la version : « latest » (dernière version publiée), « 1.2.3 », « 1.2 » ou « edge » (dernier main).
+# Limite : l'interface publiée (frontend) embarque les adresses de tuiles par défaut (/tiles/…, voir frontend/Dockerfile) ;
+# pour d'autres adresses VITE_*, construire l'image avec compose.yaml seul. Le profil « tiles » produit toujours les tuiles
+# dans cartographie/out, servies en lecture seule par le frontend.
+services:
+  backend:
+    image: compagnonsdudev/autoroutes:backend-${AUTOROUTES_TAG:-latest}
+    pull_policy: always
+  simulator:
+    image: compagnonsdudev/autoroutes:simulator-${AUTOROUTES_TAG:-latest}
+    pull_policy: always
+  frontend-live:
+    image: compagnonsdudev/autoroutes:frontend-${AUTOROUTES_TAG:-latest}
+    pull_policy: always
+  frontend:
+    image: compagnonsdudev/autoroutes:frontend-demo-${AUTOROUTES_TAG:-latest}
+    pull_policy: always
+  tiles:
+    image: compagnonsdudev/autoroutes:cartographie-${AUTOROUTES_TAG:-latest}
+    pull_policy: always

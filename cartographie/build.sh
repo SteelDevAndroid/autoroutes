@@ -2,7 +2,8 @@
 # Chaîne cartographique reproductible : fond PMTiles, polices et sprites, couche autoroutes et graphe routier.
 # Usage (depuis la racine du dépôt) :
 #   docker build -t autoroutes-cartographie cartographie
-#   docker run --rm -v "$PWD:/repo" -e PROTOMAPS_BUILD=AAAAMMJJ autoroutes-cartographie
+#   docker run --rm -v "$PWD:/repo" autoroutes-cartographie                              # dernier build Protomaps disponible
+#   docker run --rm -v "$PWD:/repo" -e PROTOMAPS_BUILD=AAAAMMJJ autoroutes-cartographie  # build précis
 set -euo pipefail
 
 REPO=${REPO:-/repo}
@@ -10,7 +11,9 @@ OUT=${OUT:-$REPO/cartographie/out}
 WORK=${WORK:-$REPO/cartographie/work}
 BBOX=${BBOX:--5.5,41.2,10.0,51.3}
 BASEMAP_MAXZOOM=${BASEMAP_MAXZOOM:-14}
-PROTOMAPS_BUILD=${PROTOMAPS_BUILD:?PROTOMAPS_BUILD requis : date AAAAMMJJ d’un build listé sur https://maps.protomaps.com/builds}
+# Fond de carte : « latest » (défaut) = le build Protomaps le plus récent publié ; sinon une date AAAAMMJJ listée sur https://maps.protomaps.com/builds.
+PROTOMAPS_BUILD=${PROTOMAPS_BUILD:-latest}
+PROTOMAPS_BUILDS_URL=${PROTOMAPS_BUILDS_URL:-https://build-metadata.protomaps.dev/builds.json}
 # Source OSM : « single » = un extrait de la France (Geofabrik) ; « regions » = les 22 extraits régionaux d'OpenStreetMap France,
 # téléchargés en parallèle, filtrés aux autoroutes puis supprimés (utile quand Geofabrik n'est pas joignable, et peu gourmand en disque).
 OSM_MODE=${OSM_MODE:-single}
@@ -20,6 +23,15 @@ OSM_REGIONS=${OSM_REGIONS:-alsace aquitaine auvergne basse_normandie bourgogne b
 REGION_JOBS=${REGION_JOBS:-8}
 # Polices et sprites : GitHub Pages du dépôt protomaps/basemaps-assets (aucun accès à l'API GitHub requis).
 ASSETS_BASE_URL=${ASSETS_BASE_URL:-https://protomaps.github.io/basemaps-assets}
+
+if [ "$PROTOMAPS_BUILD" = "latest" ] || [ -z "$PROTOMAPS_BUILD" ]; then
+  PROTOMAPS_BUILD=$(curl -fsS --retry 3 "$PROTOMAPS_BUILDS_URL" \
+    | python3 -c 'import json, sys; print(max(b["key"] for b in json.load(sys.stdin) if b["key"].endswith(".pmtiles"))[:-len(".pmtiles")])')
+fi
+case "$PROTOMAPS_BUILD" in
+  [0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]) ;;
+  *) echo "PROTOMAPS_BUILD invalide : « $PROTOMAPS_BUILD » (attendu : latest ou AAAAMMJJ)" >&2; exit 1 ;;
+esac
 
 mkdir -p "$OUT/tiles" "$OUT/basemaps-assets" "$OUT/graph" "$WORK"
 
@@ -83,5 +95,18 @@ tippecanoe -o "$OUT/tiles/motorways.pmtiles" -l motorways --force \
   --minimum-zoom=4 --maximum-zoom=14 --simplification=4 \
   --no-feature-limit --no-tile-size-limit --attribution="© OpenStreetMap contributors (ODbL)" \
   "$WORK/segments.geojsonseq"
+
+# Traçabilité : ce qui a produit ces fichiers (jointe aux releases de tuiles).
+GRAPH_FILE=$(basename "$(find "$OUT/graph" -name 'graph-*.json' | sort | tail -1)")
+MANIFEST_BUILD=$PROTOMAPS_BUILD MANIFEST_MODE=$OSM_MODE MANIFEST_MAXZOOM=$BASEMAP_MAXZOOM MANIFEST_BBOX=$BBOX MANIFEST_GRAPH=$GRAPH_FILE \
+MANIFEST_COMMIT=${GITHUB_SHA:-} python3 -c '
+import datetime, json, os
+e = os.environ
+print(json.dumps({
+    "genereLe": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "protomapsBuild": e["MANIFEST_BUILD"], "zoomMax": int(e["MANIFEST_MAXZOOM"]), "bbox": e["MANIFEST_BBOX"],
+    "sourceOsm": e["MANIFEST_MODE"], "graphe": e["MANIFEST_GRAPH"], "commit": e["MANIFEST_COMMIT"],
+    "licences": "© OpenStreetMap contributors (ODbL) ; fond Protomaps",
+}, ensure_ascii=False, indent=2))' > "$OUT/manifest.json"
 
 ls -lh "$OUT/tiles" "$OUT/graph"

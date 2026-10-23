@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1.7
 # Build : docker build --build-arg MODE=demo|production -t autoroutes-frontend .
-FROM node:24-alpine AS build
+# Compilation sur l'architecture de la machine de build (fichiers statiques indépendants de la cible) : pas d'émulation pour l'image arm64.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund

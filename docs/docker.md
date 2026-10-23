@@ -58,7 +58,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
 | `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
-| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
+| `PROTOMAPS_BUILD` (défaut `latest` : le build le plus récent ; ou une date AAAAMMJJ), `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
 | `ALERTMANAGER_PORT` | Port publié d'Alertmanager (profil `monitoring`) | `9093` |
 
 **Tous les mots de passe ont une valeur de développement par défaut (`changez-moi`)** : un ancien `.env` auquel manque une variable ne bloque plus le démarrage. Conséquence : un secret oublié reste silencieusement `changez-moi`. Hors poste de développement, définir explicitement `POSTGRES_PASSWORD`, `GRAFANA_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD` et `KEYCLOAK_ADMIN_USER_PASSWORD` (voir `.env.example`), et ne jamais exposer Grafana, Keycloak ou le frontend à un réseau non fiable avec les valeurs par défaut.
@@ -68,12 +68,19 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 Sans tuiles, définir les quatre variables `VITE_*` vides dans `.env` (fond neutre). Pour produire le fond (accès Internet requis) :
 
 ```bash
-# PROTOMAPS_BUILD = date AAAAMMJJ d'un build listé sur https://maps.protomaps.com/builds
-echo "PROTOMAPS_BUILD=20261021" >> .env
+# Par défaut, le build Protomaps le plus récent publié ; pour en figer un : echo "PROTOMAPS_BUILD=20261021" >> .env
 docker compose --profile tiles run --rm tiles          # écrit cartographie/out/tiles et cartographie/out/basemaps-assets
 # retirer les VITE_* vides de .env, puis reconstruire le frontend :
 docker compose up -d --build frontend-live
 ```
+
+**Sans produire soi-même : tuiles générées par la CI.** Le workflow « Tuiles et graphe routier » (`.github/workflows/tuiles.yml`) produit chaque mois (le 3, et à la demande) le fond avec le **dernier build Protomaps disponible**, les tronçons, le graphe et les polices, exécute la chaîne dans l'image `cartographie/Dockerfile` puis `cartographie/verify_tiles.py` (en-têtes PMTiles, zoom, taille, graphe, **au moins 90 % des gares rattachées à moins de 500 m d'un nœud**, polices et sprites complets), et publie une release `tuiles-AAAAMMJJ` (fichiers, `manifest.json` de traçabilité, `SHA256SUMS`). Pour les installer :
+
+```bash
+scripts/fetch_tiles.sh                  # la plus récente, dans cartographie/out ; ou : scripts/fetch_tiles.sh tuiles-20261023
+```
+
+Lancement à la demande (onglet Actions → « Tuiles et graphe routier » → Run workflow) : `build` (`latest` ou une date), `osm_mode` (`single` ou `regions`), `maxzoom` (12 par défaut : au-delà d'environ 1,9 Go le fichier ne tient plus dans une release, le contrôle le signale), `publish`. Les données dérivées d'OpenStreetMap restent sous ODbL (voir `docs/increment-4.md`).
 
 Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuiles sont servies par requêtes HTTP Range, sans serveur de tuiles.
 
@@ -87,6 +94,34 @@ docker compose up -d backend
 **Réseau d'entreprise qui intercepte le TLS** : la construction de l'image échoue avec `tls: failed to verify certificate: x509: certificate signed by unknown authority` (modules Go de `pmtiles`). Déposer le certificat racine du proxy, en PEM avec l'extension `.crt`, dans `cartographie/ca/` (jamais versionné, voir son `README.md`) puis `docker compose --profile tiles build tiles` : il est installé dans les deux étapes de l'image avant tout téléchargement. Si le proxy est aussi obligatoire pour sortir (pas d'accès direct), passer ses adresses en `--build-arg HTTPS_PROXY=… --build-arg HTTP_PROXY=…` à la construction.
 
 Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Mesures de la première exécution réelle : `docs/increment-4.md`, section 4.
+
+## Images publiées (Docker Hub)
+
+Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/autoroutes`, une famille de tags par image :
+
+| Image | Tags | Plateformes |
+|---|---|---|
+| Backend | `backend-<version>` | amd64, arm64 |
+| Simulateur | `simulator-<version>` | amd64, arm64 |
+| Interface de production (nginx, tuiles par défaut `/tiles/…`) | `frontend-<version>` | amd64, arm64 |
+| Interface de démonstration (flux simulé, sans backend) | `frontend-demo-<version>` | amd64, arm64 |
+| Chaîne cartographique (tuiles et graphe) | `cartographie-<version>` | amd64 |
+
+`<version>` : `edge` et `sha-<7 caractères>` pour chaque poussée sur `main` ; `1.2.3`, `1.2` et `latest` pour une version.
+Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
+
+**Publier une version** : `git tag v1.2.3 && git push origin v1.2.3`. La CI complète s'exécute, puis, seulement si « CI réussie » est verte, le job « Publication Docker Hub » construit et pousse les cinq images. Jamais sur une pull request ni sur une autre branche que `main`.
+
+**Mise en place (une fois)** : créer un jeton d'accès Docker Hub avec écriture sur `compagnonsdudev/autoroutes` (Docker Hub → Account settings → Personal access tokens), puis, dans GitHub → Settings → Secrets and variables → Actions, les secrets `DOCKERHUB_USERNAME` (le compte propriétaire du jeton) et `DOCKERHUB_TOKEN`. Sans eux, le job le signale par un avertissement et ne publie rien (la CI reste verte).
+
+**Utiliser les images publiées** plutôt que les construire :
+
+```bash
+docker compose -f compose.yaml -f compose.hub.yaml pull
+docker compose -f compose.yaml -f compose.hub.yaml up -d --no-build     # AUTOROUTES_TAG=1.2.3 pour figer une version (défaut : latest)
+```
+
+Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour d'autres adresses `VITE_*`, construire avec `compose.yaml` seul. Les images arm64 sont construites sans émulation pour la partie compilation (jar et fichiers statiques indépendants de l'architecture) ; l'image cartographique reste amd64.
 
 ## Durcissement et ressources
 
