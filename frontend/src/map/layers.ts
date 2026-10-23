@@ -118,8 +118,23 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       paint: {
         // Flux ciblé dans la liste : plus épais ; les autres s'estompent (états posés par MapController.setHighlightedFlow).
         'line-width': ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]],
-        'line-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
+        // `fade` : apparition et disparition en fondu (états posés par MapController, voir animation/presence.ts).
+        'line-opacity': ['*', ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]],
         'line-gradient': flowGradient(theme),
+      },
+    },
+    {
+      // Tirets clairs qui avancent dans le sens origine → destination (motif changé à chaque pas, voir animation/dash.ts).
+      // line-dasharray est incompatible avec line-gradient : c'est une couche à part, au-dessus des arcs.
+      id: 'od-flows-motion',
+      type: 'line',
+      source: SOURCE.od,
+      layout: { 'line-cap': 'butt', visibility: 'none' },
+      paint: {
+        'line-color': '#FFFFFF',
+        'line-width': ['max', 1.2, ['*', ['get', 'width'], 0.4]],
+        'line-opacity': ['*', 0.85, ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]],
+        'line-dasharray': [1.5, 2.5],
       },
     },
     {

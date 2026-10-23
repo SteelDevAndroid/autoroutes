@@ -191,7 +191,7 @@ describe('Legend segment scale', () => {
 });
 
 describe('AxisFocusChip', () => {
-  it('is hidden without a search, and brings back the previous display on click', () => {
+  it('is hidden without a search, and brings back the previous display on click', async () => {
     const onBack = vi.fn();
     const { container } = render(<AxisFocusChip onBack={onBack} />);
     expect(container.textContent).toBe('');
@@ -202,16 +202,17 @@ describe('AxisFocusChip', () => {
 
     expect(onBack).toHaveBeenCalledOnce();
     expect(useUiStore.getState().odFilters.axis).toBe('');
-    expect(screen.queryByRole('status')).toBeNull();
+    // Sortie en fondu : le rappel reste un court instant à l'écran.
+    await waitFor(() => { expect(screen.queryByRole('status')).toBeNull(); });
   });
 
-  it('disappears when the axis filter is changed elsewhere', () => {
+  it('disappears when the axis filter is changed elsewhere', async () => {
     render(<AxisFocusChip onBack={vi.fn()} />);
     act(() => { useUiStore.getState().focusAxis('A7', 'A0007'); });
 
     act(() => { useUiStore.getState().setOdFilters({ axis: '' }); });
 
-    expect(screen.queryByRole('status')).toBeNull();
+    await waitFor(() => { expect(screen.queryByRole('status')).toBeNull(); });
   });
 });
 
@@ -260,6 +261,7 @@ describe('AlertBanner', () => {
       expect(screen.getByRole('region', { name: 'Alertes d’exploitation' }).textContent).toContain('Reconnexion au serveur');
 
       act(() => { useUiStore.setState({ connection: 'open' }); });
+      act(() => { vi.advanceTimersByTime(200); });
       expect(container.textContent).toBe('');
     } finally {
       vi.useRealTimers();

@@ -132,6 +132,51 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(page.getByLabel('Couleurs adaptées au daltonisme')).toBeChecked();
   });
 
+  test('les flux sont animés dans le sens de la marche, sauf avec « Réduire les animations »', async ({ page }) => {
+    await page.goto('/');
+    const map = page.getByRole('region', { name: 'Carte des gares de péage' });
+    await map.waitFor();
+    await expect(map).toHaveAttribute('data-flow-motion', 'off');
+
+    await page.getByLabel('Flux origine → destination').check();
+    // Les flux simulés arrivent quelques secondes après le démarrage : les tirets s'animent dès qu'il y en a.
+    await expect(map).toHaveAttribute('data-flow-motion', 'on', { timeout: 30_000 });
+
+    await page.getByRole('button', { name: 'Couches et gares' }).click();
+    await page.getByLabel('Réduire les animations').check();
+    await expect(map).toHaveAttribute('data-flow-motion', 'off');
+    await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', 'true');
+
+    await page.getByLabel('Réduire les animations').uncheck();
+    await expect(map).toHaveAttribute('data-flow-motion', 'on');
+  });
+
+  test('les sections du panneau se replient et se déplient, sans rester atteignables au clavier une fois fermées', async ({ page }) => {
+    await page.goto('/');
+    const layers = page.getByRole('button', { name: 'Couches et gares' });
+    await expect(layers).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByLabel('Gares d’échangeur', { exact: false }).first()).toBeVisible();
+
+    await page.getByRole('button', { name: 'Légende' }).click();
+
+    await expect(layers).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByLabel('Noms des gares')).toBeHidden();
+    await expect(page.getByText('Gare d’échangeur').last()).toBeVisible();
+  });
+
+  test('la fiche, la puce et leur fermeture passent par une transition courte', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Nom de gare').fill('La Boisse');
+    await page.getByRole('button', { name: /La Boisse/ }).first().click();
+    const detail = page.getByRole('region', { name: /Détail de la gare La Boisse/ });
+    await expect(detail).toBeVisible();
+
+    await detail.getByRole('button', { name: 'Fermer le détail' }).click();
+
+    await expect(detail).toHaveClass(/leaving/);
+    await expect(detail).toBeHidden();
+  });
+
   test('affiche les flux origine → destination à la demande', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Flux origine → destination').check();

@@ -126,3 +126,31 @@ Un changement d'interface voulu fait échouer ce job : c'est son rôle. Les imag
 - Les références sont produites sous Linux avec le Chromium de ce poste ; si la CI (navigateur Playwright) en diffère, les régénérer par le workflow à la demande.
 - Les captures n'incluent ni les chiffres simulés ni la carte : un défaut propre à la carte (couleur d'une couche, étiquettes) n'est pas couvert, seulement le HTML.
 - Le bandeau ne lit pas le diagnostic du serveur (quarantaine, rejets) : ces indicateurs restent dans Prometheus et le panneau « Diagnostic ».
+
+---
+
+# Animations
+
+Rien ne bougeait hors des cercles des gares (changement de taille en 800 ms, halo à chaque nouveau passage) et du tiroir mobile. Sept animations s'y ajoutent ; **toutes** sont coupées par « Réduire les animations » (réglage du système pris en compte au départ), et les transitions de l'interface passent par l'attribut `data-reduced-motion` de la racine (feuille de style).
+
+| # | Animation | Choix |
+|---|---|---|
+| 1 | Flux O/D animés | Des tirets clairs avancent le long de chaque arc, **dans le sens origine → destination**, épaisseur proportionnelle au volume. `line-dasharray` n'est pas animable et est incompatible avec `line-gradient` : couche à part (`od-flows-motion`) au-dessus des arcs, dont le motif change toutes les 70 ms sur 16 pas de même longueur (`animation/dash.ts`). S'arrêtent quand les flux sont masqués ou vides, onglet masqué, qualité de rendu dégradée, ou mouvement réduit. `data-flow-motion` sur la carte expose l'état aux tests. |
+| 2 | Fondu des flux et des tronçons | Un flux qui apparaît monte de 0 à 1 en 300 ms ; un flux qui disparaît garde sa géométrie le temps de son fondu (`animation/presence.ts`). Les charges de tronçons passent de l'estimation précédente à la suivante en 500 ms (`animation/loadTween.ts`) ; au-delà de 2 500 tronçons modifiés, application directe (animer autant d'états par image coûterait plus que le fondu n'apporte). |
+| 3 | Cadrage adaptatif | Durée du déplacement de caméra selon la distance (500 ms pour un voisin, logarithmique, 2,2 s au plus, `animation/flight.ts`) pour la fiche, l'autoroute, le flux et « Vue France entière » ; instantané en mouvement réduit. |
+| 4 | Compteurs | Les trois chiffres de la barre du haut glissent de l'ancienne à la nouvelle valeur en 400 ms. Le premier affichage et le départ de zéro sont immédiats (compter depuis 0 n'apprend rien). Le texte animé est `aria-hidden` ; un texte caché donne la valeur finale aux lecteurs d'écran. |
+| 5 | Entrées et sorties | Fiche de gare, puce d'autoroute et bandeau d'alertes entrent en glissant (180 ms) et sortent en fondu (150 ms) : `usePresenceValue` garde la dernière valeur le temps de la sortie ; le bouton de la puce est désactivé pendant la sortie. |
+| 6 | Accordéon fluide | Les sections du panneau se replient par la hauteur (`grid-template-rows`, 200 ms). Le contenu reste monté (état conservé) et `inert` quand la section est fermée : retiré du clavier et des lecteurs d'écran. |
+| 7 | Changement signalé | Un fond qui s'estompe une fois (1,6 s) sur un flux qui entre dans une liste (« Flux O/D », fiche de gare) ou une gare qui entre dans « Gares les plus actives ». Rien au premier affichage ni à partir d'une liste vide. |
+
+## Vérifications
+
+- 224 tests Vitest : motifs de tirets (longueur constante, avance vers l'aval), fondus (entrée, sortie, retour pendant la sortie, durée nulle), fondu des tronçons (montée, descente puis retrait, reprise sans saut), durée de déplacement, compteurs (premier affichage, depuis zéro, mouvement réduit), présence, signalement des nouveautés, accordéon.
+- E2E de démonstration : tirets actifs avec les flux puis coupés et rétablis par « Réduire les animations », sections repliées hors d'atteinte, sortie de la fiche. Les 7 captures de régression visuelle sont inchangées (animations figées, panneau identique).
+- Vérifié à l'écran : arcs de flux avec leur motif de tirets sur la démonstration.
+
+## Limites
+
+- Le mouvement des tirets est une animation du navigateur, non rejouable dans les captures ; le contrôle automatique porte sur l'état (`data-flow-motion`) et la séquence de motifs, pas sur l'aspect image par image.
+- Les tirets coûtent un changement de style de couche à environ 14 images par seconde ; ils s'éteignent d'abord quand la qualité de rendu se dégrade.
+- Les tronçons du fond OSM ne font pas l'objet d'un fondu à l'apparition des tuiles (comportement de MapLibre).

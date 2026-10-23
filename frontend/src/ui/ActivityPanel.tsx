@@ -7,6 +7,7 @@ import { useUiStore } from '../state/uiStore';
 import { EmptyState } from './EmptyState';
 import { Section } from './Section';
 import { Sparkline } from './Sparkline';
+import { useNewKeys } from './flash';
 import { formatCount } from './format';
 import { topStations } from './topStations';
 import { useStoreVersion } from './useStoreVersion';
@@ -39,17 +40,19 @@ function useSeries(stationId: string, enabled: boolean): readonly number[] {
   return enabled ? values : [];
 }
 
-function Row({ name, passages, stationId, history, onFocus }: {
+function Row({ name, passages, stationId, history, fresh, onFocus }: {
   readonly name: string;
   readonly passages: number;
   readonly stationId: string;
   readonly history: boolean;
+  /** Entrée dans le classement depuis la dernière mise à jour. */
+  readonly fresh: boolean;
   readonly onFocus: () => void;
 }) {
   const values = useSeries(stationId, history);
   return (
     <li>
-      <button type="button" className="activity-row" onClick={onFocus}>
+      <button type="button" className={`activity-row${fresh ? ' flash' : ''}`} onClick={onFocus}>
         <span className="activity-name">{name}</span>
         <Sparkline values={values} unit={`Passages par quart d’heure sur ${HOURS} h`} />
         <span className="activity-count">{formatCount(passages)}</span>
@@ -76,6 +79,7 @@ export function ActivityPanel({ stations, store, onFocus }: {
   const ranked = rows.length === 0 && version > 0 ? topStations(store, TOP) : rows;
   // La démonstration n'a pas d'historique, et la relecture montre un autre instant que « maintenant ».
   const history = !config.demo && mode === 'live';
+  const fresh = useNewKeys(ranked.map((row) => row.id));
   return (
     <Section id="activity" title="Gares les plus actives" badge={<span className="tag section-tag">observé</span>}>
       {ranked.length === 0
@@ -86,7 +90,7 @@ export function ActivityPanel({ stations, store, onFocus }: {
             <ol className="activity-list" aria-label="Gares les plus actives">
               {ranked.map((row) => (
                 <Row key={row.id} name={stations.features[row.index]?.properties.name ?? row.id} passages={row.passages}
-                  stationId={row.id} history={history} onFocus={() => { onFocus(row.index); }} />
+                  stationId={row.id} history={history} fresh={fresh.has(row.id)} onFocus={() => { onFocus(row.index); }} />
               ))}
             </ol>
           </>

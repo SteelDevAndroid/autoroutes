@@ -7,9 +7,12 @@ import { formatAxes } from '../map/axes';
 import { formatCount, formatSigned, formatTime } from './format';
 import { HistoryChart } from './HistoryChart';
 import { flowsOfStation } from './stationFlows';
+import { useNewKeys } from './flash';
+import { usePresenceValue } from './usePresenceValue';
 import { useStoreVersion } from './useStoreVersion';
 
 const TOP_FLOWS = 5;
+const EXIT_MS = 150;
 
 /** Principaux flux O/D de la gare, lus dans la liste déjà chargée : mêmes filtres, même seuil de 3 véhicules que la section « Flux O/D ». */
 function StationFlows({ stationId, stations, onFocusFlow }: {
@@ -21,6 +24,8 @@ function StationFlows({ stationId, stations, onFocusFlow }: {
   const odLayer = useUiStore((s) => s.layers.od);
   const toggleLayer = useUiStore((s) => s.toggleLayer);
   const highlight = useUiStore((s) => s.setHighlightedFlow);
+  const flows = flowsOfStation(view.flows, stationId, TOP_FLOWS);
+  const fresh = useNewKeys(flows.map((f) => `${f.direction}-${f.otherId}`));
   const names = new Map(stations.features.map((f) => [f.properties.id, f.properties.name]));
   view.nodes.forEach((n) => { names.set(n.id, n.name); });
   // Hors démonstration, la liste n'est relue par l'API que si la couche des flux est affichée.
@@ -35,7 +40,6 @@ function StationFlows({ stationId, stations, onFocusFlow }: {
   if (view.level !== 'STATION') {
     return <div className="detail-flows"><h3>Principaux flux</h3><p className="note">Les flux sont regroupés par départements : choisissez le niveau « Gares » pour voir ceux de cette gare.</p></div>;
   }
-  const flows = flowsOfStation(view.flows, stationId, TOP_FLOWS);
   return (
     <div className="detail-flows">
       <h3>Principaux flux <span className="tag section-tag">observé</span></h3>
@@ -46,8 +50,8 @@ function StationFlows({ stationId, stations, onFocusFlow }: {
             {flows.map((f) => {
               const key = f.direction === 'out' ? { originId: stationId, destinationId: f.otherId } : { originId: f.otherId, destinationId: stationId };
               return (
-                <li key={`${f.direction}-${f.otherId}`}>
-                  <button type="button" className="od-row" onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
+<li key={`${f.direction}-${f.otherId}`}>
+                  <button type="button" className={`od-row${fresh.has(`${f.direction}-${f.otherId}`) ? ' flash' : ''}`} onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
                     onFocus={() => { highlight(key); }} onBlur={() => { highlight(null); }} onClick={() => { onFocusFlow(key); }}>
                     <span className="od-route">{f.direction === 'out' ? 'Vers' : 'Depuis'} {names.get(f.otherId) ?? f.otherId}</span>
                     <span className="od-count">{formatCount(f.vehicles)} véh.</span>
@@ -67,7 +71,9 @@ export function StationDetail({ stations, store, onFocusFlow }: {
   readonly onFocusFlow: (flow: FlowKey) => void;
 }) {
   useStoreVersion(store);
-  const index = useUiStore((s) => s.selectedIndex);
+  const selected = useUiStore((s) => s.selectedIndex);
+  // À la fermeture, la dernière gare reste affichée le temps de la transition de sortie.
+  const { value: index, leaving } = usePresenceValue(selected, EXIT_MS);
   const select = useUiStore((s) => s.select);
   const staleIds = useUiStore((s) => s.freshness?.staleStations);
   const feature = index === null ? undefined : stations.features[index];
@@ -83,7 +89,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
   ];
   const stale = staleIds?.includes(p.id) ?? false;
   return (
-    <section className="detail" aria-label={`Détail de la gare ${p.name}`}>
+    <section className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
       <header>
         <div>
           <h2>{p.name}</h2>
