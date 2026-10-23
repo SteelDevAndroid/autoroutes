@@ -33,6 +33,8 @@ x-hardened: &hardened
   logging: *logging
   restart: unless-stopped
 
+# Secrets : valeurs de DÉVELOPPEMENT par défaut (« changez-moi ») quand .env ne les définit pas. À définir dans .env hors poste de
+# développement : un mot de passe oublié ne bloque plus le démarrage, il reste simplement celui-ci.
 services:
   # ───────────────────────── Application ─────────────────────────
 
@@ -76,7 +78,7 @@ services:
     environment:
       DATABASE_URL: jdbc:postgresql://postgres:5432/supervision
       DATABASE_USER: supervision
-      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env (voir .env.example)}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-changez-moi}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       # Charge estimée des tronçons : chemin DANS le conteneur du graphe produit par le profil « tiles » (vide = inactive).
       ASSIGNMENT_GRAPH_FILE: ${ASSIGNMENT_GRAPH_FILE:-}
@@ -198,7 +200,7 @@ services:
     environment:
       POSTGRES_DB: supervision
       POSTGRES_USER: supervision
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?définir POSTGRES_PASSWORD dans .env (voir .env.example)}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changez-moi}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U supervision -d supervision"]
       interval: 5s
@@ -271,7 +273,7 @@ services:
       - "${GRAFANA_BIND:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:?définir GRAFANA_PASSWORD dans .env (voir .env.example)}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-changez-moi}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_ANALYTICS_REPORTING_ENABLED: "false"
@@ -304,15 +306,15 @@ services:
       - "127.0.0.1:${KEYCLOAK_PORT:-8180}:8080"
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?définir KEYCLOAK_ADMIN_PASSWORD dans .env (profil auth)}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-changez-moi}
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}
       # Les appels serveur à serveur (jeton, clés) passent par keycloak:8080 : le nom d'hôte y est déduit de la requête.
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KC_HEALTH_ENABLED: "true"
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
-      SUPERVISION_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:?définir SUPERVISION_CLIENT_SECRET dans .env (profil auth)}
-      KEYCLOAK_VIEWER_PASSWORD: ${KEYCLOAK_VIEWER_PASSWORD:?définir KEYCLOAK_VIEWER_PASSWORD dans .env (profil auth)}
-      KEYCLOAK_ADMIN_USER_PASSWORD: ${KEYCLOAK_ADMIN_USER_PASSWORD:?définir KEYCLOAK_ADMIN_USER_PASSWORD dans .env (profil auth)}
+      SUPERVISION_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:-changez-moi}
+      KEYCLOAK_VIEWER_PASSWORD: ${KEYCLOAK_VIEWER_PASSWORD:-changez-moi}
+      KEYCLOAK_ADMIN_USER_PASSWORD: ${KEYCLOAK_ADMIN_USER_PASSWORD:-changez-moi}
     volumes:
       - ./auth/realm-supervision.json:/opt/keycloak/data/import/realm-supervision.json:ro
     healthcheck:

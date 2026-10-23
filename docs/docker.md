@@ -51,18 +51,17 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | Variable | Rôle | Défaut |
 |---|---|---|
 | `COMPOSE_PROFILES` | Profils démarrés par `docker compose up` | `full` |
-| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL (**obligatoire**) | `changez-moi` |
-| `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana (**obligatoire**) | `changez-moi` |
+| `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | `changez-moi` |
+| `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana | `changez-moi` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
-| `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` (exigés par Compose pour tous les profils) | `changez-moi` |
+| `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
 | `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
 | `ALERTMANAGER_PORT` | Port publié d'Alertmanager (profil `monitoring`) | `9093` |
 
-Les secrets sans valeur par défaut (`POSTGRES_PASSWORD`, `GRAFANA_PASSWORD` et ceux de Keycloak) sont exigés par Compose pour **tous** les profils (l'interpolation est évaluée sur tout le fichier) :
-`.env.example` fournit des valeurs de développement à changer partout ailleurs.
+**Tous les mots de passe ont une valeur de développement par défaut (`changez-moi`)** : un ancien `.env` auquel manque une variable ne bloque plus le démarrage. Conséquence : un secret oublié reste silencieusement `changez-moi`. Hors poste de développement, définir explicitement `POSTGRES_PASSWORD`, `GRAFANA_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD` et `KEYCLOAK_ADMIN_USER_PASSWORD` (voir `.env.example`), et ne jamais exposer Grafana, Keycloak ou le frontend à un réseau non fiable avec les valeurs par défaut.
 
 ## Fond de carte
 
