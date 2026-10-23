@@ -20,4 +20,22 @@ export const theme = {
   segmentRamp: ['#2B3A55', '#575D6D', '#8F8A6E', '#C8B866', '#F2D45C'],
 } as const;
 
+export type Palette = 'default' | 'cvd';
+
+/**
+ * Palette « daltonisme » (couleurs de Okabe et Ito) : bleu ciel contre vermillon pour les gares, violet rougeâtre pour les flux ;
+ * même rampe séquentielle bleu → jaune pour les tronçons, qui reste lisible sans distinguer le rouge du vert.
+ * Les états (périmé, gare sans données) ne reposent jamais sur la couleur seule : texte, contour, tirets.
+ */
+export const cvdTheme = {
+  ...theme,
+  stationEchangeur: '#56B4E9',
+  stationPleineVoie: '#D55E00',
+  odFlow: '#CC79A7',
+} as const;
+
+export type Theme = { readonly [K in keyof typeof theme]: (typeof theme)[K] extends readonly string[] ? readonly string[] : string };
+
+export const themeFor = (palette: Palette): Theme => (palette === 'cvd' ? cvdTheme : theme);
+
 export const FRANCE_BOUNDS: [[number, number], [number, number]] = [[-5.3, 41.3], [9.7, 51.2]];

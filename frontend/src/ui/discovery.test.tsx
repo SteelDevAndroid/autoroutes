@@ -6,8 +6,10 @@ import type { StationMetrics } from '../realtime/protocol';
 import { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { ActivityPanel } from './ActivityPanel';
+import { AlertBanner } from './AlertBanner';
 import { AxisFocusChip } from './AxisFocusChip';
 import { Legend } from './Legend';
+import { cvdTheme, theme } from '../map/theme';
 import { SearchBox } from './SearchBox';
 import { StationDetail } from './StationDetail';
 import { formatCount } from './format';
@@ -212,3 +214,89 @@ describe('AxisFocusChip', () => {
     expect(screen.queryByRole('status')).toBeNull();
   });
 });
+
+describe('AlertBanner', () => {
+  it('is absent when everything is fine', () => {
+    useUiStore.setState({ connection: 'open' });
+
+    const { container } = render(<AlertBanner stationCount={600} />);
+
+    expect(container.textContent).toBe('');
+  });
+
+  it('shows stale data as an alert with the critical one first, and opens the diagnostic', () => {
+    useUiStore.setState({
+      connection: 'open',
+      freshness: { status: 'STALE', watermarkLagSeconds: 600, consumerLag: 0, staleStations: Array.from({ length: 40 }, (_, i) => `S${i}`) },
+    });
+
+    render(<AlertBanner stationCount={600} />);
+    const banner = screen.getByRole('alert', { name: 'Alertes d’exploitation' });
+
+    expect(within(banner).getAllByRole('listitem').map((li) => li.textContent)).toEqual([
+      expect.stringContaining('Données périmées'), expect.stringContaining('40 gares sans données récentes'),
+    ]);
+    fireEvent.click(within(banner).getByRole('button', { name: 'Diagnostic' }));
+    expect(useUiStore.getState().diagnosticOpen).toBe(true);
+  });
+
+  it('is a polite region for warnings only', () => {
+    useUiStore.setState({ connection: 'open', freshness: { status: 'CATCHING_UP', watermarkLagSeconds: 30, consumerLag: 5, staleStations: [] } });
+
+    render(<AlertBanner stationCount={600} />);
+
+    expect(screen.getByRole('region', { name: 'Alertes d’exploitation' }).textContent).toContain('Rattrapage en cours');
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('waits a few seconds before reporting a lost connection', () => {
+    vi.useFakeTimers();
+    try {
+      useUiStore.setState({ connection: 'connecting' });
+      const { container } = render(<AlertBanner stationCount={600} />);
+      expect(container.textContent).toBe('');
+
+      act(() => { vi.advanceTimersByTime(5_100); });
+      expect(screen.getByRole('region', { name: 'Alertes d’exploitation' }).textContent).toContain('Reconnexion au serveur');
+
+      act(() => { useUiStore.setState({ connection: 'open' }); });
+      expect(container.textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps quiet during a replay', () => {
+    useUiStore.setState({ mode: 'replay', connection: 'closed' });
+
+    const { container } = render(<AlertBanner stationCount={600} />);
+
+    expect(container.textContent).toBe('');
+  });
+});
+
+describe('colorblind palette in the legend', () => {
+  it('draws the station swatches with the chosen palette', () => {
+    useUiStore.setState({ openSection: 'legend', palette: 'cvd' });
+    const { container, rerender } = render(<Legend />);
+    const swatch = () => container.querySelector<HTMLElement>('.swatch')?.style.background ?? '';
+
+    expect(swatch()).toBe(hexToRgb(cvdTheme.stationEchangeur));
+    act(() => { useUiStore.setState({ palette: 'default' }); });
+    rerender(<Legend />);
+
+    expect(swatch()).toBe(hexToRgb(theme.stationEchangeur));
+  });
+
+  it('stores the choice from the panel setting', () => {
+    useUiStore.getState().setPalette('cvd');
+
+    expect(window.localStorage.getItem('supervision.palette.v1')).toBe('cvd');
+    useUiStore.getState().setPalette('default');
+  });
+});
+
+function hexToRgb(hex: string): string {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgb(${String(r)}, ${String(g)}, ${String(b)})`;
+}

@@ -1,10 +1,13 @@
 import { layers as basemapLayers, namedFlavor } from '@protomaps/basemaps';
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 import { businessLayers, businessSources, motorwayLayers } from './layers';
-import { theme } from './theme';
+import { themeFor } from './theme';
+import type { Palette } from './theme';
 
 export interface StyleOptions {
   readonly basemapUrl: string | null;
+  /** Palette des couches métier (défaut : `default`). */
+  readonly palette?: Palette;
   readonly motorwaysUrl: string | null;
   readonly glyphsUrl: string | null;
   readonly spriteUrl: string | null;
@@ -17,6 +20,7 @@ const BASEMAP_SOURCE = 'basemap';
  * Sans fond configuré (démonstration hors ligne), un aplat neutre le remplace : les couches métier restent identiques.
  */
 export function buildStyle(options: StyleOptions): StyleSpecification {
+  const theme = themeFor(options.palette ?? 'default');
   const base: LayerSpecification[] = options.basemapUrl === null
     ? [{ id: 'background', type: 'background', paint: { 'background-color': theme.background } }]
     : basemapLayers(BASEMAP_SOURCE, namedFlavor('dark'), { lang: 'fr' });
@@ -35,8 +39,8 @@ export function buildStyle(options: StyleOptions): StyleSpecification {
     // Sans polices auto-hébergées, aucun libellé : une couche texte sans glyphs rend le style invalide.
     layers: [
       ...base,
-      ...(options.motorwaysUrl === null ? [] : motorwayLayers()),
-      ...businessLayers(),
+      ...(options.motorwaysUrl === null ? [] : motorwayLayers(theme)),
+      ...businessLayers(theme),
     ].filter((layer) => options.glyphsUrl !== null || layer.type !== 'symbol'),
   };
   if (options.glyphsUrl !== null) {

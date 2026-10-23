@@ -18,5 +18,7 @@ export default defineConfig({
     environment: 'jsdom',
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     restoreMocks: true,
+    // La feuille de style est lue telle quelle (`?raw`) par le test de contraste des couleurs de l'interface.
+    css: { include: [/styles\.css/] },
   },
 });
