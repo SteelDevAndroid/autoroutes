@@ -88,6 +88,34 @@ docker compose up -d backend
 
 Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Mesures de la première exécution réelle : `docs/increment-4.md`, section 4.
 
+## Images publiées (Docker Hub)
+
+Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/autoroutes`, une famille de tags par image :
+
+| Image | Tags | Plateformes |
+|---|---|---|
+| Backend | `backend-<version>` | amd64, arm64 |
+| Simulateur | `simulator-<version>` | amd64, arm64 |
+| Interface de production (nginx, tuiles par défaut `/tiles/…`) | `frontend-<version>` | amd64, arm64 |
+| Interface de démonstration (flux simulé, sans backend) | `frontend-demo-<version>` | amd64, arm64 |
+| Chaîne cartographique (tuiles et graphe) | `cartographie-<version>` | amd64 |
+
+`<version>` : `edge` et `sha-<7 caractères>` pour chaque poussée sur `main` ; `1.2.3`, `1.2` et `latest` pour une version.
+Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
+
+**Publier une version** : `git tag v1.2.3 && git push origin v1.2.3`. La CI complète s'exécute, puis, seulement si « CI réussie » est verte, le job « Publication Docker Hub » construit et pousse les cinq images. Jamais sur une pull request ni sur une autre branche que `main`.
+
+**Mise en place (une fois)** : créer un jeton d'accès Docker Hub avec écriture sur `compagnonsdudev/autoroutes` (Docker Hub → Account settings → Personal access tokens), puis, dans GitHub → Settings → Secrets and variables → Actions, les secrets `DOCKERHUB_USERNAME` (le compte propriétaire du jeton) et `DOCKERHUB_TOKEN`. Sans eux, le job le signale par un avertissement et ne publie rien (la CI reste verte).
+
+**Utiliser les images publiées** plutôt que les construire :
+
+```bash
+docker compose -f compose.yaml -f compose.hub.yaml pull
+docker compose -f compose.yaml -f compose.hub.yaml up -d --no-build     # AUTOROUTES_TAG=1.2.3 pour figer une version (défaut : latest)
+```
+
+Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour d'autres adresses `VITE_*`, construire avec `compose.yaml` seul. Les images arm64 sont construites sans émulation pour la partie compilation (jar et fichiers statiques indépendants de l'architecture) ; l'image cartographique reste amd64.
+
 ## Durcissement et ressources
 
 - Conteneurs applicatifs (`backend`, `simulator`, `frontend-live`, `frontend`) : système de fichiers racine en **lecture seule** (écritures dans `/tmp`), `no-new-privileges`, utilisateur non root pour le backend et le simulateur.
