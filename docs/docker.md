@@ -58,7 +58,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
 | `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` | `changez-moi` |
 | `ASSIGNMENT_GRAPH_FILE` | Graphe routier (chemin dans le conteneur, ex. `/app/graph/graph-AAAAMMJJ.json`) : active la charge estimée des tronçons. Vide = inactive | vide |
-| `PROTOMAPS_BUILD`, `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
+| `PROTOMAPS_BUILD` (défaut `latest` : le build le plus récent ; ou une date AAAAMMJJ), `TILES_BBOX`, `TILES_MAXZOOM`, `OSM_MODE`, `REGION_JOBS` | Profil `tiles`. `TILES_MAXZOOM` : 12 par défaut (**retenu**, 1,2 Go) ; 14 donne environ 4,9 Go. `OSM_MODE` : `single` (Geofabrik) ou `regions` (22 extraits d'OpenStreetMap France, `REGION_JOBS` téléchargements en parallèle) | voir ci-dessous |
 | `ALERTMANAGER_PORT` | Port publié d'Alertmanager (profil `monitoring`) | `9093` |
 
 **Tous les mots de passe ont une valeur de développement par défaut (`changez-moi`)** : un ancien `.env` auquel manque une variable ne bloque plus le démarrage. Conséquence : un secret oublié reste silencieusement `changez-moi`. Hors poste de développement, définir explicitement `POSTGRES_PASSWORD`, `GRAFANA_PASSWORD`, `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD` et `KEYCLOAK_ADMIN_USER_PASSWORD` (voir `.env.example`), et ne jamais exposer Grafana, Keycloak ou le frontend à un réseau non fiable avec les valeurs par défaut.
@@ -68,12 +68,19 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 Sans tuiles, définir les quatre variables `VITE_*` vides dans `.env` (fond neutre). Pour produire le fond (accès Internet requis) :
 
 ```bash
-# PROTOMAPS_BUILD = date AAAAMMJJ d'un build listé sur https://maps.protomaps.com/builds
-echo "PROTOMAPS_BUILD=20261021" >> .env
+# Par défaut, le build Protomaps le plus récent publié ; pour en figer un : echo "PROTOMAPS_BUILD=20261021" >> .env
 docker compose --profile tiles run --rm tiles          # écrit cartographie/out/tiles et cartographie/out/basemaps-assets
 # retirer les VITE_* vides de .env, puis reconstruire le frontend :
 docker compose up -d --build frontend-live
 ```
+
+**Sans produire soi-même : tuiles générées par la CI.** Le workflow « Tuiles et graphe routier » (`.github/workflows/tuiles.yml`) produit chaque mois (le 3, et à la demande) le fond avec le **dernier build Protomaps disponible**, les tronçons, le graphe et les polices, exécute la chaîne dans l'image `cartographie/Dockerfile` puis `cartographie/verify_tiles.py` (en-têtes PMTiles, zoom, taille, graphe, **au moins 90 % des gares rattachées à moins de 500 m d'un nœud**, polices et sprites complets), et publie une release `tuiles-AAAAMMJJ` (fichiers, `manifest.json` de traçabilité, `SHA256SUMS`). Pour les installer :
+
+```bash
+scripts/fetch_tiles.sh                  # la plus récente, dans cartographie/out ; ou : scripts/fetch_tiles.sh tuiles-20261023
+```
+
+Lancement à la demande (onglet Actions → « Tuiles et graphe routier » → Run workflow) : `build` (`latest` ou une date), `osm_mode` (`single` ou `regions`), `maxzoom` (12 par défaut : au-delà d'environ 1,9 Go le fichier ne tient plus dans une release, le contrôle le signale), `publish`. Les données dérivées d'OpenStreetMap restent sous ODbL (voir `docs/increment-4.md`).
 
 Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuiles sont servies par requêtes HTTP Range, sans serveur de tuiles.
 

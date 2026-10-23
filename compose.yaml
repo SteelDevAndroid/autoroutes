@@ -330,7 +330,7 @@ services:
 
   # ───────────────────────── Tâche ponctuelle ─────────────────────────
 
-  # docker compose --profile tiles run --rm tiles   (variables : PROTOMAPS_BUILD obligatoire, voir cartographie/build.sh)
+  # docker compose --profile tiles run --rm tiles   (variables : voir cartographie/build.sh ; PROTOMAPS_BUILD = dernier build disponible par défaut)
   # Écrit cartographie/out/tiles et cartographie/out/basemaps-assets, servis ensuite par le frontend.
   tiles:
     profiles: [tiles]
@@ -338,7 +338,8 @@ services:
       context: ./cartographie
     image: autoroutes-cartographie:latest
     environment:
-      PROTOMAPS_BUILD: ${PROTOMAPS_BUILD:-}
+      # « latest » : le build Protomaps le plus récent publié ; sinon une date AAAAMMJJ.
+      PROTOMAPS_BUILD: ${PROTOMAPS_BUILD:-latest}
       BBOX: ${TILES_BBOX:--5.5,41.2,10.0,51.3}
       BASEMAP_MAXZOOM: ${TILES_MAXZOOM:-12}
       # « regions » : extraits régionaux d'OpenStreetMap France (si Geofabrik n'est pas joignable) ; « single » : un extrait Geofabrik.

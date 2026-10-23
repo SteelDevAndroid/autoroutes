@@ -1,0 +1,114 @@
+name: Tuiles et graphe routier
+
+# Produit le fond de carte (dernier build Protomaps disponible), les tronçons d'autoroutes, le graphe routier et les polices/sprites,
+# contrôle le résultat, puis le publie dans une release « tuiles-AAAAMMJJ » (fichiers récupérables par scripts/fetch_tiles.sh).
+# Long (téléchargement du fond Protomaps et de l'extrait OSM de la France) : mensuel et à la demande, jamais à chaque pull request.
+on:
+  schedule:
+    - cron: '17 4 3 * *'
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build Protomaps (« latest » = le plus récent publié, ou une date AAAAMMJJ)
+        default: latest
+      osm_mode:
+        description: Source OpenStreetMap (single = Geofabrik, regions = 22 extraits d'OpenStreetMap France)
+        type: choice
+        options: [single, regions]
+        default: single
+      maxzoom:
+        description: Zoom maximal du fond (12 ≈ 1,2 Go ; au-delà d'environ 1,9 Go un fichier ne tient plus dans une release)
+        default: '12'
+      publish:
+        description: Publier dans une release (sinon, simples artefacts de l'exécution)
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+# Une seule production à la fois, jamais coupée en route.
+concurrency:
+  group: tuiles
+  cancel-in-progress: false
+
+jobs:
+  tuiles:
+    name: Production des tuiles et du graphe
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: write
+    env:
+      PROTOMAPS_BUILD: ${{ inputs.build || 'latest' }}
+      OSM_MODE: ${{ inputs.osm_mode || 'single' }}
+      BASEMAP_MAXZOOM: ${{ inputs.maxzoom || '12' }}
+      PUBLISH: ${{ github.event_name == 'schedule' || inputs.publish }}
+    steps:
+      - uses: actions/checkout@v4
+      # Le fond (≈ 1,2 Go), l'extrait OSM (≈ 4 Go) et ses dérivés dépassent la place libre par défaut du poste.
+      - name: Place disque
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: docker/setup-buildx-action@v3
+      - name: Image de la chaîne cartographique
+        uses: docker/build-push-action@v6
+        with:
+          context: cartographie
+          load: true
+          tags: autoroutes-cartographie:ci
+          cache-from: type=gha,scope=cartographie
+          cache-to: type=gha,scope=cartographie,mode=max
+      # Exécute la chaîne réelle dans l'image : valide à chaque production l'image elle-même (outils, versions, accès réseau).
+      - name: Production (fond Protomaps, OSM, tronçons, graphe)
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            -e PROTOMAPS_BUILD -e OSM_MODE -e BASEMAP_MAXZOOM -e GITHUB_SHA \
+            autoroutes-cartographie:ci
+      - name: Contrôle de la production
+        run: python3 cartographie/verify_tiles.py --out cartographie/out --maxzoom "$BASEMAP_MAXZOOM"
+      - name: Fichiers à publier
+        id: package
+        run: |
+          set -euo pipefail
+          out=cartographie/out
+          build=$(python3 -c 'import json; print(json.load(open("cartographie/out/manifest.json"))["protomapsBuild"])')
+          mkdir -p release
+          cp "$out/tiles/france.pmtiles" "$out/tiles/motorways.pmtiles" "$out/manifest.json" release/
+          cp "$out"/graph/graph-*.json release/
+          tar -C "$out" -czf release/basemaps-assets.tar.gz basemaps-assets
+          (cd release && sha256sum -- * > SHA256SUMS)
+          ls -lh release
+          echo "build=$build" >> "$GITHUB_OUTPUT"
+      - name: Artefacts de l'exécution
+        uses: actions/upload-artifact@v4
+        with:
+          name: tuiles-${{ steps.package.outputs.build }}
+          path: release
+          # Fichiers déjà compressés : inutile de les recompresser.
+          compression-level: 0
+          retention-days: 14
+      - name: Release tuiles-${{ steps.package.outputs.build }}
+        if: ${{ env.PUBLISH == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD: ${{ steps.package.outputs.build }}
+        run: |
+          set -euo pipefail
+          tag="tuiles-${BUILD}"
+          notes=$(mktemp)
+          {
+            echo "Fond de carte Protomaps ${BUILD} (zoom max ${BASEMAP_MAXZOOM}), source OSM : ${OSM_MODE}."
+            echo
+            echo "Récupérer et installer : \`scripts/fetch_tiles.sh\` (écrit dans \`cartographie/out\`). Empreintes : \`SHA256SUMS\`."
+            echo
+            echo "Données © OpenStreetMap contributors (ODbL) ; fond Protomaps. Le graphe est une base dérivée d'OpenStreetMap."
+          } > "$notes"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" release/* --clobber
+          else
+            gh release create "$tag" release/* --target "$GITHUB_SHA" --title "Tuiles et graphe ${BUILD}" --notes-file "$notes" --latest=false
+          fi
+          echo "### Release ${tag}" >> "$GITHUB_STEP_SUMMARY"
+          echo "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${tag}" >> "$GITHUB_STEP_SUMMARY"

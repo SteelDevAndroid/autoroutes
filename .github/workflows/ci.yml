@@ -167,7 +167,7 @@ jobs:
       - run: pip install -r scripts/requirements.txt
       - name: Tests de la préparation des autoroutes
         working-directory: cartographie
-        run: python -m unittest -v test_prepare_motorways
+        run: python -m unittest -v test_prepare_motorways test_verify_tiles
       # Les fichiers de référentiel versionnés doivent correspondre à ce que produisent les scripts : plus de dérive silencieuse.
       # Seules les colonnes d'identifiants sont comparées pour les coordonnées reprojetées (les derniers chiffres dépendent de la version de PROJ).
       - name: Référentiel à jour
@@ -208,7 +208,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - run: shellcheck cartographie/build.sh scripts/perf_history.sh
+      - run: shellcheck cartographie/build.sh scripts/perf_history.sh scripts/fetch_tiles.sh
 
   docker:
     name: Images Docker et Compose
