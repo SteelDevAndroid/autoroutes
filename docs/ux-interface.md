@@ -98,3 +98,31 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 - **Pas de répartition par classe de véhicule** dans la fiche : le flux temps réel ne la porte pas. Les principaux flux dépendent de la couche et des filtres de la section « Flux O/D » (au plus 500 flux lus par l'API).
 - Pas de courbe par flux ni par autoroute : l'historique est par gare ; les « autoroutes les plus actives » avec courbe demanderaient un endpoint d'agrégation.
 - En démonstration, l'historique n'existe pas : le classement n'a pas de courbes.
+
+---
+
+# Liens partageables, alertes d'exploitation, palette daltonisme, régression visuelle
+
+| Élément | Choix |
+|---|---|
+| Liens partageables | L'adresse reflète ce que l'on regarde : `?gare=<id>`, `axe=<codes>`, `flux=1`, `troncons=1`, `niveau=DEPARTMENT`, `dept=`, `role=`. L'ouvrir reproduit l'affichage (gare ouverte et cadrée, autoroute filtrée avec sa puce de retour). La gare et l'autoroute ajoutent une entrée d'historique (« précédent » revient à l'état d'avant) ; les autres réglages remplacent l'entrée courante. Lecture tolérante : paramètre inconnu, mal formé ou gare absente du référentiel = ignoré (un vieux lien s'ouvre toujours), valeurs validées avant d'atteindre l'API. Ne se partagent pas : la relecture, les sections ouvertes, la vue de la carte. Implémentation : `state/urlState.ts` (pur), `state/urlSync.ts`. |
+| Alertes d'exploitation | Bandeau sous la barre du haut, déduit de ce que l'interface reçoit déjà (fraîcheur et couverture O/D du flux SSE), sans appel supplémentaire : connexion perdue (après 5 s de grâce), données périmées, rattrapage, ≥ 5 % de gares sans données, origine connue < 90 % des sorties (seuil des règles Prometheus, au moins 100 sorties). Critique = `role="alert"` ; avertissement = région `aria-live="polite"`. Muet en relecture. Icône et texte doublent la couleur ; bouton « Diagnostic ». Les alertes Prometheus restent la référence (Alertmanager) : le bandeau est le rappel visible. |
+| Palette daltonisme | Case « Couleurs adaptées au daltonisme » (mémorisée dans le navigateur) : bleu ciel (échangeurs) contre vermillon (pleine voie, qui garde son contour épais), violet rougeâtre pour les flux, états en bleu / orange / orange vif au lieu de vert / ambre / rouge (couleurs de Okabe et Ito). Appliquée à chaud à la carte (`setPaintProperty`) et à la légende ; la rampe des tronçons (bleu → jaune, ordonnée en luminosité) est déjà sûre. « Réduire les animations » suit désormais le réglage du système au départ. |
+| Contrastes | Un test lit les variables de `styles.css` et vérifie le contraste WCAG AA (4,5:1) du texte et des états sur le fond et les panneaux, dans les deux palettes ; il vérifie aussi que les deux types de gares restent distincts par la luminosité et visibles sur le fond. |
+| Régression visuelle | `e2e/visual.spec.ts` compare des captures de l'interface HTML aux références de `e2e/visual.spec.ts-snapshots/` : panneau par défaut, légende (flux et tronçons), résultats de recherche, puce d'autoroute, en-tête de fiche, panneau en palette daltonisme, tiroir sur petit écran. **La carte WebGL n'est jamais comparée** (rendu logiciel variable) et la police est forcée (Liberation Sans) ; tolérance de 1,5 % de pixels. Job CI « Régression visuelle ». |
+
+## Mettre à jour les références visuelles
+
+Un changement d'interface voulu fait échouer ce job : c'est son rôle. Les images attendue, obtenue et la différence sont dans l'artefact `visuel-ecarts`. Pour accepter le nouvel aspect : `npm run e2e:visual:update` dans `frontend/` (Linux), ou lancer le workflow CI à la demande avec **update_snapshots** et télécharger l'artefact `visuel-references` ; puis relire les images dans la PR avant de committer.
+
+## Vérifications
+
+- 200 tests Vitest (URL : lecture, écriture, historique, retour ; alertes ; palette, contrastes, stockage ; bandeau ; légende).
+- E2E de démonstration : lien de gare rouvert dans un autre onglet et « précédent », lien d'autoroute, palette mémorisée au rechargement.
+- Régression visuelle : 7 captures, exécutées 5 fois de suite sans écart en local.
+
+## Limites
+
+- Les références sont produites sous Linux avec le Chromium de ce poste ; si la CI (navigateur Playwright) en diffère, les régénérer par le workflow à la demande.
+- Les captures n'incluent ni les chiffres simulés ni la carte : un défaut propre à la carte (couleur d'une couche, étiquettes) n'est pas couvert, seulement le HTML.
+- Le bandeau ne lit pas le diagnostic du serveur (quarantaine, rejets) : ces indicateurs restent dans Prometheus et le panneau « Diagnostic ».

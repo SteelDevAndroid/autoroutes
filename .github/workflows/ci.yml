@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      update_snapshots:
+        description: Régénérer les images de référence de la régression visuelle (à télécharger dans les artefacts, relire puis committer)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -105,6 +110,45 @@ jobs:
           path: |
             frontend/test-results
             frontend/playwright-report
+          retention-days: 7
+
+  visuel:
+    name: Régression visuelle (captures de l'interface)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Navigateur Playwright
+        run: npx playwright install --with-deps chromium
+      # Captures du panneau, de la légende, des puces et du tiroir (jamais de la carte WebGL), comparées aux références versionnées.
+      - name: Comparaison aux références
+        if: ${{ !inputs.update_snapshots }}
+        run: npx playwright test e2e/visual.spec.ts
+      - name: Régénération des références (exécution manuelle)
+        if: ${{ inputs.update_snapshots }}
+        run: npx playwright test e2e/visual.spec.ts --update-snapshots
+      - name: Images de référence régénérées
+        if: ${{ inputs.update_snapshots }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: visuel-references
+          path: frontend/e2e/visual.spec.ts-snapshots
+          retention-days: 7
+      - name: Écarts (attendu, obtenu, différence)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visuel-ecarts
+          path: frontend/test-results
           retention-days: 7
 
   cartographie:
