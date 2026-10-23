@@ -80,7 +80,7 @@ Geofabrik france-latest.osm.pbf
 - **Rattachement des gares au tracé** : contrôle en phase d'intégration, écart gare → tronçon le plus proche < 500 m (critère de la phase 2, section 5.4). Les écarts sont listés dans la vue diagnostic.
 - **Reprojection** Lambert 93 → WGS84 : déjà faite par `scripts/export_geojson.py` (phase 1 vérifiée **[F]**).
 - **Polices et sprites auto-hébergés** (`/basemaps-assets/`) : aucun CDN tiers. **Sans polices, le style retire automatiquement les couches de texte** pour rester valide (mode démonstration hors ligne).
-- **Exécution [F]** : la chaîne a été exécutée de bout en bout en octobre 2026 (fond Protomaps z0–12, 61 367 tronçons, graphe de 58 974 nœuds, polices et sprites auto-hébergés) ; sources, mesures et écarts dans `increment-4.md`, section 4. L'image Docker de la chaîne n'a pas pu être construite dans l'environnement de test.
+- **Exécution [F]** : la chaîne a été exécutée de bout en bout en octobre 2026 (fond Protomaps z0–12, 61 367 tronçons, graphe de 58 974 nœuds, polices et sprites auto-hébergés) ; sources, mesures et écarts dans `increment-4.md`, section 4. L'image Docker de la chaîne se construit (certificat de proxy déposé dans `cartographie/ca/` derrière un réseau qui intercepte le TLS), mais son exécution de bout en bout n'a pas été rejouée : la chaîne l'a été sur l'hôte.
 
 ### 3.3 Attributions et licences
 
