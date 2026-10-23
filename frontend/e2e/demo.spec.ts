@@ -86,6 +86,52 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(page.getByRole('region', { name: new RegExp(`Détail de la gare ${name}`) })).toBeVisible();
   });
 
+  test('le lien reflète la gare et l’autoroute, et les rouvrir reproduit l’affichage', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Nom de gare').fill('La Boisse');
+    await page.getByRole('button', { name: /La Boisse/ }).first().click();
+    await expect(page.getByRole('region', { name: /Détail de la gare La Boisse/ })).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get('gare')).not.toBeNull();
+    const shared = page.url();
+
+    // Un nouvel onglet ouvert sur ce lien montre la même gare.
+    const other = await page.context().newPage();
+    await other.goto(shared);
+    await expect(other.getByRole('region', { name: /Détail de la gare La Boisse/ })).toBeVisible();
+    await other.close();
+
+    // « Précédent » revient à l'état d'avant : plus de gare ouverte.
+    await page.goBack();
+    await expect(page.getByRole('region', { name: /Détail de la gare/ })).toBeHidden();
+    expect(new URL(page.url()).searchParams.has('gare')).toBe(false);
+  });
+
+  test('une autoroute dans le lien filtre les flux et montre le retour à la vue d’ensemble', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Nom de gare').fill('a7');
+    await page.keyboard.press('Enter');
+    await expect.poll(() => new URL(page.url()).searchParams.get('axe')).toMatch(/A0007/);
+    const shared = page.url();
+
+    const other = await page.context().newPage();
+    await other.goto(shared);
+
+    await expect(other.getByLabel('Flux origine → destination')).toBeChecked();
+    await expect(other.getByRole('button', { name: /Revenir à la vue d’ensemble/ })).toBeVisible();
+    await other.close();
+  });
+
+  test('les couleurs adaptées au daltonisme se règlent, s’appliquent et se retrouvent au rechargement', async ({ page }) => {
+    await page.goto('/');
+    await page.getByLabel('Couleurs adaptées au daltonisme').check();
+    await expect(page.locator('html')).toHaveAttribute('data-palette', 'cvd');
+
+    await page.reload();
+
+    await expect(page.locator('html')).toHaveAttribute('data-palette', 'cvd');
+    await expect(page.getByLabel('Couleurs adaptées au daltonisme')).toBeChecked();
+  });
+
   test('affiche les flux origine → destination à la demande', async ({ page }) => {
     await page.goto('/');
     await page.getByLabel('Flux origine → destination').check();

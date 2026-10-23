@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LOGIN_URL, checkSession } from './auth/session';
 import { config } from './config';
 import { DemoEventSource } from './demo/demoEventSource';
+import { buildAxisGroups } from './map/axes';
 import type { AxisGroup } from './map/axes';
 import type { MapController } from './map/mapController';
 import { loadStations } from './map/referentiel';
@@ -12,7 +13,9 @@ import { startRealtime } from './realtime/runtime';
 import { ReplaySession } from './replay/replaySession';
 import type { EventSourceFactory } from './realtime/streamClient';
 import { StationStore } from './state/stationStore';
+import { startUrlSync } from './state/urlSync';
 import { useUiStore } from './state/uiStore';
+import { AlertBanner } from './ui/AlertBanner';
 import { AxisFocusChip } from './ui/AxisFocusChip';
 import { DiagnosticPanel } from './ui/DiagnosticPanel';
 import { MapView } from './ui/MapView';
@@ -24,6 +27,7 @@ import type { ReplayControls } from './ui/ReplayBar';
 import { StationTooltip } from './ui/StationTooltip';
 import { ABOUT_HASH, AboutDialog } from './ui/AboutDialog';
 import { Tour } from './ui/Tour';
+import { applyPalette } from './ui/paletteStorage';
 import { hasSeenTour } from './ui/tourStorage';
 import { useCompact } from './ui/useCompact';
 import { TopBar } from './ui/TopBar';
@@ -219,6 +223,14 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
     controller.current?.focusAxis(group.stations);
   }, []);
 
+  /** Lien partageable : l'adresse reflète la gare, l'autoroute et les couches affichées ; l'ouvrir les reproduit. */
+  useEffect(() => startUrlSync({
+    stationIds: stations.features.map((f) => f.properties.id),
+    axisGroups: buildAxisGroups(stations),
+    showStation: (index) => { controller.current?.setSelected(index, index !== null); },
+    showAxis: (group) => { controller.current?.focusAxis(group.stations); },
+  }), [stations]);
+
   /** Échap revient à l'affichage d'avant la recherche d'une autoroute (hors saisie et fenêtres ouvertes). */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -264,6 +276,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         </div>
       )}
       <TopBar store={store} />
+      <AlertBanner stationCount={store.size} />
       <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
         onResetView={() => { controller.current?.resetView(); }} />
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); }} />}
@@ -283,6 +296,8 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
 }
 
 export function App() {
+  const palette = useUiStore((s) => s.palette);
+  useEffect(() => { applyPalette(palette); }, [palette]);
   const [stations, setStations] = useState<StationCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
 

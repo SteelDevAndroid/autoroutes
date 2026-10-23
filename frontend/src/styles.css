@@ -27,9 +27,9 @@ button, input { font: inherit; color: inherit; }
 
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
   grid-template-columns: 300px 1fr;
-  grid-template-areas: 'banner banner' 'topbar topbar' 'side map';
+  grid-template-areas: 'banner banner' 'topbar topbar' 'alerts alerts' 'side map';
   height: 100vh;
 }
 
@@ -131,7 +131,7 @@ button, input { font: inherit; color: inherit; }
 .drawer-toggle { display: none; }
 
 @media (max-width: 900px) {
-  .app { grid-template-columns: 1fr; grid-template-rows: auto auto 1fr; grid-template-areas: 'banner' 'topbar' 'map'; }
+  .app { grid-template-columns: 1fr; grid-template-rows: auto auto auto 1fr; grid-template-areas: 'banner' 'topbar' 'alerts' 'map'; }
   .topbar { flex-wrap: wrap; gap: 8px 16px; }
   .topbar h1 { font-size: 14px; flex: 1; min-width: 0; margin: 0; }
   .kpi-secondary { display: none; }
@@ -278,3 +278,21 @@ button, input { font: inherit; color: inherit; }
 /* Rappel de l'autoroute cherchée */
 .axis-focus { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); padding: 6px 10px; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); font-size: 13px; }
 @media (max-width: 900px) { .axis-focus { flex-direction: column; align-items: stretch; gap: 4px; } }
+
+/* Palette adaptée au daltonisme : bleu / orange / vermillon (Okabe-Ito) à la place de vert / ambre / rouge */
+:root[data-palette="cvd"] {
+  --accent: #56b4e9;
+  --echangeur: #56b4e9;
+  --pleine-voie: #e69f00;
+  --ok: #56b4e9;
+  --warn: #e69f00;
+  --danger: #ff8c4a;
+}
+
+/* Alertes d'exploitation */
+.alert-banner { grid-area: alerts; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 14px; border-bottom: 1px solid var(--panel-border); font-size: 13px; }
+.alert-banner ul { list-style: none; margin: 0; padding: 0; }
+.alert-critical { background: #2a1416; color: var(--danger); border-left: 4px solid var(--danger); }
+.alert-warning { background: #2a2110; color: var(--warn); border-left: 4px solid var(--warn); }
+.alert-banner strong { color: var(--text); }
+.alert-mark { font-size: 11px; }

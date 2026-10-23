@@ -24,6 +24,8 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   const toggleKind = useUiStore((s) => s.toggleKind);
   const reducedMotion = useUiStore((s) => s.reducedMotion);
   const setReducedMotion = useUiStore((s) => s.setReducedMotion);
+  const palette = useUiStore((s) => s.palette);
+  const setPalette = useUiStore((s) => s.setPalette);
   const toggleDiagnostic = useUiStore((s) => s.toggleDiagnostic);
   const drawerOpen = useUiStore((s) => s.drawerOpen);
   return (
@@ -38,6 +40,7 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
         <label><input type="checkbox" checked={layers.axes} onChange={() => { toggleLayer('axes'); }} /> Noms des autoroutes</label>
         <label><input type="checkbox" checked={layers.od} onChange={() => { toggleLayer('od'); }} /> Flux origine → destination</label>
         <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
+        <label><input type="checkbox" checked={palette === 'cvd'} onChange={(e) => { setPalette(e.target.checked ? 'cvd' : 'default'); }} /> Couleurs adaptées au daltonisme</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </Section>
       <ActivityPanel stations={stations} store={store} onFocus={onFocus} />

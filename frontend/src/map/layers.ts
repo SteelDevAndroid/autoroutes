@@ -1,6 +1,7 @@
 import type { FeatureCollection } from 'geojson';
 import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
-import { theme } from './theme';
+import { theme as defaultTheme } from './theme';
+import type { Theme } from './theme';
 
 export const SOURCE = { stations: 'stations', od: 'od', motorways: 'motorways' } as const;
 export const MOTORWAYS_SOURCE_LAYER = 'motorways';
@@ -34,14 +35,24 @@ const stationRadius = (extra: unknown = 0): unknown => [
   13, ['+', ['*', ['coalesce', ['feature-state', 'r'], 2.5], 1.6], extra],
 ];
 
-const stationColor = [
+/** Expressions MapLibre qui dépendent de la palette : réappliquées à chaud par `MapController.setPalette`. */
+export const stationColor = (theme: Theme): unknown => [
   'case',
   ['boolean', ['feature-state', 'stale'], false], theme.stationStale,
   ['==', ['get', 'kind'], 'PLEINE_VOIE'], theme.stationPleineVoie,
   theme.stationEchangeur,
 ];
 
-export function motorwayLayers(): LayerSpecification[] {
+export const segmentColor = (theme: Theme): unknown => [
+  'interpolate', ['linear'], ['coalesce', ['feature-state', 'load'], 0],
+  0, theme.segmentRamp[0], 0.25, theme.segmentRamp[1], 0.5, theme.segmentRamp[2],
+  0.75, theme.segmentRamp[3], 1, theme.segmentRamp[4],
+];
+
+export const flowGradient = (theme: Theme): unknown =>
+  ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(76,201,240,0.05)', 1, theme.odFlow];
+
+export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[] {
   // zoom doit rester l'entrée d'une interpolation de premier niveau : le facteur s'applique aux paliers, pas au résultat.
   const width = (factor = 1): unknown => ['interpolate', ['exponential', 1.5], ['zoom'], 4, 0.6 * factor, 8, 1.6 * factor, 12, 4 * factor, 15, 10 * factor];
   return [
@@ -71,11 +82,7 @@ export function motorwayLayers(): LayerSpecification[] {
       'source-layer': MOTORWAYS_SOURCE_LAYER,
       layout: { 'line-join': 'round', visibility: 'none' },
       paint: {
-        'line-color': [
-          'interpolate', ['linear'], ['coalesce', ['feature-state', 'load'], 0],
-          0, theme.segmentRamp[0], 0.25, theme.segmentRamp[1], 0.5, theme.segmentRamp[2],
-          0.75, theme.segmentRamp[3], 1, theme.segmentRamp[4],
-        ],
+        'line-color': segmentColor(theme),
         'line-width': width(1.4),
         'line-opacity': ['case', ['>', ['coalesce', ['feature-state', 'load'], 0], 0], 0.95, 0],
         // Tirets = estimation : la charge des tronçons n'est jamais présentée comme mesurée.
@@ -101,7 +108,7 @@ export function motorwayLayers(): LayerSpecification[] {
   ] as LayerSpecification[];
 }
 
-export function businessLayers(): LayerSpecification[] {
+export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[] {
   return [
     {
       id: 'od-flows',
@@ -112,7 +119,7 @@ export function businessLayers(): LayerSpecification[] {
         // Flux ciblé dans la liste : plus épais ; les autres s'estompent (états posés par MapController.setHighlightedFlow).
         'line-width': ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]],
         'line-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
-        'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(76,201,240,0.05)', 1, theme.odFlow],
+        'line-gradient': flowGradient(theme),
       },
     },
     {
@@ -138,7 +145,7 @@ export function businessLayers(): LayerSpecification[] {
       source: SOURCE.stations,
       paint: {
         'circle-radius': stationRadius(),
-        'circle-color': stationColor,
+        'circle-color': stationColor(theme),
         // Axe mis en évidence : les gares des autres axes s'estompent (états posés par MapController.setActiveAxis).
         'circle-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.15, ['boolean', ['feature-state', 'stale'], false], 0.5, 0.9],
         'circle-stroke-color': theme.stationStroke,

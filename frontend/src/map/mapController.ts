@@ -1,5 +1,5 @@
 import * as maplibregl from 'maplibre-gl';
-import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import type { ExpressionSpecification, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { Protocol } from 'pmtiles';
 import { FrameLoop } from '../animation/frameLoop';
@@ -10,7 +10,7 @@ import type { OdView } from '../od/odTypes';
 import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
-import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
+import { MOTORWAYS_SOURCE_LAYER, SOURCE, flowGradient, segmentColor, stationColor } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
 import type { SegmentLoad } from '../realtime/protocol';
@@ -18,7 +18,8 @@ import type { StationCollection, StationKind } from './referentiel';
 import { StationLayerRenderer } from './stationLayerRenderer';
 import { buildStyle } from './style';
 import type { StyleOptions } from './style';
-import { FRANCE_BOUNDS } from './theme';
+import { FRANCE_BOUNDS, themeFor } from './theme';
+import type { Palette } from './theme';
 
 let pmtilesRegistered = false;
 
@@ -331,6 +332,22 @@ export class MapController {
       const indices = new Set<number>();
       this.stations.features.forEach((f, i) => { if (stationIds.includes(f.properties.id)) { indices.add(i); } });
       this.renderer.setStale(indices);
+    });
+  }
+
+  /** Change les couleurs des couches métier sans recharger le style (gares, flux, tronçons, anneau d'axe). */
+  setPalette(palette: Palette): void {
+    this.whenStyleReady(() => {
+      const theme = themeFor(palette);
+      const paint = (layer: string, property: 'circle-color' | 'circle-stroke-color' | 'line-gradient' | 'line-color', value: unknown) => {
+        if (this.map.getLayer(layer) !== undefined) {
+          this.map.setPaintProperty(layer, property, value as ExpressionSpecification | string);
+        }
+      };
+      paint('stations', 'circle-color', stationColor(theme));
+      paint('stations-axis', 'circle-stroke-color', theme.odFlow);
+      paint('od-flows', 'line-gradient', flowGradient(theme));
+      paint('segments-load', 'line-color', segmentColor(theme));
     });
   }
 

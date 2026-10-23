@@ -6,6 +6,8 @@ import type { FreshnessStatus, OdFlow, SegmentLoad } from '../realtime/protocol'
 import type { ConnectionStatus } from '../realtime/streamClient';
 import type { QualityLevel } from '../animation/frameLoop';
 import type { StationKind } from '../map/referentiel';
+import type { Palette } from '../map/theme';
+import { loadPalette, savePalette } from '../ui/paletteStorage';
 import type { ReplayStatus } from '../replay/replaySession';
 
 export interface LayerVisibility {
@@ -97,6 +99,8 @@ export interface UiState {
   readonly hoverAxis: string | null;
   readonly quality: QualityLevel;
   readonly reducedMotion: boolean;
+  /** Palette des couleurs métier : `cvd` = adaptée au daltonisme (mémorisée dans le navigateur). */
+  readonly palette: Palette;
   readonly diagnosticOpen: boolean;
   readonly resyncCount: number;
   readonly mode: Mode;
@@ -130,6 +134,7 @@ export interface UiState {
   readonly setSegments: (segments: SegmentsState) => void;
   readonly setQuality: (level: QualityLevel) => void;
   readonly setReducedMotion: (reduced: boolean) => void;
+  readonly setPalette: (palette: Palette) => void;
   readonly toggleDiagnostic: () => void;
   readonly countResync: () => void;
   readonly setMode: (mode: Mode) => void;
@@ -151,7 +156,9 @@ export const useUiStore = create<UiState>()((set, get) => ({
   me: null,
   segments: null,
   quality: 0,
-  reducedMotion: false,
+  // Le réglage du système (« réduire les animations ») s'applique d'emblée ; la case du panneau le modifie ensuite.
+  reducedMotion: typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+  palette: typeof window === 'undefined' ? 'default' : loadPalette(),
   diagnosticOpen: false,
   resyncCount: 0,
   mode: 'live',
@@ -238,6 +245,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setSegments: (segments) => { set({ segments }); },
   setQuality: (quality) => { set({ quality }); },
   setReducedMotion: (reducedMotion) => { set({ reducedMotion }); },
+  setPalette: (palette) => { savePalette(palette); set({ palette }); },
   toggleDiagnostic: () => { set((s) => ({ diagnosticOpen: !s.diagnosticOpen })); },
   countResync: () => { set((s) => ({ resyncCount: s.resyncCount + 1 })); },
   setMode: (mode) => { set({ mode }); },

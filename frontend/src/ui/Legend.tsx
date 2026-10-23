@@ -1,4 +1,4 @@
-import { theme } from '../map/theme';
+import { themeFor } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
 import { Section } from './Section';
 import { formatCount } from './format';
@@ -7,6 +7,7 @@ import { legendRows, segmentScale } from './legend';
 /** Légende contextuelle : une ligne par couche affichée, avec la nature (observé ou estimé) de ce qu'elle montre. */
 export function Legend() {
   const layers = useUiStore((s) => s.layers);
+  const theme = themeFor(useUiStore((s) => s.palette));
   const kinds = useUiStore((s) => s.kinds);
   const segments = useUiStore((s) => s.segments);
   const scale = segmentScale(segments?.loads ?? []);

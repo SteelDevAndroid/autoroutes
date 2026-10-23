@@ -24,6 +24,7 @@ export function MapView({ stations, store, onReady }: {
     const controller = new MapController(container.current, stations, store, {
       style: {
         basemapUrl: config.basemapUrl,
+        palette: ui.palette,
         motorwaysUrl: config.motorwaysUrl,
         glyphsUrl: config.glyphsUrl,
         spriteUrl: config.spriteUrl,
@@ -50,6 +51,7 @@ export function MapView({ stations, store, onReady }: {
       if (state.highlightedFlow !== previous.highlightedFlow) controller.setHighlightedFlow(state.highlightedFlow);
       if (state.odView !== previous.odView) controller.setOd(state.odView);
       if (state.reducedMotion !== previous.reducedMotion) controller.setReducedMotion(state.reducedMotion);
+      if (state.palette !== previous.palette) controller.setPalette(state.palette);
       if (state.selectedIndex !== previous.selectedIndex) controller.setSelected(state.selectedIndex, false);
       if (state.freshness?.staleStations !== previous.freshness?.staleStations) {
         controller.setStale(state.freshness?.staleStations ?? []);

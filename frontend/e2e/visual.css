@@ -1,0 +1,2 @@
+/* Appliqué pendant chaque capture : police présente partout (Playwright installe Liberation), curseur et animations figés. */
+* { font-family: 'Liberation Sans', Arial, sans-serif !important; caret-color: transparent !important; }
