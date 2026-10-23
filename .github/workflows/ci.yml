@@ -394,7 +394,7 @@ jobs:
   ci-ok:
     name: CI réussie
     if: always()
-    needs: [backend, simulator, frontend, cartographie, observabilite, shell, docker, e2e-live, e2e-auth]
+    needs: [backend, simulator, frontend, visuel, cartographie, observabilite, shell, docker, e2e-live, e2e-auth]
     runs-on: ubuntu-latest
     steps:
       - name: Tous les jobs sont verts
