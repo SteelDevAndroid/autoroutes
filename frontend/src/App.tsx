@@ -298,6 +298,15 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
 export function App() {
   const palette = useUiStore((s) => s.palette);
   useEffect(() => { applyPalette(palette); }, [palette]);
+  const reducedMotion = useUiStore((s) => s.reducedMotion);
+  // Les transitions de l'interface suivent « Réduire les animations » (feuille de style), comme la carte.
+  useEffect(() => {
+    if (reducedMotion) {
+      document.documentElement.dataset.reducedMotion = 'true';
+    } else {
+      delete document.documentElement.dataset.reducedMotion;
+    }
+  }, [reducedMotion]);
   const [stations, setStations] = useState<StationCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
 

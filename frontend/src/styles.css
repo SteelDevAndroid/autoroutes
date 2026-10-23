@@ -180,8 +180,10 @@ button, input { font: inherit; color: inherit; }
 .section-title { flex: 1; }
 .section-chevron { width: 10px; }
 .section-tag { margin: 0; text-transform: none; letter-spacing: 0; }
-.section-body { padding: 6px 0 4px; }
-.section-body[hidden] { display: none; }
+.section-body { display: grid; grid-template-rows: 0fr; visibility: hidden; transition: grid-template-rows 0.2s ease, visibility 0s linear 0.2s; }
+.section-body.section-open { grid-template-rows: 1fr; visibility: visible; transition: grid-template-rows 0.2s ease, visibility 0s; }
+.section-inner { min-height: 0; overflow: hidden; }
+.section-body.section-open .section-inner { padding: 6px 0 4px; }
 .side hr { border: 0; border-top: 1px solid var(--panel-border); margin: 6px 0; width: 100%; }
 .side-actions { border-top: 1px solid var(--panel-border); padding-top: 8px; }
 
@@ -296,3 +298,23 @@ button, input { font: inherit; color: inherit; }
 .alert-warning { background: #2a2110; color: var(--warn); border-left: 4px solid var(--warn); }
 .alert-banner strong { color: var(--text); }
 .alert-mark { font-size: 11px; }
+
+/* Animations : entrées et sorties, mise en évidence d'un changement. Tout est coupé par « Réduire les animations ». */
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+@keyframes pop-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes pop-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: translateY(-6px); } }
+@keyframes flash-once { from { background: rgb(76 201 240 / 35%); } to { background: transparent; } }
+@keyframes pop-in-center { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translateX(-50%); } }
+@keyframes pop-out-center { from { opacity: 1; transform: translateX(-50%); } to { opacity: 0; transform: translate(-50%, -6px); } }
+.detail, .alert-banner { animation: pop-in 0.18s ease-out; }
+.detail.leaving, .alert-banner.leaving { animation: pop-out 0.15s ease-in forwards; pointer-events: none; }
+.axis-focus { animation: pop-in-center 0.18s ease-out; }
+.axis-focus.leaving { animation: pop-out-center 0.15s ease-in forwards; pointer-events: none; }
+.flash { animation: flash-once 1.6s ease-out; }
+:root[data-reduced-motion="true"] *, :root[data-reduced-motion="true"] *::before, :root[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; transition-delay: 0s !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .detail, .axis-focus, .alert-banner, .flash { animation: none; }
+  .section-body, .section-body.section-open { transition: none; }
+}

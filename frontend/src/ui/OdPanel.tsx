@@ -9,6 +9,7 @@ import type { OdLevel, OdRole } from '../od/odTypes';
 import { useUiStore } from '../state/uiStore';
 import type { FlowKey } from '../state/uiStore';
 import { EmptyState } from './EmptyState';
+import { useNewKeys } from './flash';
 import { Section } from './Section';
 import { formatCount } from './format';
 
@@ -54,6 +55,7 @@ export function OdPanel({ stations, onFocusFlow }: {
     return map;
   }, [stations, view.nodes]);
   const { shown, hiddenInternal } = useMemo(() => visibleFlows(view.flows, includeInternal), [view.flows, includeInternal]);
+  const fresh = useNewKeys(shown.slice(0, TOP).map((f) => `${f.originId}>${f.destinationId}`));
   const label = (id: string) => names.get(id) ?? id;
   const filtered = !config.demo;
   const departments = filters.level === 'DEPARTMENT';
@@ -109,7 +111,7 @@ export function OdPanel({ stations, onFocusFlow }: {
             const key = { originId: f.originId, destinationId: f.destinationId };
             return (
               <li key={`${f.originId}>${f.destinationId}`}>
-                <button type="button" className="od-row" onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
+                <button type="button" className={`od-row${fresh.has(`${f.originId}>${f.destinationId}`) ? ' flash' : ''}`} onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
                   onFocus={() => { highlight(key); }} onBlur={() => { highlight(null); }} onClick={() => { onFocusFlow(key); }}>
                   <span className="od-route">{f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`}</span>
                   <span className="od-count">{formatCount(f.vehicles)} véh.</span>

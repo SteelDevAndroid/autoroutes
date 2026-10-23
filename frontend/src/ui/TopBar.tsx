@@ -1,5 +1,6 @@
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
+import { AnimatedCount } from './AnimatedCount';
 import { formatCount, formatTime } from './format';
 import { useStoreVersion } from './useStoreVersion';
 
@@ -63,9 +64,9 @@ export function TopBar({ store }: { readonly store: StationStore }) {
     <header className="topbar">
       <DrawerToggle />
       <h1>Supervision des gares de péage</h1>
-      <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value">{formatCount(sum(store.entries1h))}</span></div>
-      <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value">{formatCount(sum(store.exits1h))}</span></div>
-      <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value">{formatCount(sum(store.entriesToday) + sum(store.exitsToday))}</span></div>
+      <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></div>
+      <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></div>
+      <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></div>
       <span className="topbar-spacer" />
       <div className="kpi"><span className="kpi-label">Données à</span><span className="kpi-value">{formatTime(watermark)}</span></div>

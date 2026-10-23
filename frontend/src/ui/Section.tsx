@@ -4,7 +4,7 @@ import type { SectionId } from '../state/uiStore';
 
 /**
  * Section repliable du panneau latéral. Une seule est ouverte à la fois : le panneau garde la hauteur de l'écran
- * quel que soit le nombre de couches actives. Le contenu fermé reste dans le DOM mais masqué (état conservé).
+ * quel que soit le nombre de couches actives. Le contenu fermé reste dans le DOM mais replié (état conservé).
  */
 export function Section({ id, title, label, badge, children }: {
   readonly id: SectionId;
@@ -26,7 +26,10 @@ export function Section({ id, title, label, badge, children }: {
           {badge}
         </button>
       </h2>
-      <div id={`section-${id}`} className="section-body" hidden={!open}>{children}</div>
+      {/* Contenu toujours monté (état conservé), replié par la hauteur ; `inert` le retire du clavier et des lecteurs d'écran. */}
+      <div id={`section-${id}`} className={`section-body${open ? ' section-open' : ''}`} inert={!open}>
+        <div className="section-inner">{children}</div>
+      </div>
     </section>
   );
 }
