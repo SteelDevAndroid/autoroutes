@@ -1,5 +1,5 @@
-import { sparklinePath, trend } from './sparkline';
-import type { Trend } from './sparkline';
+import { sparklinePath, trend } from './sparklineGeometry';
+import type { Trend } from './sparklineGeometry';
 import { formatCount } from './format';
 
 const WIDTH = 64;

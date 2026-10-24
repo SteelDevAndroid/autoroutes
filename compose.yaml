@@ -12,8 +12,8 @@
 #   auth        Keycloak (OIDC) ; avec SUPERVISION_PROFILE=auth dans .env, la connexion devient obligatoire
 #   tiles       tâche ponctuelle : produit le fond de carte et le graphe routier (accès réseau requis)
 #
-# Sécurité : seuls le frontend (8080) et, avec « monitoring », Grafana (3000) sont destinés à être joints ;
-# les autres ports ne sont publiés que sur 127.0.0.1 (diagnostic local). Conteneurs applicatifs en lecture seule,
+# Sécurité : tous les ports sont locaux par défaut (127.0.0.1). FRONTEND_BIND permet un partage explicite.
+# Conteneurs applicatifs en lecture seule,
 # sans privilèges ni capacités superflues, avec limites de mémoire et journaux en rotation.
 name: autoroutes
 
@@ -52,7 +52,7 @@ services:
         VITE_SPRITE_URL: ${VITE_SPRITE_URL-/basemaps-assets/sprites/v4/dark}
     image: autoroutes-frontend:live
     ports:
-      - "${FRONTEND_PORT:-8080}:8080"
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
     volumes:
       - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
       - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro
@@ -129,7 +129,7 @@ services:
         MODE: demo
     image: autoroutes-frontend:demo
     ports:
-      - "${FRONTEND_PORT:-8080}:8080"
+      - "${FRONTEND_BIND:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
     volumes:
       - ./cartographie/out/tiles:/usr/share/nginx/html/tiles:ro
       - ./cartographie/out/basemaps-assets:/usr/share/nginx/html/basemaps-assets:ro

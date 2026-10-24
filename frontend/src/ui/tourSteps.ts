@@ -13,7 +13,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     id: 'map',
     target: 'map',
     title: 'La carte des gares',
-    body: 'Chaque cercle est une gare de péage. Sa surface est proportionnelle aux passages de la dernière heure : ce sont des données observées. Un halo bref signale de nouveaux passages ; survolez une gare pour un aperçu, cliquez pour le détail.',
+    body: 'Chaque cercle est une gare de péage. Sa surface est proportionnelle aux passages de la dernière heure : leur provenance est indiquée dans le bandeau en haut de l’écran. Un halo bref signale de nouveaux passages ; survolez une gare pour un aperçu, cliquez pour le détail.',
   },
   {
     id: 'status',
@@ -26,7 +26,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     target: 'panel',
     opensDrawer: true,
     title: 'Couches, flux et légende',
-    body: 'Activez les flux origine → destination (observés) ou la charge des tronçons (estimée, en tirets). Les sections s’ouvrent une à la fois ; la légende décrit ce qui est affiché.',
+    body: 'Activez les flux origine → destination (reçus) ou la charge des tronçons (estimée, en tirets). Les sections s’ouvrent une à la fois ; la légende décrit ce qui est affiché.',
   },
   {
     id: 'replay',

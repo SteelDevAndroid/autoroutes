@@ -171,9 +171,20 @@ test.describe('démonstration (flux simulé)', () => {
     const detail = page.getByRole('region', { name: /Détail de la gare La Boisse/ });
     await expect(detail).toBeVisible();
 
+    // Observer l'état bref avant le clic : un aller-retour navigateur peut dépasser les 150 ms de sortie.
+    await page.evaluate(`(() => {
+      const element = document.querySelector('.detail');
+      const observer = new MutationObserver(() => {
+        if (element.classList.contains('leaving')) {
+          document.body.dataset.detailLeavingObserved = 'true';
+          observer.disconnect();
+        }
+      });
+      observer.observe(element, { attributes: true, attributeFilter: ['class'] });
+    })()`);
     await detail.getByRole('button', { name: 'Fermer le détail' }).click();
 
-    await expect(detail).toHaveClass(/leaving/);
+    await expect(page.locator('body')).toHaveAttribute('data-detail-leaving-observed', 'true');
     await expect(detail).toBeHidden();
   });
 
@@ -186,7 +197,7 @@ test.describe('démonstration (flux simulé)', () => {
 
     // Légende contextuelle : la ligne des flux n'apparaît qu'avec la couche, et les sections s'ouvrent une à la fois.
     await page.getByRole('button', { name: 'Légende' }).click();
-    await expect(page.getByText('Flux O/D observé (≥ 3 véh. sur 1 h)')).toBeVisible();
+    await expect(page.getByText('Flux O/D reçu (≥ 3 véh. sur 1 h)')).toBeVisible();
     await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'false');
   });
 
@@ -194,7 +205,7 @@ test.describe('démonstration (flux simulé)', () => {
     await page.goto('/');
     await page.getByRole('button', { name: 'Légende' }).click();
     await expect(page.getByText('Gare d’échangeur').last()).toBeVisible();
-    await expect(page.getByText('Flux O/D observé')).toHaveCount(0);
+    await expect(page.getByText('Flux O/D reçu')).toHaveCount(0);
     await expect(page.getByText('Charge de tronçon')).toHaveCount(0);
   });
 

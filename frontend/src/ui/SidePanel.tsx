@@ -1,4 +1,5 @@
 import type { AxisGroup } from '../map/axes';
+import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
@@ -28,6 +29,8 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   const setPalette = useUiStore((s) => s.setPalette);
   const toggleDiagnostic = useUiStore((s) => s.toggleDiagnostic);
   const drawerOpen = useUiStore((s) => s.drawerOpen);
+  const segmentCapability = useUiStore((s) => s.capabilities?.segments);
+  const segmentsUnavailable = !config.demo && segmentCapability !== 'READY';
   return (
     <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel">
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
@@ -39,7 +42,11 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
         <label><input type="checkbox" checked={layers.labels} onChange={() => { toggleLayer('labels'); }} /> Noms des gares</label>
         <label><input type="checkbox" checked={layers.axes} onChange={() => { toggleLayer('axes'); }} /> Noms des autoroutes</label>
         <label><input type="checkbox" checked={layers.od} onChange={() => { toggleLayer('od'); }} /> Flux origine → destination</label>
-        <label><input type="checkbox" checked={layers.segments} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
+        <label><input type="checkbox" checked={layers.segments} disabled={segmentsUnavailable} aria-describedby={segmentsUnavailable ? 'segments-availability' : undefined} onChange={() => { toggleLayer('segments'); }} /> Charge des tronçons (estimée)</label>
+        {segmentsUnavailable && <p id="segments-availability" className="note">{segmentCapability === 'DISABLED'
+          ? 'Estimation indisponible : aucun graphe routier activé.'
+          : segmentCapability === 'STARTING' ? 'Le premier calcul des tronçons est en cours.'
+          : 'Disponibilité des tronçons non vérifiée. Nouvelle vérification automatique.'}</p>}
         <label><input type="checkbox" checked={palette === 'cvd'} onChange={(e) => { setPalette(e.target.checked ? 'cvd' : 'default'); }} /> Couleurs adaptées au daltonisme</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
       </Section>

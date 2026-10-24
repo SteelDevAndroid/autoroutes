@@ -56,7 +56,7 @@ describe('OdPanel', () => {
   });
 
   it('marks the nature once, in the header', () => {
-    useUiStore.setState({ odView: departments });
+    useUiStore.setState({ odView: departments, capabilities: { provenance: 'OBSERVED', segments: 'DISABLED' } });
     render(<OdPanel stations={stations} onFocusFlow={vi.fn()} />);
 
     expect(screen.getAllByText('observé')).toHaveLength(1);
@@ -149,6 +149,15 @@ describe('OdPanel axis filter', () => {
 });
 
 describe('SegmentsPanel', () => {
+  it('distinguishes an unavailable graph from a calculation still in progress', () => {
+    useUiStore.setState({ openSection: 'segments', capabilities: { provenance: 'SIMULATED', segments: 'DISABLED' } });
+    render(<SegmentsPanel />);
+    expect(screen.getByRole('status').textContent).toContain('Aucun graphe routier');
+    expect(screen.getByRole('status').textContent).not.toContain('ASSIGNMENT_GRAPH_FILE');
+    act(() => { useUiStore.getState().setCapabilities({ provenance: 'SIMULATED', segments: 'STARTING' }); });
+    expect(screen.getByRole('status').textContent).toContain('Premier calcul en cours');
+  });
+
   it('explains the two possible reasons for an empty estimate and links the procedure', () => {
     useUiStore.setState({ openSection: 'segments', segments: null });
     render(<SegmentsPanel />);

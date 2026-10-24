@@ -55,3 +55,22 @@ test.describe('grand écran', () => {
     await expect(page.getByRole('button', { name: 'Panneau des couches et des filtres' })).toBeHidden();
   });
 });
+
+test.describe('barre supérieure compacte', () => {
+  for (const width of [390, 614, 768]) {
+    test(`conserve un titre lisible et des indicateurs séparés à ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 844 });
+      await page.goto('/');
+      const title = page.getByRole('heading', { name: 'Supervision des gares de péage', exact: true });
+      await expect(title).toBeVisible();
+      const titleBox = await title.boundingBox();
+      const metricsBox = await page.locator('.topbar-metrics').boundingBox();
+      expect(titleBox).not.toBeNull();
+      expect(metricsBox).not.toBeNull();
+      if (titleBox === null || metricsBox === null) throw new Error('Barre supérieure absente');
+      expect(titleBox.height).toBeLessThanOrEqual(40);
+      expect(metricsBox.y).toBeGreaterThanOrEqual(titleBox.y + titleBox.height);
+      expect(await page.evaluate('document.documentElement.scrollWidth - document.documentElement.clientWidth')).toBeLessThanOrEqual(0);
+    });
+  }
+});

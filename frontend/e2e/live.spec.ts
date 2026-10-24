@@ -7,12 +7,12 @@ import { expect, test } from './fixtures';
 test.describe('flux réel (backend + simulateur)', () => {
   test.skip(process.env.E2E_LIVE !== '1', 'E2E_LIVE=1 requis');
 
-  test('affiche les données du backend sans bandeau de simulation', async ({ page }) => {
+  test('affiche les données du backend avec une provenance explicite', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
     await page.goto('/');
 
-    await expect(page.getByText(/DONNÉES SIMULÉES/)).toHaveCount(0);
+    await expect(page.getByRole('note').filter({ hasText: /DONNÉES SIMULÉES|Provenance non vérifiée|Données mixtes/ })).toBeVisible();
     await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
     const map = page.getByRole('region', { name: 'Carte des gares de péage' });
     await expect.poll(async () => Number(await map.getAttribute('data-rendered-stations'))).toBeGreaterThan(600);
@@ -53,7 +53,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     await page.getByLabel('Vitesse de relecture').selectOption('300');
     await page.getByRole('button', { name: 'Lancer la relecture' }).click();
 
-    const banner = page.getByText(/RELECTURE — données historiques observées/);
+    const banner = page.getByText(/RELECTURE — données historiques/);
     await expect(banner).toBeVisible();
     await expect(page.getByRole('status')).toHaveText('Relecture ×300');
     const first = await banner.innerText();
@@ -84,7 +84,7 @@ test.describe('flux réel (backend + simulateur)', () => {
 
     const top = page.getByRole('list', { name: 'Principaux flux' }).getByRole('listitem');
     await expect(top.first()).toBeVisible({ timeout: 90_000 });
-    await expect(page.getByRole('region', { name: 'Panneau des flux O/D' })).toContainText('observé');
+    await expect(page.getByRole('region', { name: 'Panneau des flux O/D' })).toContainText(/simulé|source non vérifiée|mixte/);
 
     // Flux internes (même département) masqués par défaut, affichés à la demande.
     await page.getByLabel('Niveau des flux').selectOption('DEPARTMENT');

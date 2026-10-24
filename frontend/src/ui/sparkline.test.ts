@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sparklinePath, sparklinePoints, trend } from './sparkline';
+import { sparklinePath, sparklinePoints, trend } from './sparklineGeometry';
 
 describe('sparklinePoints', () => {
   it('spreads the values over the width and scales from zero to the maximum', () => {

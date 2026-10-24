@@ -115,7 +115,8 @@ public class StreamBroadcaster implements StreamPublisher, SegmentPublisher {
     @Override
     public void publishOd(OdUpdate update) {
         var frame = frame("od", null, snapshotWatermark(), Map.of(
-                "window", update.window(), "nature", "OBSERVED", "minVehicles", update.minVehicles(), "flows", update.flows()));
+                // In-memory O/D aggregates do not carry per-source metadata; never certify them as observed.
+                "window", update.window(), "nature", "UNKNOWN", "minVehicles", update.minVehicles(), "flows", update.flows()));
         lock.lock();
         try {
             lastOd = frame;

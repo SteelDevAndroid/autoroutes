@@ -66,7 +66,53 @@ class SupervisionIT {
     @Autowired
     fr.autoroutes.supervision.history.PartitionManager partitions;
 
+    @Autowired
+    fr.autoroutes.supervision.aggregation.HistorySink historySink;
+
+    @Autowired
+    org.springframework.transaction.PlatformTransactionManager transactions;
+
     private final HttpClient http = HttpClient.newHttpClient();
+
+    @Test
+    void persistsMixedProvenanceAndDistinguishesMissingHistoryWithoutReclassifyingLegacyRows() throws Exception {
+        var hour = Instant.now().minus(Duration.ofDays(2)).truncatedTo(java.time.temporal.ChronoUnit.HOURS);
+        var minute = hour.getEpochSecond() / 60;
+        var key = new fr.autoroutes.supervision.aggregation.HistoryBatch.StationMinute(stationId("La Boisse"), minute);
+        var batch = new fr.autoroutes.supervision.aggregation.HistoryBatch(
+                Map.of(key, new fr.autoroutes.supervision.aggregation.WindowCounts(5, 3)), Map.of(), Map.of(),
+                Map.of(key, new fr.autoroutes.supervision.aggregation.SourceCounts(5, 3)));
+        var transaction = new org.springframework.transaction.support.TransactionTemplate(transactions);
+        transaction.executeWithoutResult(status -> historySink.write(batch));
+
+        var path = "/api/v1/stations/%s/history?from=%s&to=%s&step=PT15M"
+                .formatted(stationId("La Boisse"), hour, hour.plusSeconds(3600));
+        assertThat(get(path).path("nature").asString()).isEqualTo("MIXED");
+        assertThat(get(path).path("coverage").path("status").asString()).isEqualTo("AVAILABLE");
+        assertThat(get(path).path("points").get(0).path("entries").asLong()).isEqualTo(5);
+
+        // A failed checkpoint must roll back source counters and passage counts together.
+        try {
+            transaction.executeWithoutResult(status -> {
+                historySink.write(batch);
+                throw new IllegalStateException("simulate checkpoint rollback");
+            });
+        } catch (IllegalStateException expected) {
+            assertThat(expected).hasMessage("simulate checkpoint rollback");
+        }
+        assertThat(get(path).path("points").get(0).path("entries").asLong()).isEqualTo(5);
+        assertThat(get(path).path("nature").asString()).isEqualTo("MIXED");
+
+        transaction.executeWithoutResult(status -> historySink.write(
+                new fr.autoroutes.supervision.aggregation.HistoryBatch(
+                        Map.of(key, new fr.autoroutes.supervision.aggregation.WindowCounts(1, 0)), Map.of(), Map.of())));
+        assertThat(get(path).path("nature").asString()).isEqualTo("UNKNOWN");
+
+        var missing = get("/api/v1/stations/%s/history?from=%s&to=%s&step=PT15M"
+                .formatted(stationId("La Boisse"), hour.minusSeconds(3600), hour));
+        assertThat(missing.path("points").isEmpty()).isTrue();
+        assertThat(missing.path("coverage").path("status").asString()).isEqualTo("UNAVAILABLE");
+    }
 
     @BeforeAll
     static void createTopics() throws Exception {

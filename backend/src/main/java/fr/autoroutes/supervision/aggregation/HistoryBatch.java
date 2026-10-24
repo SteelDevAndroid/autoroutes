@@ -8,7 +8,8 @@ import java.util.Map;
  * Incréments d'historique accumulés depuis le point de reprise précédent (minutes de gare, flux O/D horaires et journaliers).
  * Immuable ; fusionnable pour réessayer un lot dont l'écriture a échoué.
  */
-public record HistoryBatch(Map<StationMinute, WindowCounts> minutes, Map<OdHour, Long> odHours, Map<OdDay, Long> odDays) {
+public record HistoryBatch(Map<StationMinute, WindowCounts> minutes, Map<OdHour, Long> odHours, Map<OdDay, Long> odDays,
+                           Map<StationMinute, SourceCounts> provenance) {
 
     public record StationMinute(String stationId, long epochMinute) {
     }
@@ -21,14 +22,20 @@ public record HistoryBatch(Map<StationMinute, WindowCounts> minutes, Map<OdHour,
 
     public static final HistoryBatch EMPTY = new HistoryBatch(Map.of(), Map.of(), Map.of());
 
+    /** Older callers without source information remain explicitly unverified. */
+    public HistoryBatch(Map<StationMinute, WindowCounts> minutes, Map<OdHour, Long> odHours, Map<OdDay, Long> odDays) {
+        this(minutes, odHours, odDays, Map.of());
+    }
+
     public HistoryBatch {
         minutes = Map.copyOf(minutes);
         odHours = Map.copyOf(odHours);
         odDays = Map.copyOf(odDays);
+        provenance = Map.copyOf(provenance);
     }
 
     public boolean isEmpty() {
-        return minutes.isEmpty() && odHours.isEmpty() && odDays.isEmpty();
+        return minutes.isEmpty() && odHours.isEmpty() && odDays.isEmpty() && provenance.isEmpty();
     }
 
     public HistoryBatch merge(HistoryBatch other) {
@@ -42,6 +49,8 @@ public record HistoryBatch(Map<StationMinute, WindowCounts> minutes, Map<OdHour,
         other.odHours.forEach((key, vehicles) -> mergedHours.merge(key, vehicles, Long::sum));
         var mergedDays = new HashMap<>(odDays);
         other.odDays.forEach((key, vehicles) -> mergedDays.merge(key, vehicles, Long::sum));
-        return new HistoryBatch(mergedMinutes, mergedHours, mergedDays);
+        var mergedSources = new HashMap<>(provenance);
+        other.provenance.forEach((key, counts) -> mergedSources.merge(key, counts, SourceCounts::plus));
+        return new HistoryBatch(mergedMinutes, mergedHours, mergedDays, mergedSources);
     }
 }

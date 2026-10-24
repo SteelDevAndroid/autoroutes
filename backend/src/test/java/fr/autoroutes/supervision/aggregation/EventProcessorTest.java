@@ -77,7 +77,16 @@ class EventProcessorTest {
         assertThat(batch.minutes()).containsExactly(java.util.Map.entry(
                 new HistoryBatch.StationMinute("GL-ECH-LA-BOISSE", T0.getEpochSecond() / 60), new WindowCounts(0, 1)));
         assertThat(batch.odHours().values()).containsExactly(1L);
+        assertThat(batch.provenance().values()).containsExactly(new SourceCounts(0, 1));
         assertThat(history.drain().isEmpty()).isTrue();
+    }
+
+    @Test
+    void carriesSimulatorProvenanceOnlyOnceThroughTheAppliedEventPath() {
+        var event = new TollEvent("sim-1", "La Boisse", EventType.ENTRY, T0, null, null, 3, null, true);
+        processor.process(0, event);
+        processor.process(0, event);
+        assertThat(history.drain().provenance().values()).containsExactly(new SourceCounts(3, 0));
     }
 
     @Test

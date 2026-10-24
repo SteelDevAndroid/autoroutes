@@ -1,4 +1,5 @@
 /** Messages du flux SSE (protocole de la phase 2, section 8). Types en lecture seule : l'état n'est modifié que par les stores. */
+import type { Provenance } from '../capabilities';
 
 export interface WindowCounts {
   readonly entries: number;
@@ -41,7 +42,7 @@ interface Sequenced<T extends string, P> extends Envelope<T, P> {
 
 export type SnapshotMessage = Sequenced<'snapshot', { readonly stations: readonly StationMetrics[]; readonly referentielVersion: string }>;
 export type DeltaMessage = Sequenced<'delta', { readonly stations: readonly StationMetrics[] }>;
-export type OdMessage = Envelope<'od', { readonly window: string; readonly nature: 'OBSERVED'; readonly minVehicles: number; readonly flows: readonly OdFlow[] }>;
+export type OdMessage = Envelope<'od', { readonly window: string; readonly nature: Provenance; readonly minVehicles: number; readonly flows: readonly OdFlow[] }>;
 export type SegmentsMessage = Envelope<'segments', {
   readonly window: string;
   readonly nature: 'ESTIMATED';

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { DataNature } from './DataNature';
 import { config } from '../config';
 import { stationSeries } from '../history/historyApi';
 import type { StationCollection } from '../map/referentiel';
@@ -81,9 +82,9 @@ export function ActivityPanel({ stations, store, onFocus }: {
   const history = !config.demo && mode === 'live';
   const fresh = useNewKeys(ranked.map((row) => row.id));
   return (
-    <Section id="activity" title="Gares les plus actives" badge={<span className="tag section-tag">observé</span>}>
+    <Section id="activity" title="Gares les plus actives" badge={<DataNature />}>
       {ranked.length === 0
-        ? <EmptyState title="Aucun passage sur l’heure">Les gares apparaissent dès les premiers passages observés.</EmptyState>
+        ? <EmptyState title="Aucun passage sur l’heure">Les gares apparaissent dès les premiers passages reçus.</EmptyState>
         : (
           <>
             <p className="note">Passages (entrées + sorties) sur 1 h{history ? `, courbe : ${HOURS} dernières heures par quart d’heure` : ''}.</p>
