@@ -1,4 +1,5 @@
 import { odQuery, toOdView } from '../od/odTypes';
+import type { Provenance } from '../capabilities';
 import type { OdFilters, OdResultDto, OdView } from '../od/odTypes';
 
 /** Historique OBSERVÉ (backend, incrément 2). Les données couvrent jusqu'au dernier point de reprise (≤ 60 s). */
@@ -24,6 +25,12 @@ export interface StationTotal {
 
 export type Step = 'PT1M' | 'PT15M' | 'PT1H';
 
+export interface StationHistory {
+  readonly points: readonly SeriesPoint[];
+  readonly nature?: Provenance;
+  readonly coverage?: { readonly status: 'AVAILABLE' | 'UNAVAILABLE' };
+}
+
 async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
   const response = await fetch(path, signal === undefined ? {} : { signal });
   if (!response.ok) {
@@ -35,9 +42,11 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 const range = (from: Date, to: Date): string => `from=${from.toISOString()}&to=${to.toISOString()}`;
 
 export async function stationSeries(stationId: string, from: Date, to: Date, step: Step, signal?: AbortSignal): Promise<SeriesPoint[]> {
-  const body = await getJson<{ points: SeriesPoint[] }>(
-    `/api/v1/stations/${encodeURIComponent(stationId)}/history?${range(from, to)}&step=${step}`, signal);
-  return body.points;
+  return [...(await stationHistory(stationId, from, to, step, signal)).points];
+}
+
+export function stationHistory(stationId: string, from: Date, to: Date, step: Step, signal?: AbortSignal): Promise<StationHistory> {
+  return getJson<StationHistory>(`/api/v1/stations/${encodeURIComponent(stationId)}/history?${range(from, to)}&step=${step}`, signal);
 }
 
 export function minutes(from: Date, to: Date, signal?: AbortSignal): Promise<MinuteRow[]> {

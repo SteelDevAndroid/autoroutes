@@ -7,6 +7,7 @@ import type { StationCollection } from '../map/referentiel';
 import { DEFAULT_OD_FILTERS, isDefaultFilters } from '../od/odTypes';
 import type { OdLevel, OdRole } from '../od/odTypes';
 import { useUiStore } from '../state/uiStore';
+import { DataNature } from './DataNature';
 import type { FlowKey } from '../state/uiStore';
 import { EmptyState } from './EmptyState';
 import { useNewKeys } from './flash';
@@ -61,7 +62,7 @@ export function OdPanel({ stations, onFocusFlow }: {
   const departments = filters.level === 'DEPARTMENT';
 
   return (
-    <Section id="od" title="Flux O/D" label="Panneau des flux O/D" badge={<span className="tag section-tag">observé</span>}>
+    <Section id="od" title="Flux O/D" label="Panneau des flux O/D" badge={<DataNature />}>
       {filtered && (
         <div className="od-filters">
           <label>Niveau

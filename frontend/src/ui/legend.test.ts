@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LayerVisibility } from '../state/uiStore';
-import { legendRows, roundSignificant, segmentScale } from './legend';
+import { legendRows, roundSignificant, segmentScale } from './legendModel';
 
 const layers = (overrides: Partial<LayerVisibility>): LayerVisibility => ({ stations: true, labels: true, od: false, segments: false, axes: false, ...overrides });
 const both = { echangeur: true, pleineVoie: true };

@@ -44,13 +44,13 @@ export function AboutDialog() {
         </header>
 
         <h2>Ce que l’on voit</h2>
-        <p>Chaque cercle est une gare de péage. Les chiffres sont des <strong>passages observés</strong> (entrées et sorties) agrégés sur 5 minutes,
+        <p>Chaque cercle est une gare de péage. Les chiffres sont des <strong>passages reçus</strong> (entrées et sorties) agrégés sur 5 minutes,
           15 minutes, 1 heure et depuis minuit. La surface d’un cercle est proportionnelle aux passages de la dernière heure.</p>
 
-        <h2>Observé ou estimé</h2>
+        <h2>Provenance et estimation</h2>
         <ul>
-          <li><strong>Observé</strong> : les passages par gare, les flux origine → destination et l’historique. Ils viennent directement des événements des gares.</li>
-          <li><strong>Estimé</strong> : la charge des tronçons, toujours dessinée en <strong>tirets</strong>. Chaque flux observé est affecté au trajet le plus rapide :
+          <li><strong>Provenance</strong> : le bandeau distingue les événements observés, simulés, mixtes ou non vérifiés. « Temps réel » décrit la fraîcheur du flux et ne garantit pas des mesures réelles.</li>
+          <li><strong>Estimé</strong> : la charge des tronçons, toujours dessinée en <strong>tirets</strong>. Chaque flux reçu est affecté au trajet le plus rapide :
             un seul itinéraire par flux, sans tenir compte des alternatives.</li>
         </ul>
 

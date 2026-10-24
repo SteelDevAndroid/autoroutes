@@ -5,6 +5,7 @@ import fr.autoroutes.supervision.aggregation.OdFilter;
 import fr.autoroutes.supervision.aggregation.OdQueryService;
 import fr.autoroutes.supervision.aggregation.OdResult;
 import fr.autoroutes.supervision.aggregation.OdSnapshot;
+import fr.autoroutes.supervision.aggregation.SourceCounts;
 import fr.autoroutes.supervision.history.HistoryQueries;
 import fr.autoroutes.supervision.history.Resolution;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
@@ -27,7 +28,11 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api/v1")
 class HistoryController {
 
-    record StationSeries(String stationId, Resolution step, List<HistoryQueries.Point> points) {
+    record Coverage(String status) {
+    }
+
+    record StationSeries(String stationId, Resolution step, List<HistoryQueries.Point> points,
+                         SourceCounts.Nature nature, Coverage coverage) {
     }
 
     record NetworkSeries(Resolution step, List<HistoryQueries.Point> points) {
@@ -54,7 +59,9 @@ class HistoryController {
         if (!catalog.contains(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Gare inconnue : " + id);
         }
-        return new StationSeries(id, step, history.stationSeries(id, from, to, step));
+        var points = history.stationSeries(id, from, to, step);
+        return new StationSeries(id, step, points, history.provenance(id, from, to, step),
+                new Coverage(points.isEmpty() ? "UNAVAILABLE" : "AVAILABLE"));
     }
 
     @GetMapping("/history/network")
@@ -90,7 +97,23 @@ class HistoryController {
         var stations = odQueries.candidateStations(filter).orElse(null);
         var cells = history.odCells(from, to, HistoryQueries.Side.valueOf(role.name()), stations);
         var snapshot = new OdSnapshot(to, Duration.between(from, to), cells, OdCoverage.EMPTY, 0);
-        return new OdHistory(from, to, "OBSERVED", odQueries.query(snapshot, filter));
+        return new OdHistory(from, to, history.provenance(null, from, to, Resolution.PT1H).name(), odQueries.query(snapshot, filter));
+    }
+
+    record Provenance(SourceCounts.Nature nature) {
+    }
+
+    /** Conservative provenance for replay; enclosing hour buckets include every contributing source. */
+    @GetMapping("/history/provenance")
+    Provenance provenance(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+                          @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to) {
+        if (!from.isBefore(to) || Duration.between(from, to).compareTo(Duration.ofDays(8)) > 0) {
+            throw new IllegalArgumentException("Provenance : plage attendue de 8 jours maximum");
+        }
+        var hourEnd = to.truncatedTo(java.time.temporal.ChronoUnit.HOURS);
+        if (!to.equals(hourEnd)) hourEnd = hourEnd.plusSeconds(3600);
+        return new Provenance(history.provenance(null, from.truncatedTo(java.time.temporal.ChronoUnit.HOURS),
+                hourEnd, Resolution.PT1H));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

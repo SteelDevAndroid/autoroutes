@@ -62,17 +62,22 @@ export function TopBar({ store }: { readonly store: StationStore }) {
   }
   return (
     <header className="topbar">
+      <div className="topbar-title">
       <DrawerToggle />
-      <h1>Supervision des gares de péage</h1>
+      <h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Gares de péage</span></h1>
+      </div>
+      <div className="topbar-metrics">
       <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></div>
       <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></div>
-      <span className="topbar-spacer" />
       <div className="kpi"><span className="kpi-label">Données à</span><span className="kpi-value">{formatTime(watermark)}</span></div>
+      </div>
+      <div className="topbar-actions">
       <ConnectionBadge />
       <HelpButton />
       <Account />
+      </div>
     </header>
   );
 }

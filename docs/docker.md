@@ -4,6 +4,37 @@ Un seul fichier, `compose.yaml`, décrit toute la pile. Les profils choisissent 
 
 ## Démarrage rapide
 
+Sous Windows, depuis PowerShell (Docker Desktop démarré) :
+
+```powershell
+.\start.ps1 -Monitoring -Build             # première construction ou code modifié
+.\start.ps1 -Monitoring                    # lancement courant, sans reconstruction forcée
+.\start.ps1 -Monitoring -CheckOnly         # diagnostic seul, sans changement
+.\start.ps1 -Mode demo -Build              # interface et simulation dans le navigateur
+.\start.ps1 -Auth -Monitoring -Build       # pile complète + connexion Keycloak
+```
+
+Le lanceur crée `.env` uniquement s'il est absent, vérifie le moteur Docker, la configuration et les ports,
+attend les sondes avec `up -d --wait`, puis affiche les URL selon les ports configurés. Il choisit explicitement
+les profils de cette invocation (les options de `.env` ne s'y ajoutent pas) et refuse un conflit avec un autre
+service, y compris un frontend `demo` déjà actif sur le port du mode `full`. Arrêter ce frontend avant de changer
+de mode. `-Auth` active à la fois le profil Compose et le profil Spring, sans modifier `.env`.
+
+Si Compose échoue, le lanceur contrôle aussi les services qui viennent de démarrer : un ancien mot de passe
+persisté est ainsi signalé avec sa procédure de récupération avant le résumé de l'échec Compose.
+
+`-CheckOnly` n'initialise aucun volume, ne crée pas `.env` et ne modifie aucun service ou secret. Il vérifie les
+identifiants PostgreSQL/Grafana si ces services tournent déjà ; sur une pile arrêtée, ces secrets ne peuvent pas
+être vérifiés avant son démarrage. `-WaitTimeout 360` ajuste l'attente (240 secondes par défaut).
+
+Sans fond de carte, utiliser `-WithoutBasemap -Build` (mode `full`) : les gares restent visibles sur un fond neutre.
+Pour activer les tronçons estimés avec un graphe existant, ajouter par exemple
+`-GraphFile cartographie/out/graph/graph-20261024.json`. Le lanceur valide le chemin et ne sélectionne jamais
+silencieusement un graphe. Ces options s'appliquent à l'invocation, sans réécrire `.env` ; les répéter au lancement
+suivant ou enregistrer les réglages correspondants dans `.env`.
+
+Le lancement direct par Compose reste disponible :
+
 ```bash
 cp .env.example .env                    # secrets locaux ; COMPOSE_PROFILES=full par défaut
 docker compose up -d --build            # simulateur → Kafka → backend → SSE → frontend
@@ -34,7 +65,7 @@ Avec la supervision (Prometheus, Alertmanager et Grafana) : mettre `COMPOSE_PROF
 
 | Port | Service | Exposition |
 |---|---|---|
-| 8080 | Frontend (nginx : application, tuiles, relais de l'API et du SSE) | toutes interfaces |
+| 8080 | Frontend (nginx : application, tuiles, relais de l'API et du SSE) | `127.0.0.1` |
 | 8180 | Keycloak (profil `auth`) | `127.0.0.1` |
 | 3000 | Grafana | `127.0.0.1` (`GRAFANA_BIND=0.0.0.0` pour l'ouvrir) |
 | 8081 | API du backend, Actuator (`/actuator/health`, `/actuator/prometheus`) | `127.0.0.1` |
@@ -46,6 +77,10 @@ Avec la supervision (Prometheus, Alertmanager et Grafana) : mettre `COMPOSE_PROF
 Les ports se changent dans `.env` (`FRONTEND_PORT`, `BACKEND_PORT`, `KAFKA_EXTERNAL_PORT`, `POSTGRES_PORT`, `PROMETHEUS_PORT`, `ALERTMANAGER_PORT`, `GRAFANA_PORT`).
 Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres:5432`, `backend:8080`).
 
+Pour partager explicitement le frontend sur le réseau, définir `FRONTEND_BIND=0.0.0.0`, activer l'authentification
+et configurer les URL publiques pour l'adresse réellement utilisée. Le défaut local s'applique aux deux modes
+`full` et `demo`. Un ancien conteneur publié sur toutes les interfaces est recréé avec cette liaison au prochain `up`.
+
 ## Configuration (`.env`)
 
 | Variable | Rôle | Défaut |
@@ -53,6 +88,7 @@ Entre conteneurs, les services se joignent par leur nom (`kafka:9092`, `postgres
 | `COMPOSE_PROFILES` | Profils démarrés par `docker compose up` | `full` |
 | `POSTGRES_PASSWORD` | Mot de passe PostgreSQL | `changez-moi` |
 | `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana | `changez-moi` |
+| `FRONTEND_BIND` | Adresse d'écoute du frontend ; `0.0.0.0` pour un partage réseau explicite | `127.0.0.1` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
@@ -131,6 +167,21 @@ Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour
 - Ordre de démarrage garanti par `depends_on` + health checks (Kafka, PostgreSQL, backend, Prometheus, Alertmanager, Grafana, frontend).
 - Arrêt propre du backend (45 s) : le point de reprise final est écrit avant la sortie.
 
+## Provenance et disponibilité dans l'interface
+
+Le bandeau distingue données simulées, observées, mixtes et provenance non vérifiée. « Temps réel » indique
+la fraîcheur du transport, pas l'origine des événements. Les compteurs de provenance sont enregistrés avec
+l'historique et le point de reprise ; la migration conserve les anciens chiffres sans leur attribuer une
+origine inventée. Une période contenant des données antérieures à cette migration peut donc rester
+« source non vérifiée ». Aucun historique existant n'est supprimé ou reclassé.
+
+`GET /api/v1/capabilities` annonce la provenance de la fenêtre courante et l'état des tronçons
+(`DISABLED`, `STARTING`, `READY`). L'interface actualise cette information automatiquement. Les séries par gare
+ajoutent `nature` et `coverage.status` : `AVAILABLE` signifie que des points existent, sans garantir une période
+complète ; `UNAVAILABLE` distingue l'absence de série d'une mesure à zéro. La relecture consulte séparément
+`GET /api/v1/history/provenance?from=…&to=…` pour sa période et ses compteurs de début de journée.
+La provenance des agrégats O/D SSE reste `UNKNOWN` ; elle n'est plus déclarée systématiquement `OBSERVED`.
+
 ## Supervision
 
 - **Prometheus** collecte `backend:8080/actuator/prometheus` toutes les 15 s (conservation 15 jours) et évalue `observability/prometheus/alerts.yml` : backend injoignable, données périmées, retard du watermark, rattrapage Kafka persistant, file de l'écrivain saturée, quarantaine > 1 %, entrée inconnue > 2 % des sorties, origine connue < 90 % ou écart de rapprochement O/D > 0,5 %, messages rejetés, point de reprise en échec ou ancien, tas JVM, clients SSE.
@@ -140,6 +191,22 @@ Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour
 - Vérification automatique : `scripts/verify_observability.py` contrôle les cibles, qu'Alertmanager est joint par Prometheus, les 14 règles et que chaque panneau reçoit des données (exécuté par la CI).
 
 ## Données et maintenance
+
+### Secrets déjà persistés
+
+Modifier `.env` ne change pas automatiquement le mot de passe d'une base PostgreSQL déjà initialisée ni celui
+de l'administrateur stocké dans Grafana. Les sondes `pg_isready` et `/api/health` peuvent rester vertes alors
+que les identifiants applicatifs sont refusés. Le lanceur teste donc une vraie connexion PostgreSQL par TCP
+et l'accès authentifié à `/api/user` de Grafana, sans afficher les secrets.
+
+En cas d'échec, retrouver le secret existant et le reporter dans `.env`, puis relancer le lanceur. Si le secret
+est perdu, effectuer une récupération administrateur contrôlée après sauvegarde : connexion locale à PostgreSQL
+avec `docker compose exec postgres psql -U supervision -d supervision`, puis commande interactive
+`\password supervision` ; pour Grafana, utiliser sa procédure de réinitialisation administrateur avec
+`docker compose exec grafana grafana cli admin reset-admin-password --help` pour connaître les options de la
+version installée. Saisir un nouveau secret uniquement dans une session administrateur maîtrisée, puis l'aligner
+dans `.env`. **Le lanceur ne réinitialise aucun mot de passe et ne supprime aucun volume.** Ne pas utiliser
+`docker compose down -v` pour résoudre un problème d'identifiants : cette commande supprime les données.
 
 ```bash
 docker compose ps                                   # état et santé

@@ -2,6 +2,7 @@ package fr.autoroutes.supervision.history;
 
 import fr.autoroutes.supervision.aggregation.HistoryBatch;
 import fr.autoroutes.supervision.aggregation.HistorySink;
+import fr.autoroutes.supervision.aggregation.SourceCounts;
 import fr.autoroutes.supervision.aggregation.WindowCounts;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -23,9 +24,10 @@ class JdbcHistorySink implements HistorySink {
     }
 
     private static final String STATION_UPSERT = """
-            insert into %1$s (station_id, bucket, entries, exits) values (?, ?, ?, ?)
+            insert into %1$s (station_id, bucket, entries, exits, simulated, observed) values (?, ?, ?, ?, ?, ?)
             on conflict (station_id, bucket) do update
-            set entries = %1$s.entries + excluded.entries, exits = %1$s.exits + excluded.exits""";
+            set entries = %1$s.entries + excluded.entries, exits = %1$s.exits + excluded.exits,
+                simulated = %1$s.simulated + excluded.simulated, observed = %1$s.observed + excluded.observed""";
 
     private final JdbcTemplate jdbc;
     private final PartitionManager partitions;
@@ -40,9 +42,9 @@ class JdbcHistorySink implements HistorySink {
         if (batch.isEmpty()) {
             return;
         }
-        writeStations("station_minute", rollup(batch.minutes(), 60));
-        writeStations("station_quarter", rollup(batch.minutes(), 15 * 60));
-        writeStations("station_hour", rollup(batch.minutes(), 3600));
+        writeStations("station_minute", rollup(batch.minutes(), 60), rollupSources(batch.provenance(), 60));
+        writeStations("station_quarter", rollup(batch.minutes(), 15 * 60), rollupSources(batch.provenance(), 15 * 60));
+        writeStations("station_hour", rollup(batch.minutes(), 3600), rollupSources(batch.provenance(), 3600));
 
         var hours = new ArrayList<Object[]>();
         batch.odHours().forEach((key, vehicles) -> {
@@ -64,12 +66,14 @@ class JdbcHistorySink implements HistorySink {
                 on conflict (origin_id, destination_id, day) do update set vehicles = od_day.vehicles + excluded.vehicles""", days);
     }
 
-    private void writeStations(String table, Map<Bucket, long[]> counts) {
+    private void writeStations(String table, Map<Bucket, long[]> counts, Map<Bucket, SourceCounts> sources) {
         var rows = new ArrayList<Object[]>(counts.size());
         counts.forEach((bucket, value) -> {
             var instant = Instant.ofEpochSecond(bucket.epochSecond());
             partitions.ensure(table, instant);
-            rows.add(new Object[] {bucket.stationId(), OffsetDateTime.ofInstant(instant, ZoneOffset.UTC), value[0], value[1]});
+            var source = sources.getOrDefault(bucket, SourceCounts.EMPTY);
+            rows.add(new Object[] {bucket.stationId(), OffsetDateTime.ofInstant(instant, ZoneOffset.UTC), value[0], value[1],
+                    source.simulated(), source.observed()});
         });
         jdbc.batchUpdate(STATION_UPSERT.formatted(table), rows);
     }
@@ -83,6 +87,13 @@ class JdbcHistorySink implements HistorySink {
             total[0] += counts.entries();
             total[1] += counts.exits();
         });
+        return result;
+    }
+
+    static Map<Bucket, SourceCounts> rollupSources(Map<HistoryBatch.StationMinute, SourceCounts> minutes, long seconds) {
+        var result = new HashMap<Bucket, SourceCounts>();
+        minutes.forEach((key, counts) -> result.merge(
+                new Bucket(key.stationId(), Math.floorDiv(key.epochMinute() * 60, seconds) * seconds), counts, SourceCounts::plus));
         return result;
     }
 

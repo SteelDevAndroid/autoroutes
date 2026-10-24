@@ -55,4 +55,27 @@ class HistoryIncrementsTest {
         assertThat(merged.odHours().values()).containsExactly(1L);
         assertThat(HistoryBatch.EMPTY.merge(HistoryBatch.EMPTY).isEmpty()).isTrue();
     }
+
+    @Test
+    void preservesSourceCountsAcrossCheckpointRetriesAndDrains() {
+        var time = Instant.parse("2026-10-22T08:00:10Z");
+        increments.station("A", ENTRY, time, 5, true);
+        var first = increments.drain();
+        increments.station("A", EXIT, time.plusSeconds(10), 2, false);
+        var merged = first.merge(increments.drain());
+
+        assertThat(merged.provenance()).containsExactly(Map.entry(
+                new HistoryBatch.StationMinute("A", time.getEpochSecond() / 60), new SourceCounts(5, 2)));
+        assertThat(merged.minutes().values()).containsExactly(new WindowCounts(5, 2));
+        assertThat(increments.drain().provenance()).isEmpty();
+    }
+
+    @Test
+    void aNewSimulatedSourceInvalidatesAnObservedLiveLabelBeforeCheckpoint() {
+        increments.station("A", ENTRY, Instant.parse("2026-10-22T08:00:00Z"), 1, true);
+        assertThat(increments.liveNature(SourceCounts.Nature.OBSERVED)).isEqualTo(SourceCounts.Nature.MIXED);
+        increments.drain();
+        assertThat(increments.liveNature(SourceCounts.Nature.OBSERVED)).isEqualTo(SourceCounts.Nature.MIXED);
+        assertThat(increments.liveNature(SourceCounts.Nature.UNKNOWN)).isEqualTo(SourceCounts.Nature.UNKNOWN);
+    }
 }

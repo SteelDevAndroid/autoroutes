@@ -2,6 +2,7 @@ package fr.autoroutes.supervision.history;
 
 import fr.autoroutes.supervision.SupervisionProperties;
 import fr.autoroutes.supervision.aggregation.OdCell;
+import fr.autoroutes.supervision.aggregation.SourceCounts;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -60,6 +61,23 @@ public class HistoryQueries {
                 .param("to", utc(to))
                 .query(Point.class)
                 .list();
+    }
+
+    /** Counts come from the same rows as the displayed series, including unverified legacy rows. */
+    public SourceCounts.Nature provenance(String stationId, Instant from, Instant to, Resolution step) {
+        validate(from, to, step.maxSpan());
+        var query = jdbc.sql("""
+                        select coalesce(sum(entries + exits), 0) as total,
+                               coalesce(sum(simulated), 0) as simulated,
+                               coalesce(sum(observed), 0) as observed
+                        from %s where bucket >= :from and bucket < :to%s"""
+                        .formatted(step.table(), stationId == null ? "" : " and station_id = :station"))
+                .param("from", utc(from)).param("to", utc(to));
+        if (stationId != null) {
+            query = query.param("station", stationId);
+        }
+        return query.query((rs, row) -> new SourceCounts(rs.getLong("simulated"), rs.getLong("observed"))
+                .nature(rs.getLong("total"))).single();
     }
 
     /** Toutes les gares, minute par minute : données de la relecture, plage bornée. */

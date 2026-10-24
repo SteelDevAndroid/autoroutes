@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LOGIN_URL, checkSession } from './auth/session';
+import { loadCapabilities } from './capabilities';
+import { trackReplayProvenance } from './history/replayProvenance';
 import { config } from './config';
 import { DemoEventSource } from './demo/demoEventSource';
 import { buildAxisGroups } from './map/axes';
@@ -31,6 +33,7 @@ import { applyPalette } from './ui/paletteStorage';
 import { hasSeenTour } from './ui/tourStorage';
 import { useCompact } from './ui/useCompact';
 import { TopBar } from './ui/TopBar';
+import { ProvenanceBanner } from './ui/ProvenanceBanner';
 
 function streamFactory(stations: StationCollection): EventSourceFactory {
   if (config.demo) {
@@ -50,6 +53,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const onReady = useCallback((c: MapController | null) => { controller.current = c; }, []);
   const stopLive = useRef<(() => void) | null>(null);
   const session = useRef<ReplaySession | null>(null);
+  const stopReplayProvenance = useRef<(() => void) | null>(null);
   const mode = useUiStore((s) => s.mode);
   const replay = useUiStore((s) => s.replay);
   const connection = useUiStore((s) => s.connection);
@@ -58,6 +62,28 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const aboutOpen = useUiStore((s) => s.aboutOpen);
   const odLayer = useUiStore((s) => s.layers.od);
   const odFilters = useUiStore((s) => s.odFilters);
+
+  useEffect(() => {
+    if (config.demo) return undefined;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let request: AbortController | undefined;
+    const refresh = async () => {
+      request = new AbortController();
+      const timeout = setTimeout(() => { request?.abort(); }, 8_000);
+      try {
+        const capabilities = await loadCapabilities(request.signal);
+        if (!disposed) useUiStore.getState().setCapabilities(capabilities);
+      } catch {
+        if (!disposed) useUiStore.getState().setCapabilities(null);
+      } finally {
+        clearTimeout(timeout);
+        if (!disposed) timer = setTimeout(() => { void refresh(); }, 10_000);
+      }
+    };
+    void refresh();
+    return () => { disposed = true; clearTimeout(timer); request?.abort(); };
+  }, []);
 
   /** Flux O/D filtrés par le serveur (hors démonstration) : relus toutes les 10 s, et aussitôt à chaque changement de filtre. */
   useEffect(() => {
@@ -157,6 +183,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
     return () => {
       stopLive.current?.();
       session.current?.dispose();
+      stopReplayProvenance.current?.();
     };
   }, [startLive]);
 
@@ -164,6 +191,9 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
   const replayControls = useMemo<ReplayControls>(() => {
     const ui = useUiStore.getState;
     const backToLive = () => {
+      stopReplayProvenance.current?.();
+      stopReplayProvenance.current = null;
+      ui().setReplayProvenance('UNKNOWN');
       session.current?.dispose();
       session.current = null;
       ui().setMode('live');
@@ -179,6 +209,9 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         }
         stopLive.current?.();
         stopLive.current = null;
+        stopReplayProvenance.current?.();
+        stopReplayProvenance.current = trackReplayProvenance(from, new Date(from.getTime() + durationMinutes * 60_000),
+          (nature) => { ui().setReplayProvenance(nature); });
         ui().setMode('replay');
         ui().setReplay({ speed, error: null, from: from.toISOString(), to: new Date(from.getTime() + durationMinutes * 60_000).toISOString() });
         const replaySession = new ReplaySession(store, {
@@ -269,12 +302,14 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
 
   return (
     <div className="app">
-      {config.demo && <div className="simulated-banner" role="note">DONNÉES SIMULÉES — démonstration, aucune valeur réelle</div>}
+      <div className="banners">
+      <ProvenanceBanner />
       {mode === 'replay' && (
         <div className="replay-banner" role="note">
-          RELECTURE — données historiques observées · {formatTime(replay.time)} (heure de Paris) · ×{replay.speed}
+          RELECTURE — données historiques · {formatTime(replay.time)} (heure de Paris) · ×{replay.speed}
         </div>
       )}
+      </div>
       <TopBar store={store} />
       <AlertBanner stationCount={store.size} />
       <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
@@ -311,12 +346,16 @@ export function App() {
   const [error, setError] = useState<string | null>(null);
 
   const [redirecting, setRedirecting] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const abort = new AbortController();
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; abort.abort(); }, 15_000);
     const fail = (e: unknown) => {
-      if (!abort.signal.aborted) {
-        setError(e instanceof Error ? e.message : String(e));
+      if (!abort.signal.aborted || timedOut) {
+        setError(timedOut ? 'Le serveur met trop de temps à répondre. Vérifiez que les services sont démarrés.'
+          : e instanceof Error ? e.message : 'Le serveur est momentanément indisponible.');
       }
     };
     // Hors démonstration, l'identité est vérifiée avant toute donnée : sans session, on lance la connexion OIDC.
@@ -329,12 +368,17 @@ export function App() {
       }
       useUiStore.getState().setMe(result?.me ?? null);
       return loadStations(config.stationsUrl, abort.signal).then(setStations);
-    }).catch(fail);
-    return () => { abort.abort(); };
-  }, []);
+    }).catch(fail).finally(() => { clearTimeout(timeout); });
+    return () => { clearTimeout(timeout); abort.abort(); };
+  }, [attempt]);
 
   if (error !== null) {
-    return <div className="error" role="alert">{error}</div>;
+    return <main className="error"><section className="startup-error" role="alert">
+      <h1>Connexion à l’application impossible</h1>
+      <p>La carte pourra s’ouvrir dès que le serveur et son référentiel seront disponibles.</p>
+      <p className="note">{error}</p>
+      <button type="button" className="icon-button primary" onClick={() => { setError(null); setRedirecting(false); setAttempt((value) => value + 1); }}>Réessayer</button>
+    </section></main>;
   }
   if (redirecting) {
     return <div className="loading">Redirection vers la connexion…</div>;

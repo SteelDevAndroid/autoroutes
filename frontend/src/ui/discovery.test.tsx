@@ -15,6 +15,9 @@ import { StationDetail } from './StationDetail';
 import { formatCount } from './format';
 
 vi.mock('../history/historyApi', () => ({
+  stationHistory: vi.fn(() => Promise.resolve({ points: [
+    { t: 0, entries: 1, exits: 1 }, { t: 900, entries: 2, exits: 2 },
+  ], nature: 'UNKNOWN', coverage: { status: 'AVAILABLE' } })),
   stationSeries: vi.fn(() => Promise.resolve([
     { t: 0, entries: 1, exits: 1 }, { t: 900, entries: 2, exits: 2 }, { t: 1800, entries: 6, exits: 4 },
   ])),

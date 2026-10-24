@@ -86,7 +86,7 @@ export class DemoEventSource implements EventSourceLike {
         flows.push({ originId: origin.id, destinationId: destination.id, vehicles: 3 + Math.floor(this.random() ** 3 * 400) });
       }
     }
-    this.emit({ ...this.envelope('od'), payload: { window: 'PT1H', nature: 'OBSERVED', minVehicles: 3, flows } });
+    this.emit({ ...this.envelope('od'), payload: { window: 'PT1H', nature: 'SIMULATED', minVehicles: 3, flows } });
   }
 
   private emitFreshness(): void {

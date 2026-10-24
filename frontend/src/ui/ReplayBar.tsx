@@ -55,7 +55,7 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
               </button>
               <button type="button" className="icon-button" aria-expanded="true" aria-label="Replier la relecture" onClick={() => { setOpen(false); }}>✕</button>
               {replay.status === 'error' && replay.error !== null && <span className="status-danger" role="alert">{replay.error}</span>}
-              <span className="note">7 derniers jours, données observées minute par minute.</span>
+              <span className="note">7 derniers jours, historique enregistré minute par minute.</span>
             </div>
           )}
       </section>

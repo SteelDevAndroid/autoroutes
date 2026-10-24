@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { DataNature } from './DataNature';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
@@ -42,7 +43,7 @@ function StationFlows({ stationId, stations, onFocusFlow }: {
   }
   return (
     <div className="detail-flows">
-      <h3>Principaux flux <span className="tag section-tag">observé</span></h3>
+      <h3>Principaux flux <DataNature /></h3>
       {flows.length === 0
         ? <p className="note">Aucun flux d’au moins 3 véhicules sur l’heure pour cette gare, avec les filtres actuels.</p>
         : (

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { Capabilities, Provenance } from '../capabilities';
 import type { Me } from '../auth/session';
 import type { OdFilters, OdView } from '../od/odTypes';
 import { DEFAULT_OD_FILTERS, EMPTY_OD_VIEW, streamOdView } from '../od/odTypes';
@@ -69,6 +70,10 @@ export interface SegmentsState {
 }
 
 export interface UiState {
+  readonly replayProvenance: Provenance;
+  readonly setReplayProvenance: (nature: Provenance) => void;
+  readonly capabilities: Capabilities | null;
+  readonly setCapabilities: (capabilities: Capabilities | null) => void;
   readonly selectedIndex: number | null;
   readonly layers: LayerVisibility;
   readonly kinds: ReadonlySet<StationKind>;
@@ -143,6 +148,12 @@ export interface UiState {
 
 /** État d'interface uniquement (sélection, filtres, statuts) : les métriques des gares restent hors React, dans StationStore. */
 export const useUiStore = create<UiState>()((set, get) => ({
+  replayProvenance: 'UNKNOWN',
+  setReplayProvenance: (replayProvenance) => { set({ replayProvenance }); },
+  capabilities: null,
+  setCapabilities: (capabilities) => { set((s) => ({ capabilities,
+    ...(capabilities?.segments === 'DISABLED' ? { layers: { ...s.layers, segments: false } } : {}),
+  })); },
   selectedIndex: null,
   layers: { stations: true, labels: true, od: false, segments: false, axes: true },
   kinds: new Set<StationKind>(['ECHANGEUR', 'PLEINE_VOIE']),
