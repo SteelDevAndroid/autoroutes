@@ -112,6 +112,26 @@ class SupervisionIT {
                 assertThat(get("/api/v1/stations/" + id).path("metrics").path("anomalies").isEmpty()).isTrue());
     }
 
+    /** Rapport seul, tel que publié par le serveur MCP : visible sur la gare sans compter aucun passage. */
+    @Test
+    void standaloneAnomalyReportReachesTheStationWithoutCountingAPassage() throws Exception {
+        var id = stationId("Macon Nord");
+        var payload = new java.util.LinkedHashMap<String, Object>();
+        payload.put("eventId", "mcp-" + UUID.randomUUID());
+        payload.put("stationName", "Macon Nord");
+        payload.put("type", "ANOMALY_REPORT");
+        payload.put("eventTime", Instant.now().toString());
+        payload.put("anomalies", List.of(Map.of("type_ano", "Barrière bloquée", "cardinalite", 1, "criticite", "Haute")));
+        send(json.writeValueAsString(payload));
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var metrics = get("/api/v1/stations/" + id).path("metrics");
+            assertThat(metrics.path("anomalies").path(0).path("type_ano").asString()).isEqualTo("Barrière bloquée");
+            assertThat(metrics.path("today").path("entries").asLong()).isZero();
+            assertThat(metrics.path("today").path("exits").asLong()).isZero();
+            assertThat(metrics.path("lastEventTime").isNull() || metrics.path("lastEventTime").isMissingNode()).isTrue();
+        });
+    }
+
     @Test
     void persistsMixedProvenanceAndDistinguishesMissingHistoryWithoutReclassifyingLegacyRows() throws Exception {
         var hour = Instant.now().minus(Duration.ofDays(2)).truncatedTo(java.time.temporal.ChronoUnit.HOURS);

@@ -96,8 +96,12 @@ public final class EventProcessor {
                 return new Outcome.Rejected(event.eventId(), RejectReason.TOO_LATE);
             }
             case NEW -> {
-                state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.anomalies());
-                history.station(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.simulated());
+                if (event.type().isPassage()) {
+                    state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.anomalies());
+                    history.station(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.simulated());
+                } else {
+                    state.applyAnomalies(stationId.get(), event.eventTime(), event.anomalies());
+                }
             }
         }
         return new Outcome.Applied(stationId.get(), verdict == LatenessPolicy.Verdict.CORRECTION,

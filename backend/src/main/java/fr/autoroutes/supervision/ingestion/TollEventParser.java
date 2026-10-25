@@ -63,6 +63,15 @@ public class TollEventParser {
         if (eventTime.isAfter(clock.instant().plus(MAX_CLOCK_AHEAD))) {
             throw new FieldException(RejectReason.FUTURE_EVENT_TIME, "eventTime");
         }
+        if (!type.isPassage()) {
+            // Rapport seul : l'état déclaré est sa raison d'être ; les champs de passage sont ignorés.
+            var report = anomalies(root.get("anomalies"));
+            if (report == null) {
+                throw new FieldException(RejectReason.MISSING_FIELD, "anomalies");
+            }
+            return new TollEvent(eventId, stationName, type, eventTime, null, null, 0, null,
+                    root.path("simulated").asBoolean(false), report);
+        }
         // Gare et heure d'entrée n'ont de sens que sur une sortie : ignorées sur une entrée.
         var entryStation = type == EventType.EXIT ? optionalText(root, "entryStationName") : null;
         var entryTimeText = type == EventType.EXIT ? optionalText(root, "entryTime") : null;

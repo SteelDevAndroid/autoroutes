@@ -10,6 +10,7 @@
 #   demo        frontend seul, flux SIMULÉ dans le navigateur, sans backend (port 8080 : exclusif avec « full »)
 #   infra       Kafka et PostgreSQL seuls, pour développer le backend en local
 #   auth        Keycloak (OIDC) ; avec SUPERVISION_PROFILE=auth dans .env, la connexion devient obligatoire
+#   mcp         serveur MCP des anomalies de gare (port 8090) ; à combiner avec « full » (Kafka), et « auth » pour exiger un jeton
 #   tiles       tâche ponctuelle : produit le fond de carte et le graphe routier (accès réseau requis)
 #
 # Sécurité : tous les ports sont locaux par défaut (127.0.0.1). FRONTEND_BIND permet un partage explicite.
@@ -112,6 +113,29 @@ services:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SIMULATOR_RATE: ${SIMULATOR_RATE:-80}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    deploy:
+      resources:
+        limits: { memory: 384m }
+
+  # Serveur MCP : un agent déclare les anomalies d'une gare (rapport ANOMALY_REPORT sur Kafka, sans passage de véhicule).
+  # Sans MCP_SECURITY_ENABLED=true, aucun jeton n'est exigé : port local uniquement, poste de développement.
+  mcp-anomalies:
+    <<: *hardened
+    profiles: [mcp]
+    build:
+      context: .
+      dockerfile: mcp-anomalies/Dockerfile
+    image: autoroutes-mcp-anomalies:latest
+    ports:
+      - "127.0.0.1:${MCP_PORT:-8090}:8090"
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      MCP_SECURITY_ENABLED: ${MCP_SECURITY_ENABLED:-false}
+      OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -315,6 +339,7 @@ services:
       SUPERVISION_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:-changez-moi}
       KEYCLOAK_VIEWER_PASSWORD: ${KEYCLOAK_VIEWER_PASSWORD:-changez-moi}
       KEYCLOAK_ADMIN_USER_PASSWORD: ${KEYCLOAK_ADMIN_USER_PASSWORD:-changez-moi}
+      MCP_AGENT_CLIENT_SECRET: ${MCP_AGENT_CLIENT_SECRET:-changez-moi}
     volumes:
       - ./auth/realm-supervision.json:/opt/keycloak/data/import/realm-supervision.json:ro
     healthcheck:
