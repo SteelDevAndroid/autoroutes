@@ -100,6 +100,20 @@ class EventProcessorTest {
     }
 
     @Test
+    void carriesIncidentStateThroughDeduplicationAndSnapshotPublication() {
+        var report = java.util.List.of(new fr.autoroutes.supervision.ingestion.StationAnomaly("Paiement", 4, "Critique"));
+        var event = new TollEvent("incident-1", "La Boisse", EventType.ENTRY, T0, null, null, 1, null, false, report);
+        processor.process(0, event);
+        processor.process(0, event);
+        var deltas = new DeltaComputer("incident-test");
+        var metrics = deltas.tick(state, T0).orElseThrow().stations().getFirst();
+        assertThat(metrics.anomalies()).isEqualTo(report);
+        assertThat(metrics.anomaliesUpdatedAt()).isEqualTo(T0);
+        assertThat(metrics.last5m().entries()).isEqualTo(1);
+        assertThat(deltas.snapshot().stations().getFirst().anomalies()).isEqualTo(report);
+    }
+
+    @Test
     void unknownStationNameIsQuarantinedNotCounted() {
         var event = new TollEvent("e-2", "Gare Inconnue", EventType.ENTRY, T0, null, null, 1, null, false);
 

@@ -3,6 +3,7 @@ import type { StationAnimator } from '../animation/stationAnimator';
 import type { StationStore } from '../state/stationStore';
 import { SOURCE } from './layers';
 import { percentile, pulseStrength, radiusFor } from './scales';
+import { anomalySummary } from '../realtime/anomalies';
 
 /** Seule méthode de la carte utilisée : permet de tester le pont sans WebGL. */
 export interface FeatureStateTarget {
@@ -36,6 +37,7 @@ export class StationLayerRenderer {
     }
     const reference = Math.max(1, percentile(totals, 0.95));
     for (const i of this.store.drainChanged()) {
+      this.pending.add(i); // Une anomalie peut changer sans aucun changement d'activité.
       this.animator.setTarget(i, radiusFor(totals[i] ?? 0, reference), now);
       const strength = pulseStrength(this.store.increment[i] ?? 0);
       if (strength > 0) {
@@ -51,9 +53,11 @@ export class StationLayerRenderer {
     }
     if (this.pending.size > 0 && now - this.lastFlush >= FLUSH_INTERVAL_MS[quality]) {
       for (const i of this.pending) {
+        const anomalies = anomalySummary(this.store.anomalies[i] ?? null);
         this.map.setFeatureState(
           { source: SOURCE.stations, id: i },
-          { r: this.animator.radius[i] ?? 0, halo: quality >= 1 ? 0 : this.animator.halo[i] ?? 0 },
+          { r: this.animator.radius[i] ?? 0, halo: quality >= 1 ? 0 : this.animator.halo[i] ?? 0,
+            hasAnomalies: anomalies.count > 0, anomalySeverity: anomalies.severity },
         );
       }
       this.pending.clear();

@@ -15,6 +15,10 @@ export const theme = {
   stationStale: '#6E7681',
   halo: '#E6EDF3',
   selection: '#FFFFFF',
+  anomalyLow: '#91C8F6',
+  anomalyMedium: '#F1C478',
+  anomalyHigh: '#F8AD74',
+  anomalyCritical: '#FF9F9A',
   odFlow: '#4CC9F0',
   /** Rampe séquentielle (type cividis) pour la charge ESTIMÉE des tronçons, toujours en tirets. */
   segmentRamp: ['#2B3A55', '#575D6D', '#8F8A6E', '#C8B866', '#F2D45C'],
@@ -32,6 +36,10 @@ export const cvdTheme = {
   stationEchangeur: '#56B4E9',
   stationPleineVoie: '#D55E00',
   odFlow: '#CC79A7',
+  anomalyLow: '#56B4E9',
+  anomalyMedium: '#E69F00',
+  anomalyHigh: '#FF8C4A',
+  anomalyCritical: '#FF8C4A',
 } as const;
 
 export type Theme = { readonly [K in keyof typeof theme]: (typeof theme)[K] extends readonly string[] ? readonly string[] : string };

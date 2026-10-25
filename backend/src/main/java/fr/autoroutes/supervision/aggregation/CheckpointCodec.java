@@ -1,5 +1,7 @@
 package fr.autoroutes.supervision.aggregation;
 
+import fr.autoroutes.supervision.ingestion.StationAnomaly;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.DataInputStream;
@@ -16,7 +18,7 @@ import java.util.zip.GZIPOutputStream;
 /** Format binaire versionné et compressé ; aucune désérialisation Java générique (pas de surface d'attaque). */
 public final class CheckpointCodec {
 
-    private static final int VERSION = 2;
+    private static final int VERSION = 3;
     private static final long NO_INSTANT = Long.MIN_VALUE;
 
     public byte[] encode(CheckpointData data) {
@@ -43,6 +45,17 @@ public final class CheckpointCodec {
                     out.writeLong(minute[0]);
                     out.writeLong(minute[1]);
                     out.writeLong(minute[2]);
+                }
+                // Conserver les nanosecondes : une troncature pourrait rendre « plus récent » un vieux rapport au redémarrage.
+                out.writeLong(station.anomaliesUpdatedAt() == null ? NO_INSTANT : station.anomaliesUpdatedAt().getEpochSecond());
+                out.writeInt(station.anomaliesUpdatedAt() == null ? 0 : station.anomaliesUpdatedAt().getNano());
+                out.writeInt(station.anomalies() == null ? -1 : station.anomalies().size());
+                if (station.anomalies() != null) {
+                    for (var anomaly : station.anomalies()) {
+                        out.writeUTF(anomaly.typeAno());
+                        out.writeInt(anomaly.cardinalite());
+                        out.writeUTF(anomaly.criticite());
+                    }
                 }
             }
             out.writeInt(data.od().size());
@@ -77,7 +90,7 @@ public final class CheckpointCodec {
         try (var in = new DataInputStream(new GZIPInputStream(new ByteArrayInputStream(payload)))) {
             var version = in.readInt();
             // La version 1 ne contient pas la couverture O/D : elle redémarre à vide, les flux O/D restent intacts.
-            if (version != VERSION && version != 1) {
+            if (version < 1 || version > VERSION) {
                 throw new IllegalArgumentException("Version de point de reprise non prise en charge : " + version);
             }
             var createdAt = Instant.ofEpochMilli(in.readLong());
@@ -97,7 +110,25 @@ public final class CheckpointCodec {
                 for (int j = 0, m = in.readInt(); j < m; j++) {
                     minutes.add(new long[] {in.readLong(), in.readLong(), in.readLong()});
                 }
-                stations.add(new AggregationState.StationCheckpoint(id, last == NO_INSTANT ? null : Instant.ofEpochMilli(last), List.copyOf(minutes)));
+                Instant anomaliesAt = null;
+                List<StationAnomaly> anomalies = null;
+                if (version >= 3) {
+                    var at = in.readLong();
+                    var nanos = in.readInt();
+                    if (nanos < 0 || nanos > 999_999_999 || (at == NO_INSTANT && nanos != 0)) {
+                        throw new IllegalArgumentException("Date d'anomalies invalide dans le point de reprise");
+                    }
+                    anomaliesAt = at == NO_INSTANT ? null : Instant.ofEpochSecond(at, nanos);
+                    var count = in.readInt();
+                    if (count < -1 || count > StationAnomaly.MAX_ITEMS) throw new IllegalArgumentException("Nombre d'anomalies invalide dans le point de reprise");
+                    if (count >= 0) {
+                        var items = new ArrayList<StationAnomaly>();
+                        for (var k = 0; k < count; k++) items.add(new StationAnomaly(in.readUTF(), in.readInt(), in.readUTF()));
+                        anomalies = List.copyOf(items);
+                    }
+                    if ((anomalies == null) != (anomaliesAt == null)) throw new IllegalArgumentException("État d'anomalies incomplet dans le point de reprise");
+                }
+                stations.add(new AggregationState.StationCheckpoint(id, last == NO_INSTANT ? null : Instant.ofEpochMilli(last), List.copyOf(minutes), anomalies, anomaliesAt));
             }
             var od = new ArrayList<OdCounters.OdCheckpoint>();
             for (int i = 0, n = in.readInt(); i < n; i++) {

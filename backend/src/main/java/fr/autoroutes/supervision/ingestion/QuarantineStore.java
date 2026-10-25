@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Événements dont le nom de gare est inconnu : champs autorisés seulement, rejoués après mise à jour de la table d'alias. */
 @Repository
@@ -21,17 +22,19 @@ public class QuarantineStore {
     }
 
     private final JdbcClient jdbc;
+    private final JsonMapper json;
 
-    QuarantineStore(JdbcClient jdbc) {
+    QuarantineStore(JdbcClient jdbc, JsonMapper json) {
         this.jdbc = jdbc;
+        this.json = json;
     }
 
     /** Idempotent : un même eventId n'est stocké qu'une fois. */
     public void save(TollEvent event) {
         jdbc.sql("""
                         insert into quarantined_event (event_id, station_name, type, event_time, entry_station_name,
-                                                       entry_time, vehicle_count, vehicle_class, simulated)
-                        values (:id, :station, :type, :eventTime, :entry, :entryTime, :count, :class, :simulated)
+                                                       entry_time, vehicle_count, vehicle_class, simulated, anomalies)
+                        values (:id, :station, :type, :eventTime, :entry, :entryTime, :count, :class, :simulated, cast(:anomalies as jsonb))
                         on conflict (event_id) do nothing""")
                 .param("id", event.eventId())
                 .param("station", event.stationName())
@@ -42,13 +45,14 @@ public class QuarantineStore {
                 .param("count", event.vehicleCount())
                 .param("class", event.vehicleClass())
                 .param("simulated", event.simulated())
+                .param("anomalies", event.anomalies() == null ? null : json.writeValueAsString(event.anomalies()))
                 .update();
     }
 
     public List<TollEvent> pending(int limit) {
         return jdbc.sql("""
                         select event_id, station_name, type, event_time, entry_station_name, entry_time,
-                               vehicle_count, vehicle_class, simulated
+                               vehicle_count, vehicle_class, simulated, anomalies
                         from quarantined_event where status = 'PENDING' order by received_at limit :limit""")
                 .param("limit", limit)
                 .query((rs, row) -> new TollEvent(
@@ -60,7 +64,8 @@ public class QuarantineStore {
                         instant(rs.getTimestamp("entry_time")),
                         rs.getInt("vehicle_count"),
                         (Integer) rs.getObject("vehicle_class"),
-                        rs.getBoolean("simulated")))
+                        rs.getBoolean("simulated"),
+                        readAnomalies(rs.getString("anomalies"))))
                 .list();
     }
 
@@ -86,5 +91,9 @@ public class QuarantineStore {
 
     private static Instant instant(Timestamp timestamp) {
         return timestamp == null ? null : timestamp.toInstant();
+    }
+
+    private List<StationAnomaly> readAnomalies(String value) {
+        return value == null ? null : List.of(json.readValue(value, StationAnomaly[].class));
     }
 }

@@ -6,6 +6,7 @@ import { legendRows, segmentScale } from './legendModel';
 
 /** Légende contextuelle : une ligne par couche affichée, avec la nature (observé ou estimé) de ce qu'elle montre. */
 export function Legend() {
+  const mode = useUiStore((s) => s.mode);
   const layers = useUiStore((s) => s.layers);
   const theme = themeFor(useUiStore((s) => s.palette));
   const kinds = useUiStore((s) => s.kinds);
@@ -19,6 +20,7 @@ export function Legend() {
       {rows.includes('pleine-voie') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>}
       {rows.includes('stale') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationStale }} /> Gare sans données récentes</div>}
       {layers.stations && <p className="note">Activité : surface du cercle ∝ passages sur 1 h. Halo bref = nouveaux passages.</p>}
+      {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour extérieur : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
       {rows.includes('axes') && <div className="legend-row"><span className="axis-label axis-label-sample" aria-hidden="true">A7</span> Nom d’autoroute : survol = ses gares, clic = filtre « Axe » des flux</div>}
       {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), clair → foncé = origine → destination</div>}
       {rows.includes('segments') && (

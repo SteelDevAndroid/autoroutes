@@ -96,7 +96,7 @@ public final class EventProcessor {
                 return new Outcome.Rejected(event.eventId(), RejectReason.TOO_LATE);
             }
             case NEW -> {
-                state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount());
+                state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.anomalies());
                 history.station(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.simulated());
             }
         }

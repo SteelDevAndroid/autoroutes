@@ -1,5 +1,6 @@
 import type { EventSourceLike } from '../realtime/streamClient';
 import type { OdFlow, StationMetrics, StreamMessage } from '../realtime/protocol';
+import { DEMO_ANOMALIES } from './stationAnomalies';
 
 export interface DemoStation {
   readonly id: string;
@@ -24,6 +25,7 @@ export class DemoEventSource implements EventSourceLike {
   private readonly exitsToday: Float64Array;
   private readonly rate1h: Float64Array;
   private seq = 0;
+  private readonly anomaliesUpdatedAt = new Date().toISOString();
 
   constructor(private readonly stations: readonly DemoStation[], private readonly random: () => number = Math.random) {
     this.entriesToday = new Float64Array(stations.length);
@@ -110,6 +112,8 @@ export class DemoEventSource implements EventSourceLike {
       last1h: split(hour),
       today: { entries: this.entriesToday[i] ?? 0, exits: this.exitsToday[i] ?? 0 },
       lastEventTime: new Date().toISOString(),
+      anomalies: this.stations[i]?.id === 'GL-BPV-0054' ? DEMO_ANOMALIES : [],
+      anomaliesUpdatedAt: this.anomaliesUpdatedAt,
     };
   }
 
