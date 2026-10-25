@@ -5,6 +5,7 @@ import type { AxisGroup } from '../map/axes';
 import type { StationCollection } from '../map/referentiel';
 import { searchTargets } from './search';
 import type { SearchResult } from './search';
+import { Icon } from './Icon';
 
 /** Recherche de gare (par nom) ou d'autoroute (« A7 »). Raccourci « / » (voir App) ; ↓ descend dans les résultats, Entrée ouvre le premier. */
 export function SearchBox({ stations, onFocusStation, onFocusAxis }: {
@@ -58,10 +59,12 @@ export function SearchBox({ stations, onFocusStation, onFocusAxis }: {
 
   return (
     <section className="search" aria-label="Recherche de gare ou d’autoroute">
-      <h2>Rechercher</h2>
-      <input id="station-search" type="search" placeholder="Gare ou autoroute (A7)…  ( / )" value={query} autoComplete="off"
+      <label className="search-label" htmlFor="station-search">Rechercher sur le réseau</label>
+      <div className="search-field"><Icon name="search" />
+      <input id="station-search" type="search" placeholder="Gare ou autoroute…" value={query} autoComplete="off"
         aria-label="Nom de gare ou d’autoroute" aria-keyshortcuts="/" onChange={(e) => { setQuery(e.target.value); }} onKeyDown={onInputKey} />
-      {query.trim().length >= 2 && results.length === 0 && <p className="note" role="status">Aucun résultat pour « {query.trim()} ».</p>}
+      <kbd aria-hidden="true">/</kbd></div>
+      {query.trim().length >= 2 && results.length === 0 && <div className="empty-state" role="status"><strong>Aucun résultat pour « {query.trim()} ».</strong><p>Essayez un nom de gare ou un numéro d’autoroute, par exemple A7.</p><button className="icon-button" type="button" onClick={() => { setQuery(''); document.getElementById('station-search')?.focus(); }}>Effacer la recherche</button></div>}
       {results.length > 0 && (
         <ul ref={list} onKeyDown={onListKey} aria-label="Résultats de la recherche">
           {results.map((r) => (

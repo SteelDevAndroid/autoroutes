@@ -62,7 +62,7 @@ export function HistoryChart({ stationId }: { readonly stationId: string }) {
     return <p className="note">{error}</p>;
   }
   if (data === null) {
-    return <p className="note">Chargement de l’historique…</p>;
+    return <div className="chart-skeleton" role="status"><span className="sr-only">Chargement de l’historique…</span></div>;
   }
   const todayAvailable = available(data.today);
   const weekAvailable = available(data.lastWeek);
@@ -71,7 +71,7 @@ export function HistoryChart({ stationId }: { readonly stationId: string }) {
   const max = Math.max(1, ...data.today.points.map((p) => p.entries + p.exits), ...data.lastWeek.points.map((p) => p.entries + p.exits));
   return (
     <figure className="history-chart">
-      <svg width={WIDTH} height={HEIGHT} role="img"
+      <svg width={WIDTH} height={HEIGHT} viewBox={`0 0 ${WIDTH} ${HEIGHT}`} role="img"
         aria-label={`Passages par quart d’heure : aujourd’hui ${todayLabel}, J-7 même heure ${weekLabel}`}>
         {weekAvailable && <path d={path(data.lastWeek.points, data.lastWeekStart, max)} className="series-last-week" />}
         {todayAvailable && <path d={path(data.today.points, data.todayStart, max)} className="series-today" />}

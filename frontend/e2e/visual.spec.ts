@@ -33,6 +33,8 @@ test.describe('régression visuelle', () => {
     await page.getByRole('button', { name: 'Légende' }).click();
 
     await expect(page.getByRole('region', { name: 'Légende' })).toHaveScreenshot('legende-flux-troncons.png', SHOT);
+    // La légende défile quand plusieurs couches sont actives : vérifier aussi sa partie basse.
+    await expect(page.getByTestId('segment-scale')).toHaveScreenshot('legende-echelle-troncons.png', SHOT);
   });
 
   test('fiche de gare : en-tête', async ({ page }) => {
@@ -66,6 +68,7 @@ test.describe('régression visuelle', () => {
 
   test('palette adaptée au daltonisme : panneau et légende', async ({ page }) => {
     await ready(page);
+    await page.getByText('Préférences d’affichage', { exact: true }).click();
     await page.getByLabel('Couleurs adaptées au daltonisme').check();
     await page.getByRole('button', { name: 'Légende' }).click();
 

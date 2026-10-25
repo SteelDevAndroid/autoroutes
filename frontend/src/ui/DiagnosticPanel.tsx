@@ -1,7 +1,10 @@
+import { useEffect, useRef } from 'react';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { formatCount, formatPercent } from './format';
 import { useStoreVersion } from './useStoreVersion';
+import { Icon } from './Icon';
+import { COMPACT_QUERY } from './useCompact';
 
 export function DiagnosticPanel({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
@@ -11,11 +14,19 @@ export function DiagnosticPanel({ store }: { readonly store: StationStore }) {
   const resyncCount = useUiStore((s) => s.resyncCount);
   const quality = useUiStore((s) => s.quality);
   const coverage = useUiStore((s) => s.odView.coverage);
+  const close = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (open) close.current?.focus({ preventScroll: true });
+    else if (wasOpen.current) document.getElementById(window.matchMedia(COMPACT_QUERY).matches ? 'drawer-toggle' : 'diagnostic-toggle')?.focus({ preventScroll: true });
+    wasOpen.current = open;
+  }, [open]);
   if (!open) {
     return null;
   }
   return (
     <section className="diagnostic" aria-label="Diagnostic du flux">
+      <header className="panel-heading"><h2>État du flux</h2><button ref={close} type="button" className="icon-button" aria-label="Fermer le diagnostic" onClick={() => { useUiStore.getState().toggleDiagnostic(); }}><Icon name="close" /></button></header>
       <dl>
         <dt>Connexion</dt><dd>{connection}</dd>
         <dt>Fraîcheur</dt><dd>{freshness?.status ?? '–'}</dd>

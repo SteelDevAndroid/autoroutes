@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { replayProgress } from '../replay/progress';
 import { useUiStore } from '../state/uiStore';
+import { Icon } from './Icon';
 import { formatTime } from './format';
 
 export const SPEEDS = [1, 10, 60, 300] as const;
@@ -53,7 +54,7 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
               <button type="button" className="icon-button primary" onClick={() => { controls.start(new Date(start), duration, speed); }}>
                 Lancer la relecture
               </button>
-              <button type="button" className="icon-button" aria-expanded="true" aria-label="Replier la relecture" onClick={() => { setOpen(false); }}>✕</button>
+              <button type="button" className="icon-button" aria-expanded="true" aria-label="Replier la relecture" onClick={() => { setOpen(false); }}><Icon name="close" /></button>
               {replay.status === 'error' && replay.error !== null && <span className="status-danger" role="alert">{replay.error}</span>}
               <span className="note">7 derniers jours, historique enregistré minute par minute.</span>
             </div>

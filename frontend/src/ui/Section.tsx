@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useUiStore } from '../state/uiStore';
 import type { SectionId } from '../state/uiStore';
+import { Icon } from './Icon';
 
 /**
  * Section repliable du panneau latéral. Une seule est ouverte à la fois : le panneau garde la hauteur de l'écran
@@ -21,7 +22,7 @@ export function Section({ id, title, label, badge, children }: {
       <h2>
         <button type="button" className="section-toggle" aria-expanded={open} aria-controls={`section-${id}`}
           onClick={() => { setOpen(open ? null : id); }}>
-          <span className="section-chevron" aria-hidden="true">{open ? '▾' : '▸'}</span>
+          <Icon name="chevron" className={`section-chevron${open ? ' rotated' : ''}`} />
           <span className="section-title">{title}</span>
           {badge}
         </button>

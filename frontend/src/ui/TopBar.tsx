@@ -3,6 +3,7 @@ import { useUiStore } from '../state/uiStore';
 import { AnimatedCount } from './AnimatedCount';
 import { formatCount, formatTime } from './format';
 import { useStoreVersion } from './useStoreVersion';
+import { Icon } from './Icon';
 
 const sum = (array: Float64Array): number => array.reduce((total, value) => total + value, 0);
 
@@ -42,13 +43,13 @@ function DrawerToggle() {
   const setOpen = useUiStore((s) => s.setDrawerOpen);
   return (
     <button id="drawer-toggle" type="button" className="icon-button drawer-toggle" aria-expanded={open} aria-controls="side-panel"
-      aria-label="Panneau des couches et des filtres" onClick={() => { setOpen(!open); }}>☰</button>
+      aria-label="Panneau des couches et des filtres" onClick={() => { setOpen(!open); }}><Icon name="menu" /></button>
   );
 }
 
 function HelpButton() {
   const setAboutOpen = useUiStore((s) => s.setAboutOpen);
-  return <button type="button" className="icon-button help-button" data-tour="help" aria-label="Aide et à propos des données" onClick={() => { setAboutOpen(true); }}>? Aide</button>;
+  return <button type="button" className="icon-button help-button" data-tour="help" aria-label="Aide et à propos des données" onClick={() => { setAboutOpen(true); }}><Icon name="help" /><span>Aide</span></button>;
 }
 
 export function TopBar({ store }: { readonly store: StationStore }) {
@@ -64,14 +65,16 @@ export function TopBar({ store }: { readonly store: StationStore }) {
     <header className="topbar">
       <div className="topbar-title">
       <DrawerToggle />
-      <h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Gares de péage</span></h1>
+      <span className="brand-mark"><Icon name="route" /></span>
+      <div className="brand"><span className="brand-name">Autoroutes<span className="brand-dot">.</span></span>
+      <h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
       </div>
       <div className="topbar-metrics">
       <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></div>
       <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></div>
-      <div className="kpi"><span className="kpi-label">Données à</span><span className="kpi-value">{formatTime(watermark)}</span></div>
+      <div className="kpi kpi-time"><span className="kpi-label">Données à · Paris</span><span className="kpi-value">{formatTime(watermark)}</span></div>
       </div>
       <div className="topbar-actions">
       <ConnectionBadge />
