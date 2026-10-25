@@ -1,5 +1,5 @@
 import type { StationAnomaly } from '../realtime/anomalies';
-import { anomalySeverity, anomalySummary } from '../realtime/anomalies';
+import { anomalySeverity, anomalySourceLabel, anomalySummary } from '../realtime/anomalies';
 import { formatCount } from './format';
 import { Icon } from './Icon';
 
@@ -13,9 +13,10 @@ export function StationAnomalies({ anomalies, updatedAt }: { readonly anomalies:
     </div>
     {anomalies === null ? <p className="note">État des anomalies non communiqué pour cette gare.</p>
       : active.length === 0 ? <p className="note">Aucune anomalie signalée par la source.</p>
-      : <ul className="anomaly-list">{active.map((item, index) => <li key={`${item.type_ano}-${item.criticite}-${index}`}>
+      : <ul className="anomaly-list">{active.map((item, index) => <li key={`${item.source ?? ''}-${item.type_ano}-${item.criticite}-${index}`}>
         <div className="anomaly-description"><span className={`anomaly-severity anomaly-level-${anomalySeverity(item.criticite)}`}><Icon name="warning" />{item.criticite}</span>
-          <span>{item.type_ano}</span></div>
+          <span>{item.type_ano}</span>
+          {item.source !== undefined && <span className="anomaly-source">{anomalySourceLabel(item.source)}</span>}</div>
         <span className="anomaly-count" aria-label={`${formatCount(item.cardinalite)} ${item.cardinalite === 1 ? 'occurrence' : 'occurrences'}`}>×{formatCount(item.cardinalite)}</span>
       </li>)}</ul>}
     {summary.unknown && <p className="note">Criticité non reconnue : sa valeur est affichée sans classement de gravité.</p>}

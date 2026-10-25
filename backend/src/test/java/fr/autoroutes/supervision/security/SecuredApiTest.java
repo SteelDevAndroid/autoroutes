@@ -74,6 +74,42 @@ class SecuredApiTest {
         mvc.perform(get("/api/v1/od/security-test").with(user("dave", "VIEWER"))).andExpect(status().isOk());
     }
 
+    /** Jeton porteur réel, décodé par le décodeur de test : la chaîne est choisie sur l'en-tête, comme en production. */
+    private static org.springframework.test.web.servlet.request.RequestPostProcessor agent(String role) {
+        return request -> {
+            request.addHeader("Authorization", "Bearer role." + role);
+            return request;
+        };
+    }
+
+    @Test
+    void agentTokenReadsAStationAndNothingElse() throws Exception {
+        mvc.perform(get("/api/v1/stations/security-test").with(agent("ANOMALY_REPORTER"))).andExpect(status().isOk());
+        mvc.perform(get("/api/v1/ping").with(agent("ANOMALY_REPORTER"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/od/security-test").with(agent("VIEWER"))).andExpect(status().isForbidden());
+        mvc.perform(post("/api/v1/admin/security-test").with(agent("ADMIN"))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void agentTokenWithoutAReadingRoleIsRefused() throws Exception {
+        mvc.perform(get("/api/v1/stations/security-test").with(agent("OFFLINE_ACCESS"))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void invalidBearerTokenGetsUnauthorizedWithoutFallingBackToTheSession() throws Exception {
+        mvc.perform(get("/api/v1/stations/security-test").header("Authorization", "Bearer abc")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void mapsRealmRolesFromAccessTokens() {
+        var token = org.springframework.security.oauth2.jwt.Jwt.withTokenValue("t").header("alg", "RS256").subject("agent")
+                .claim("roles", List.of("anomaly_reporter")).issuedAt(Instant.now()).build();
+
+        var authorities = SecurityConfig.jwtRoles("roles").convert(token).getAuthorities();
+
+        assertThat(authorities).extracting(Object::toString).contains("ROLE_ANOMALY_REPORTER");
+    }
+
     @Test
     void mapsTheKeycloakRolesClaimToAuthorities() {
         var token = new OidcIdToken("t", Instant.now(), Instant.now().plusSeconds(60), Map.of("sub", "u", "roles", List.of("viewer", "admin")));

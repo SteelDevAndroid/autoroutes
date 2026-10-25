@@ -37,7 +37,7 @@ class AnomalyReporterTest {
     private final JsonMapper json = JsonMapper.builder().build();
 
     private AnomalyReporter reporter() {
-        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofMillis(200),
+        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofMillis(200), "http://backend.invalid", Duration.ofSeconds(1),
                 new McpAnomaliesProperties.Security(false, null, null, "roles", "ANOMALY_REPORTER"));
         return new AnomalyReporter(kafka, json, Clock.fixed(NOW, ZoneOffset.UTC), properties);
     }
@@ -55,11 +55,19 @@ class AnomalyReporterTest {
         assertThat(event.path("eventId").asString()).startsWith("mcp-").isEqualTo(published.eventId());
         assertThat(event.path("stationName").asString()).isEqualTo("La Boisse");
         assertThat(event.path("type").asString()).isEqualTo("ANOMALY_REPORT");
+        assertThat(event.path("source").asString()).isEqualTo("mcp:agent").isEqualTo(published.source());
         assertThat(event.path("eventTime").asString()).isEqualTo(NOW.toString());
         assertThat(event.has("vehicleCount")).isFalse();
         assertThat(event.path("anomalies").toString())
                 .isEqualTo("[{\"type_ano\":\"Barrière bloquée\",\"cardinalite\":1,\"criticite\":\"Haute\"}]");
         assertThat(published.stationId()).isEqualTo("GL-BPV-0054");
+    }
+
+    @Test
+    void agentSourceIsSanitisedAndBoundedLikeTheBackendExpects() {
+        assertThat(AnomalyReporter.sourceFor("service-account-agent-anomalies")).isEqualTo("mcp:service-account-agent-anomalies");
+        assertThat(AnomalyReporter.sourceFor("Jean Dupont/é")).isEqualTo("mcp:Jean-Dupont--");
+        assertThat(AnomalyReporter.sourceFor("x".repeat(100))).hasSize(64).matches("[A-Za-z0-9._:@-]+");
     }
 
     @Test

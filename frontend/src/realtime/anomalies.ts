@@ -3,6 +3,8 @@ export interface StationAnomaly {
   readonly type_ano: string;
   readonly cardinalite: number;
   readonly criticite: string;
+  /** Émetteur de l'anomalie (« peage », « mcp:<compte> »…), connu quand le backend détaille ses sources. */
+  readonly source?: string;
 }
 
 const MAX_ITEMS = 100;
@@ -22,6 +24,33 @@ export function parseAnomalies(value: unknown): readonly StationAnomaly[] | null
     result.push({ type_ano: fields.type_ano.trim(), cardinalite: fields.cardinalite, criticite: fields.criticite.trim() });
   }
   return result;
+}
+
+const SOURCE = /^[A-Za-z0-9._:@-]{1,64}$/;
+
+/**
+ * État détaillé par source (champ anomalySources du backend), aplati en une liste dont chaque anomalie porte sa source.
+ * null si le détail est absent ou mal formé : l'appelant se replie alors sur l'union anonyme (champ anomalies).
+ */
+export function parseAnomalySources(value: unknown): readonly StationAnomaly[] | null {
+  if (!Array.isArray(value)) return null;
+  const result: StationAnomaly[] = [];
+  for (const entry of value as unknown[]) {
+    if (typeof entry !== 'object' || entry === null) return null;
+    const fields = entry as Record<string, unknown>;
+    const items = parseAnomalies(fields.anomalies);
+    if (typeof fields.source !== 'string' || !SOURCE.test(fields.source) || items === null) return null;
+    const source = fields.source;
+    result.push(...items.map((item) => ({ ...item, source })));
+  }
+  return result;
+}
+
+/** Libellé lisible d'une source : équipements de péage, agent (serveur MCP) ou identifiant brut. */
+export function anomalySourceLabel(source: string): string {
+  if (source === 'peage') return 'Équipements de péage';
+  if (source.startsWith('mcp:')) return `Agent ${source.slice(4)}`;
+  return source;
 }
 
 export const anomalySeverity = (criticality: string): number => {

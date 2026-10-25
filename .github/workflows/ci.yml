@@ -284,12 +284,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Pile complète (profils full et monitoring, sans tuiles, fond neutre)
+      - name: Pile complète (profils full, monitoring et mcp, sans tuiles, fond neutre)
         run: |
           GRAFANA_PASSWORD="ci-$(openssl rand -hex 8)"
           echo "GRAFANA_PASSWORD=$GRAFANA_PASSWORD" >> "$GITHUB_ENV"
           {
-            echo "COMPOSE_PROFILES=full,monitoring"
+            echo "COMPOSE_PROFILES=full,monitoring,mcp"
             echo "POSTGRES_PASSWORD=ci-$(openssl rand -hex 8)"
             echo "GRAFANA_PASSWORD=$GRAFANA_PASSWORD"
             # Exigés par Compose pour tous les profils (interpolation de tout le fichier), inutilisés sans le profil auth.
@@ -305,10 +305,11 @@ jobs:
           } > .env
           mkdir -p cartographie/out/tiles cartographie/out/basemaps-assets
           docker compose up -d --build
-      - name: Attente du backend et du frontend
+      - name: Attente du backend, du serveur MCP et du frontend
         run: |
           for i in $(seq 1 90); do
             if [ "$(docker compose ps backend --format '{{.Health}}')" = "healthy" ] \
+               && [ "$(docker compose ps mcp-anomalies --format '{{.Health}}')" = "healthy" ] \
                && curl -fsS -o /dev/null http://localhost:8080/healthz; then
               echo "prêt après ${i} tentatives"; exit 0
             fi
@@ -321,12 +322,15 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       # 4 scénarios : données réelles sans bandeau simulé, latence p95 ≤ 3 s, relecture puis retour au direct, courbe J-7.
-      - name: E2E chaîne réelle
+      # Puis un agent (client MCP) déclare une anomalie, la voit dans la fiche avec sa source, puis la lève.
+      - name: E2E chaîne réelle et agent MCP
         working-directory: frontend
         env:
           E2E_LIVE: "1"
+          E2E_AGENT: "1"
           E2E_BASE_URL: http://localhost:8080
-        run: npx playwright test e2e/live.spec.ts
+          MCP_URL: http://localhost:8090/mcp
+        run: npx playwright test e2e/live.spec.ts e2e/agent.spec.ts
       # Prometheus : cibles saines, 14 règles chargées ; Grafana : tableau de bord provisionné ; chaque panneau reçoit des données.
       - name: Supervision de bout en bout
         run: python3 scripts/verify_observability.py --timeout 300
@@ -357,15 +361,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Pile avec connexion obligatoire (profils full et auth)
+      - name: Pile avec connexion obligatoire (profils full, auth et mcp sécurisé)
         run: |
           VIEWER_PASSWORD="ci-$(openssl rand -hex 8)"
           ADMIN_PASSWORD="ci-$(openssl rand -hex 8)"
           echo "E2E_VIEWER_PASSWORD=$VIEWER_PASSWORD" >> "$GITHUB_ENV"
           echo "E2E_ADMIN_PASSWORD=$ADMIN_PASSWORD" >> "$GITHUB_ENV"
           {
-            echo "COMPOSE_PROFILES=full,auth"
+            AGENT_SECRET="ci-$(openssl rand -hex 16)"
+            echo "E2E_AGENT_CLIENT_SECRET=$AGENT_SECRET" >> "$GITHUB_ENV"
+            echo "COMPOSE_PROFILES=full,auth,mcp"
             echo "SUPERVISION_PROFILE=auth"
+            echo "MCP_SECURITY_ENABLED=true"
+            echo "MCP_AGENT_CLIENT_SECRET=$AGENT_SECRET"
             echo "POSTGRES_PASSWORD=ci-$(openssl rand -hex 8)"
             echo "GRAFANA_PASSWORD=ci-$(openssl rand -hex 8)"
             echo "KEYCLOAK_ADMIN_PASSWORD=ci-$(openssl rand -hex 8)"
@@ -385,6 +393,7 @@ jobs:
           for i in $(seq 1 120); do
             if [ "$(docker compose ps keycloak --format '{{.Health}}')" = "healthy" ] \
                && [ "$(docker compose ps backend --format '{{.Health}}')" = "healthy" ] \
+               && [ "$(docker compose ps mcp-anomalies --format '{{.Health}}')" = "healthy" ] \
                && curl -fsS -o /dev/null http://localhost:8080/healthz; then
               echo "prêt après ${i} tentatives"; exit 0
             fi
@@ -397,12 +406,16 @@ jobs:
       - run: npx playwright install --with-deps chromium
         working-directory: frontend
       # 4 scénarios : 401 sans session puis connexion, lecteur refusé en administration, CSRF de l'administrateur, déconnexion.
-      - name: E2E authentification
+      # Puis l'agent avec un jeton client credentials : MCP refuse sans jeton, relaie le jeton au backend (chaîne Bearer).
+      - name: E2E authentification et agent MCP sécurisé
         working-directory: frontend
         env:
           E2E_AUTH: "1"
+          E2E_AGENT: "1"
           E2E_BASE_URL: http://localhost:8080
-        run: npx playwright test e2e/auth.spec.ts
+          MCP_URL: http://localhost:8090/mcp
+          E2E_AGENT_TOKEN_URL: http://localhost:8180/realms/supervision/protocol/openid-connect/token
+        run: npx playwright test e2e/auth.spec.ts e2e/agent.spec.ts
       - name: Journaux des services
         if: failure()
         run: docker compose logs --no-color --tail=300 > compose-logs.txt || true

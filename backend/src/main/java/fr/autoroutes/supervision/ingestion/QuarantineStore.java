@@ -33,8 +33,10 @@ public class QuarantineStore {
     public void save(TollEvent event) {
         jdbc.sql("""
                         insert into quarantined_event (event_id, station_name, type, event_time, entry_station_name,
-                                                       entry_time, vehicle_count, vehicle_class, simulated, anomalies)
-                        values (:id, :station, :type, :eventTime, :entry, :entryTime, :count, :class, :simulated, cast(:anomalies as jsonb))
+                                                       entry_time, vehicle_count, vehicle_class, simulated, anomalies,
+                                                       anomaly_source)
+                        values (:id, :station, :type, :eventTime, :entry, :entryTime, :count, :class, :simulated, cast(:anomalies as jsonb),
+                                :source)
                         on conflict (event_id) do nothing""")
                 .param("id", event.eventId())
                 .param("station", event.stationName())
@@ -46,13 +48,14 @@ public class QuarantineStore {
                 .param("class", event.vehicleClass())
                 .param("simulated", event.simulated())
                 .param("anomalies", event.anomalies() == null ? null : json.writeValueAsString(event.anomalies()))
+                .param("source", event.anomalySource())
                 .update();
     }
 
     public List<TollEvent> pending(int limit) {
         return jdbc.sql("""
                         select event_id, station_name, type, event_time, entry_station_name, entry_time,
-                               vehicle_count, vehicle_class, simulated, anomalies
+                               vehicle_count, vehicle_class, simulated, anomalies, anomaly_source
                         from quarantined_event where status = 'PENDING' order by received_at limit :limit""")
                 .param("limit", limit)
                 .query((rs, row) -> new TollEvent(
@@ -65,7 +68,8 @@ public class QuarantineStore {
                         rs.getInt("vehicle_count"),
                         (Integer) rs.getObject("vehicle_class"),
                         rs.getBoolean("simulated"),
-                        readAnomalies(rs.getString("anomalies"))))
+                        readAnomalies(rs.getString("anomalies")),
+                        rs.getString("anomaly_source")))
                 .list();
     }
 

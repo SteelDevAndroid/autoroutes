@@ -120,6 +120,7 @@ class SupervisionIT {
         payload.put("eventId", "mcp-" + UUID.randomUUID());
         payload.put("stationName", "Macon Nord");
         payload.put("type", "ANOMALY_REPORT");
+        payload.put("source", "mcp:it");
         payload.put("eventTime", Instant.now().toString());
         payload.put("anomalies", List.of(Map.of("type_ano", "Barrière bloquée", "cardinalite", 1, "criticite", "Haute")));
         send(json.writeValueAsString(payload));
@@ -129,6 +130,7 @@ class SupervisionIT {
             assertThat(metrics.path("today").path("entries").asLong()).isZero();
             assertThat(metrics.path("today").path("exits").asLong()).isZero();
             assertThat(metrics.path("lastEventTime").isNull() || metrics.path("lastEventTime").isMissingNode()).isTrue();
+            assertThat(metrics.path("anomalySources").path(0).path("source").asString()).isEqualTo("mcp:it");
         });
     }
 

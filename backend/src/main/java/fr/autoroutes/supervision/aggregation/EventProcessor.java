@@ -97,10 +97,11 @@ public final class EventProcessor {
             }
             case NEW -> {
                 if (event.type().isPassage()) {
-                    state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.anomalies());
+                    state.apply(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.anomalySourceOrDefault(),
+                            event.anomalies());
                     history.station(stationId.get(), event.type(), event.eventTime(), event.vehicleCount(), event.simulated());
                 } else {
-                    state.applyAnomalies(stationId.get(), event.eventTime(), event.anomalies());
+                    state.applyAnomalies(stationId.get(), event.anomalySourceOrDefault(), event.eventTime(), event.anomalies());
                 }
             }
         }

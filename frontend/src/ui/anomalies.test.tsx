@@ -25,6 +25,29 @@ describe('anomalies de gare', () => {
     expect(anomalySummary(incidents)).toMatchObject({ count: 8, severity: 4, label: 'Critique' });
   });
 
+  it('keeps the source of each anomaly when the backend details its sources, and labels it in the station sheet', () => {
+    const badge = { type_ano: 'Lecteur de badge', cardinalite: 2, criticite: 'Moyenne' };
+    const barrier = { type_ano: 'Barrière ouverte', cardinalite: 1, criticite: 'Haute' };
+    const anomalySources = [
+      { source: 'mcp:service-account-agent-anomalies', updatedAt: '2026-10-25T15:00:00Z', anomalies: [barrier] },
+      { source: 'peage', updatedAt: '2026-10-25T14:00:00Z', anomalies: [badge] },
+    ];
+    const message = parseStreamMessage(JSON.stringify(delta(1, [{ ...metrics('A'), anomalies: [barrier, badge], anomalySources }])));
+    const parsed = message?.type === 'delta' ? message.payload.stations[0]?.anomalies : undefined;
+    expect(parsed).toEqual([{ ...barrier, source: 'mcp:service-account-agent-anomalies' }, { ...badge, source: 'peage' }]);
+
+    render(<StationAnomalies anomalies={parsed ?? null} />);
+    expect(screen.getByText('Agent service-account-agent-anomalies')).toBeTruthy();
+    expect(screen.getByText('Équipements de péage')).toBeTruthy();
+  });
+
+  it('falls back to the anonymous union when the source detail is malformed', () => {
+    const badge = { type_ano: 'Lecteur de badge', cardinalite: 2, criticite: 'Moyenne' };
+    const message = parseStreamMessage(JSON.stringify(delta(1, [{ ...metrics('A'), anomalies: [badge],
+      anomalySources: [{ source: 'a b', updatedAt: '2026-10-25T14:00:00Z', anomalies: [badge] }] }])));
+    expect(message?.type === 'delta' ? message.payload.stations[0]?.anomalies : undefined).toEqual([badge]);
+  });
+
   it('replaces rather than accumulates, clears explicit empty state, and forgets live data on a snapshot', () => {
     const store = new StationStore(['A', 'B']);
     store.replaceAll([{ ...metrics('A'), anomalies: incidents }]);

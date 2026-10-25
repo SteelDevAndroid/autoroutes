@@ -89,6 +89,8 @@ services:
       OIDC_AUTHORIZATION_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision/protocol/openid-connect/auth
       OIDC_TOKEN_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/token
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
+      # Jetons porteurs des agents (serveur MCP) : émetteur tel que le voient les clients (nom d'hôte public de Keycloak).
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision
     volumes:
       - ./cartographie/out/graph:/app/graph:ro
     depends_on:
@@ -133,6 +135,8 @@ services:
       - "127.0.0.1:${MCP_PORT:-8090}:8090"
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Lecture de l'état courant (consulter_anomalies, garde de version), jeton de l'agent relayé.
+      BACKEND_URL: http://backend:8080
       MCP_SECURITY_ENABLED: ${MCP_SECURITY_ENABLED:-false}
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
       OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision

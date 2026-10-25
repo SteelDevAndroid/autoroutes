@@ -9,11 +9,17 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
+import org.springframework.security.oauth2.jwt.BadJwtException;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** Contexte minimal : la configuration de sécurité, le filtre d'audit et trois routes factices (sans Kafka ni base). */
+/** Contexte minimal : la configuration de sécurité, le filtre d'audit et quatre routes factices (sans Kafka ni base). */
 final class SecurityTestSupport {
 
     private SecurityTestSupport() {
@@ -37,6 +43,19 @@ final class SecurityTestSupport {
                     .userNameAttributeName("sub").build());
         }
 
+        /** Jeton de test « role.ANOMALY_REPORTER » → JWT portant ce rôle dans la revendication {@code roles} ; tout autre jeton est invalide. */
+        @Bean
+        JwtDecoder jwtDecoder() {
+            return token -> {
+                if (!token.startsWith("role.")) {
+                    throw new BadJwtException("jeton de test invalide");
+                }
+                return Jwt.withTokenValue(token).header("alg", "none").subject("service-account-agent-anomalies")
+                        .claim("roles", List.of(token.substring(5).toLowerCase(Locale.ROOT)))
+                        .issuedAt(Instant.now()).expiresAt(Instant.now().plusSeconds(60)).build();
+            };
+        }
+
         @Bean
         Routes routes() {
             return new Routes();
@@ -50,6 +69,11 @@ final class SecurityTestSupport {
         @GetMapping("/api/v1/ping")
         String ping() {
             return "pong";
+        }
+
+        @GetMapping("/api/v1/stations/security-test")
+        String station() {
+            return "station";
         }
 
         @GetMapping("/api/v1/od/security-test")

@@ -1,6 +1,7 @@
 package fr.autoroutes.supervision.aggregation;
 
 import fr.autoroutes.supervision.ingestion.StationAnomaly;
+import fr.autoroutes.supervision.ingestion.TollEvent;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -18,7 +19,7 @@ import java.util.zip.GZIPOutputStream;
 /** Format binaire versionné et compressé ; aucune désérialisation Java générique (pas de surface d'attaque). */
 public final class CheckpointCodec {
 
-    private static final int VERSION = 3;
+    private static final int VERSION = 4;
     private static final long NO_INSTANT = Long.MIN_VALUE;
 
     public byte[] encode(CheckpointData data) {
@@ -46,12 +47,14 @@ public final class CheckpointCodec {
                     out.writeLong(minute[1]);
                     out.writeLong(minute[2]);
                 }
-                // Conserver les nanosecondes : une troncature pourrait rendre « plus récent » un vieux rapport au redémarrage.
-                out.writeLong(station.anomaliesUpdatedAt() == null ? NO_INSTANT : station.anomaliesUpdatedAt().getEpochSecond());
-                out.writeInt(station.anomaliesUpdatedAt() == null ? 0 : station.anomaliesUpdatedAt().getNano());
-                out.writeInt(station.anomalies() == null ? -1 : station.anomalies().size());
-                if (station.anomalies() != null) {
-                    for (var anomaly : station.anomalies()) {
+                out.writeInt(station.anomalySources().size());
+                for (var report : station.anomalySources()) {
+                    out.writeUTF(report.source());
+                    // Conserver les nanosecondes : une troncature pourrait rendre « plus récent » un vieux rapport au redémarrage.
+                    out.writeLong(report.updatedAt().getEpochSecond());
+                    out.writeInt(report.updatedAt().getNano());
+                    out.writeInt(report.anomalies().size());
+                    for (var anomaly : report.anomalies()) {
                         out.writeUTF(anomaly.typeAno());
                         out.writeInt(anomaly.cardinalite());
                         out.writeUTF(anomaly.criticite());
@@ -86,6 +89,22 @@ public final class CheckpointCodec {
         return bytes.toByteArray();
     }
 
+    private static Instant readInstant(DataInputStream in) throws IOException {
+        var at = in.readLong();
+        var nanos = in.readInt();
+        if (nanos < 0 || nanos > 999_999_999 || (at == NO_INSTANT && nanos != 0)) {
+            throw new IllegalArgumentException("Date d'anomalies invalide dans le point de reprise");
+        }
+        return at == NO_INSTANT ? null : Instant.ofEpochSecond(at, nanos);
+    }
+
+    private static List<StationAnomaly> readItems(DataInputStream in, int count) throws IOException {
+        if (count < 0 || count > StationAnomaly.MAX_ITEMS) throw new IllegalArgumentException("Nombre d'anomalies invalide dans le point de reprise");
+        var items = new ArrayList<StationAnomaly>(count);
+        for (var k = 0; k < count; k++) items.add(new StationAnomaly(in.readUTF(), in.readInt(), in.readUTF()));
+        return List.copyOf(items);
+    }
+
     public CheckpointData decode(byte[] payload) {
         try (var in = new DataInputStream(new GZIPInputStream(new ByteArrayInputStream(payload)))) {
             var version = in.readInt();
@@ -110,25 +129,26 @@ public final class CheckpointCodec {
                 for (int j = 0, m = in.readInt(); j < m; j++) {
                     minutes.add(new long[] {in.readLong(), in.readLong(), in.readLong()});
                 }
-                Instant anomaliesAt = null;
-                List<StationAnomaly> anomalies = null;
-                if (version >= 3) {
-                    var at = in.readLong();
-                    var nanos = in.readInt();
-                    if (nanos < 0 || nanos > 999_999_999 || (at == NO_INSTANT && nanos != 0)) {
-                        throw new IllegalArgumentException("Date d'anomalies invalide dans le point de reprise");
-                    }
-                    anomaliesAt = at == NO_INSTANT ? null : Instant.ofEpochSecond(at, nanos);
+                var sources = new ArrayList<AnomalySourceReport>();
+                if (version >= 4) {
                     var count = in.readInt();
-                    if (count < -1 || count > StationAnomaly.MAX_ITEMS) throw new IllegalArgumentException("Nombre d'anomalies invalide dans le point de reprise");
-                    if (count >= 0) {
-                        var items = new ArrayList<StationAnomaly>();
-                        for (var k = 0; k < count; k++) items.add(new StationAnomaly(in.readUTF(), in.readInt(), in.readUTF()));
-                        anomalies = List.copyOf(items);
+                    if (count < 0 || count > AnomalySourceReport.MAX_SOURCES_PER_STATION) throw new IllegalArgumentException("Nombre de sources d'anomalies invalide dans le point de reprise");
+                    for (var k = 0; k < count; k++) {
+                        var source = in.readUTF();
+                        if (!TollEvent.isValidSource(source)) throw new IllegalArgumentException("Source d'anomalies invalide dans le point de reprise");
+                        var at = readInstant(in);
+                        if (at == null) throw new IllegalArgumentException("Date d'anomalies absente dans le point de reprise");
+                        sources.add(new AnomalySourceReport(source, at, readItems(in, in.readInt())));
                     }
-                    if ((anomalies == null) != (anomaliesAt == null)) throw new IllegalArgumentException("État d'anomalies incomplet dans le point de reprise");
+                } else if (version == 3) {
+                    // Format à source unique : l'état connu venait des événements de passage.
+                    var at = readInstant(in);
+                    var count = in.readInt();
+                    var items = count == -1 ? null : readItems(in, count);
+                    if ((items == null) != (at == null)) throw new IllegalArgumentException("État d'anomalies incomplet dans le point de reprise");
+                    if (items != null) sources.add(new AnomalySourceReport(TollEvent.DEFAULT_ANOMALY_SOURCE, at, items));
                 }
-                stations.add(new AggregationState.StationCheckpoint(id, last == NO_INSTANT ? null : Instant.ofEpochMilli(last), List.copyOf(minutes), anomalies, anomaliesAt));
+                stations.add(new AggregationState.StationCheckpoint(id, last == NO_INSTANT ? null : Instant.ofEpochMilli(last), List.copyOf(minutes), sources));
             }
             var od = new ArrayList<OdCounters.OdCheckpoint>();
             for (int i = 0, n = in.readInt(); i < n; i++) {
