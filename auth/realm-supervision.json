@@ -10,7 +10,8 @@
   "roles": {
     "realm": [
       { "name": "VIEWER", "description": "Lecture de la supervision" },
-      { "name": "ADMIN", "description": "Lecture et administration (alias, rejeu de la quarantaine)" }
+      { "name": "ADMIN", "description": "Lecture et administration (alias, rejeu de la quarantaine)" },
+      { "name": "ANOMALY_REPORTER", "description": "Déclaration des anomalies des gares par un agent (serveur MCP)" }
     ]
   },
   "clients": [
@@ -44,6 +45,32 @@
           }
         }
       ]
+    },
+    {
+      "clientId": "agent-anomalies",
+      "name": "Agent de déclaration des anomalies (serveur MCP)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "${MCP_AGENT_CLIENT_SECRET}",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "roles",
+            "jsonType.label": "String",
+            "multivalued": "true",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -66,6 +93,12 @@
       "lastName": "Supervision",
       "credentials": [{ "type": "password", "value": "${KEYCLOAK_ADMIN_USER_PASSWORD}", "temporary": false }],
       "realmRoles": ["ADMIN", "VIEWER"]
+    },
+    {
+      "username": "service-account-agent-anomalies",
+      "enabled": true,
+      "serviceAccountClientId": "agent-anomalies",
+      "realmRoles": ["ANOMALY_REPORTER"]
     }
   ]
 }

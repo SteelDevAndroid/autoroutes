@@ -67,6 +67,23 @@ class EventProcessorTest {
     }
 
     @Test
+    void standaloneAnomalyReportUpdatesTheStationWithoutAnyPassageOrHistory() {
+        var anomalies = java.util.List.of(new fr.autoroutes.supervision.ingestion.StationAnomaly("Barrière bloquée", 1, "Haute"));
+        var report = new TollEvent("r-1", "La Boisse", EventType.ANOMALY_REPORT, T0, null, null, 0, null, false, anomalies);
+
+        assertThat(processor.process(0, report)).isEqualTo(new Outcome.Applied("GL-ECH-LA-BOISSE", false, OdStatus.NOT_APPLICABLE));
+        assertThat(processor.process(0, report)).isEqualTo(new Outcome.Duplicate("r-1"));
+
+        var metrics = state.metrics("GL-ECH-LA-BOISSE", T0);
+        assertThat(metrics.anomalies()).isEqualTo(anomalies);
+        assertThat(metrics.last5m()).isEqualTo(WindowCounts.ZERO);
+        assertThat(metrics.lastEventTime()).isNull();
+        var batch = history.drain();
+        assertThat(batch.minutes()).isEmpty();
+        assertThat(batch.provenance()).isEmpty();
+    }
+
+    @Test
     void recordsHistoryIncrementsOnlyForAppliedEvents() {
         processor.process(0, exit("e-1", T0, "Bellegarde Entrée"));
         processor.process(0, exit("e-1", T0, "Bellegarde Entrée"));

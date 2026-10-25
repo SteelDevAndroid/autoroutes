@@ -48,6 +48,25 @@ Le tableau représente **l'état complet déclaré pour la gare**, à remplacer 
 
 La cardinalité est un entier de 0 à 2 147 483 647, distinct du nombre de véhicules. Une cardinalité nulle ne produit pas d'incident actif à l'écran. Les textes sont non vides, bornés à 256 caractères et débarrassés des espaces en début et fin ; un rapport contient au plus 100 éléments. Le parseur ne conserve que les trois champs autorisés, pas le JSON brut ni les champs annexes éventuels.
 
+### Rapport seul (`ANOMALY_REPORT`)
+
+Un producteur qui ne voit pas passer les véhicules, comme un agent via le [serveur MCP](mcp-anomalies.md) ou une supervision d'équipements, publie sur le même topic un événement de type **`ANOMALY_REPORT`** :
+
+```json
+{
+  "eventId": "mcp-5f0c…",
+  "stationName": "La Boisse",
+  "type": "ANOMALY_REPORT",
+  "eventTime": "2026-10-25T15:00:00Z",
+  "anomalies": [{ "type_ano": "Barrière de péage bloquée en position ouverte", "cardinalite": 1, "criticite": "Haute" }]
+}
+```
+
+- `anomalies` est **obligatoire** : s'il est absent ou nul, le rapport est rejeté (`MISSING_FIELD`, champ `anomalies`). `[]` efface les anomalies de la gare.
+- Les champs de passage (`vehicleCount`, `vehicleClass`, `entryStationName`, `entryTime`) sont ignorés.
+- Le rapport ne compte **aucun véhicule**, n'alimente ni l'historique ni les flux O/D, et ne change pas la date du dernier passage. Une gare sans trafic ne paraît donc pas fraîche à cause d'un rapport.
+- Il suit sinon le même circuit qu'un événement de passage : résolution du nom (quarantaine si inconnu), retard, déduplication par `eventId`, règle de remplacement par `eventTime` et point de reprise. Le point de reprise conserve aussi une gare qui n'a reçu que des rapports.
+
 Criticités reconnues, par gravité croissante : **Faible, Moyenne, Haute, Critique**. Une valeur future inconnue est conservée et affichée avec un traitement neutre et une mention « Criticité non reconnue » ; elle n'est pas convertie en faible criticité.
 
 ## Diffusion et conservation
@@ -83,7 +102,8 @@ Le simulateur Kafka (`simulator/`, événements `simulated: true`) génère des 
 
 - Migration Flyway **V4** : colonne JSONB nullable `quarantined_event.anomalies`, avec contrainte de tableau. Les anciennes lignes restent à `NULL`.
 - Point de reprise **version 3**, avec rapports et dates ; le nouveau lecteur accepte toujours les versions 1 et 2 et considère alors les anomalies comme inconnues. Un ancien binaire ne sait pas lire un point de reprise v3 : en cas de retour à une ancienne version, utiliser une stratégie de reprise compatible, sans supposer cette rétrocompatibilité.
-- Aucun nouvel endpoint, aucune dépendance supplémentaire. Le contrat existant des événements reste obligatoire (`eventId`, gare, type de passage, date). Ce changement n'ajoute pas un canal d'incidents autonome sans événement de péage.
+- Aucun nouvel endpoint, aucune dépendance supplémentaire. Le contrat existant des événements reste obligatoire (`eventId`, gare, type, date).
+- Le type `ANOMALY_REPORT` (voir « Rapport seul ») est le seul canal de rapport sans passage. Il passe par le même topic Kafka que les passages, il n'y a pas de second chemin d'écriture. Un ancien backend le rejette (`INVALID_FIELD`, champ `type`) : déployer le backend avant le serveur MCP.
 - L'historisation des ouvertures/résolutions d'incidents et leur relecture ne font pas partie de cette évolution.
 
 ## Vérifications

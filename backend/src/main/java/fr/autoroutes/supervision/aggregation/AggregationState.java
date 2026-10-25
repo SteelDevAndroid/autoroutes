@@ -36,25 +36,37 @@ public final class AggregationState {
         rings.computeIfAbsent(stationId, id -> new MinuteRing()).add(epochMinute(eventTime), type, vehicleCount);
         lastEventTime.merge(stationId, eventTime, (a, b) -> a.isAfter(b) ? a : b);
         if (report != null) {
-            var previous = anomalies.get(stationId);
-            // État complet, jamais cumulé. Un événement retardé ne doit pas rétablir un incident résolu.
-            if (previous == null || !eventTime.isBefore(previous.at())) {
-                anomalies.put(stationId, new AnomalyState(eventTime, List.copyOf(report)));
-            }
+            replaceAnomalies(stationId, eventTime, report);
         }
         dirty.add(stationId);
     }
 
+    /** Rapport sans passage : ne touche ni aux compteurs ni à la fraîcheur des passages de la gare. */
+    public void applyAnomalies(String stationId, Instant eventTime, List<StationAnomaly> report) {
+        replaceAnomalies(stationId, eventTime, report);
+        dirty.add(stationId);
+    }
+
+    private void replaceAnomalies(String stationId, Instant eventTime, List<StationAnomaly> report) {
+        var previous = anomalies.get(stationId);
+        // État complet, jamais cumulé. Un événement retardé ne doit pas rétablir un incident résolu.
+        if (previous == null || !eventTime.isBefore(previous.at())) {
+            anomalies.put(stationId, new AnomalyState(eventTime, List.copyOf(report)));
+        }
+    }
+
     public StationMetrics metrics(String stationId, Instant reference) {
         var ring = rings.get(stationId);
+        var report = anomalies.get(stationId);
         if (ring == null) {
             return new StationMetrics(stationId, WindowCounts.ZERO, WindowCounts.ZERO, WindowCounts.ZERO,
-                    WindowCounts.ZERO, null);
+                    WindowCounts.ZERO, null,
+                    report == null ? null : report.items(),
+                    report == null ? null : report.at());
         }
         var now = epochMinute(reference);
         // Début de journée en heure locale : la journée dure 23 h ou 25 h aux changements d'heure.
         var midnight = epochMinute(reference.atZone(displayZone).toLocalDate().atStartOfDay(displayZone).toInstant());
-        var report = anomalies.get(stationId);
         return new StationMetrics(
                 stationId,
                 ring.sum(now - 4, now),
@@ -72,14 +84,20 @@ public final class AggregationState {
 
     /** Copie pour le point de reprise ; appelée par l'écrivain unique. */
     public List<StationCheckpoint> export() {
-        var exported = new ArrayList<StationCheckpoint>(rings.size());
-        rings.forEach((id, ring) -> {
+        // Une gare peut n'avoir reçu que des rapports d'anomalies, sans aucun passage.
+        var ids = new HashSet<>(rings.keySet());
+        ids.addAll(anomalies.keySet());
+        var exported = new ArrayList<StationCheckpoint>(ids.size());
+        for (var id : ids) {
             var minutes = new ArrayList<long[]>();
-            ring.forEachSlot((minute, in, out) -> minutes.add(new long[] {minute, in, out}));
+            var ring = rings.get(id);
+            if (ring != null) {
+                ring.forEachSlot((minute, in, out) -> minutes.add(new long[] {minute, in, out}));
+            }
             var report = anomalies.get(id);
             exported.add(new StationCheckpoint(id, lastEventTime.get(id), List.copyOf(minutes),
                     report == null ? null : report.items(), report == null ? null : report.at()));
-        });
+        }
         return exported;
     }
 

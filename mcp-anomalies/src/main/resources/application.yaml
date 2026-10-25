@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: supervision-mcp-anomalies
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:29092}
+    producer:
+      acks: all
+      properties:
+        enable.idempotence: true
+  ai:
+    mcp:
+      server:
+        name: autoroutes-anomalies
+        version: 0.1.0
+        protocol: STREAMABLE
+        instructions: >
+          Supervision des gares de péage autoroutières. Déclarez les anomalies d'équipement d'une gare :
+          chaque déclaration remplace l'état complet de la gare. Recherchez d'abord la gare avec rechercher_gares.
+
+server:
+  port: ${MCP_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+mcp-anomalies:
+  topic: ${KAFKA_TOPIC:toll-events}
+  aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
+  stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
+  security:
+    enabled: ${MCP_SECURITY_ENABLED:false}
+    jwk-set-uri: ${OIDC_JWK_SET_URI:}
+    issuer: ${OIDC_ISSUER:}

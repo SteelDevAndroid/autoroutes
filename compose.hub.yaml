@@ -20,6 +20,9 @@ services:
   frontend:
     image: compagnonsdudev/autoroutes:frontend-demo-${AUTOROUTES_TAG:-latest}
     pull_policy: always
+  mcp-anomalies:
+    image: compagnonsdudev/autoroutes:mcp-anomalies-${AUTOROUTES_TAG:-latest}
+    pull_policy: always
   tiles:
     image: compagnonsdudev/autoroutes:cartographie-${AUTOROUTES_TAG:-latest}
     pull_policy: always

@@ -55,6 +55,7 @@ Avec la supervision (Prometheus, Alertmanager et Grafana) : mettre `COMPOSE_PROF
 | `full` | `simulator`, `kafka`, `kafka-init`, `postgres`, `backend`, `frontend-live` | Pile applicative complète. Les événements sont **simulés** (marqués `simulated: true`) |
 | `monitoring` | `prometheus`, `alertmanager`, `grafana` | Métriques, 14 alertes acheminées, tableau de bord. À combiner avec `full` |
 | `auth` | `keycloak` | Keycloak (OIDC) de développement, royaume `supervision` importé. Avec `SUPERVISION_PROFILE=auth`, la connexion devient obligatoire pour le backend. À combiner avec `full` |
+| `mcp` | `mcp-anomalies` | Serveur MCP : un agent déclare les anomalies des gares (`docs/mcp-anomalies.md`). À combiner avec `full` (Kafka), et avec `auth` + `MCP_SECURITY_ENABLED=true` pour exiger un jeton |
 | `demo` | `frontend` | Interface seule, flux simulé dans le navigateur, sans backend (bandeau « données simulées »). Exclusif avec `full` : même port |
 | `infra` | `kafka`, `kafka-init`, `postgres` | Développer le backend ou le simulateur hors conteneur (`localhost:29092`, `localhost:5432`) |
 | `tiles` | `tiles` (tâche ponctuelle) | Produire le fond de carte et le graphe routier |
@@ -67,6 +68,7 @@ Avec la supervision (Prometheus, Alertmanager et Grafana) : mettre `COMPOSE_PROF
 |---|---|---|
 | 8080 | Frontend (nginx : application, tuiles, relais de l'API et du SSE) | `127.0.0.1` |
 | 8180 | Keycloak (profil `auth`) | `127.0.0.1` |
+| 8090 | Serveur MCP des anomalies (profil `mcp`) | `127.0.0.1` |
 | 3000 | Grafana | `127.0.0.1` (`GRAFANA_BIND=0.0.0.0` pour l'ouvrir) |
 | 8081 | API du backend, Actuator (`/actuator/health`, `/actuator/prometheus`) | `127.0.0.1` |
 | 9090 | Prometheus | `127.0.0.1` |
@@ -139,6 +141,7 @@ Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/a
 |---|---|---|
 | Backend | `backend-<version>` | amd64, arm64 |
 | Simulateur | `simulator-<version>` | amd64, arm64 |
+| Serveur MCP des anomalies | `mcp-anomalies-<version>` | amd64, arm64 |
 | Interface de production (nginx, tuiles par défaut `/tiles/…`) | `frontend-<version>` | amd64, arm64 |
 | Interface de démonstration (flux simulé, sans backend) | `frontend-demo-<version>` | amd64, arm64 |
 | Chaîne cartographique (tuiles et graphe) | `cartographie-<version>` | amd64 |
@@ -146,7 +149,7 @@ Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/a
 `<version>` : `edge` et `sha-<7 caractères>` pour chaque poussée sur `main` ; `1.2.3`, `1.2` et `latest` pour une version.
 Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
 
-**Publier une version** : `git tag v1.2.3 && git push origin v1.2.3`. La CI complète s'exécute, puis, seulement si « CI réussie » est verte, le job « Publication Docker Hub » construit et pousse les cinq images. Jamais sur une pull request ni sur une autre branche que `main`.
+**Publier une version** : `git tag v1.2.3 && git push origin v1.2.3`. La CI complète s'exécute, puis, seulement si « CI réussie » est verte, le job « Publication Docker Hub » construit et pousse les six images. Jamais sur une pull request ni sur une autre branche que `main`.
 
 **Mise en place (une fois)** : créer un jeton d'accès Docker Hub avec écriture sur `compagnonsdudev/autoroutes` (Docker Hub → Account settings → Personal access tokens), puis, dans GitHub → Settings → Secrets and variables → Actions, les secrets `DOCKERHUB_USERNAME` (le compte propriétaire du jeton) et `DOCKERHUB_TOKEN`. Sans eux, le job le signale par un avertissement et ne publie rien (la CI reste verte).
 

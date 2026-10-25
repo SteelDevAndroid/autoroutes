@@ -1,9 +1,11 @@
 package fr.autoroutes.supervision.aggregation;
 
+import static fr.autoroutes.supervision.ingestion.EventType.ANOMALY_REPORT;
 import static fr.autoroutes.supervision.ingestion.EventType.ENTRY;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import fr.autoroutes.supervision.ingestion.ParseResult;
+import fr.autoroutes.supervision.ingestion.RejectReason;
 import fr.autoroutes.supervision.ingestion.StationAnomaly;
 import fr.autoroutes.supervision.ingestion.TollEventParser;
 import java.io.ByteArrayOutputStream;
@@ -91,6 +93,66 @@ class StationAnomaliesTest {
         restored.apply("A", ENTRY, NOW.plusNanos(100_000), 1, reported);
         assertThat(restored.metrics("A", NOW).anomalies()).isEmpty();
         assertThat(restored.metrics("A", NOW).anomaliesUpdatedAt()).isEqualTo(resolvedAt);
+    }
+
+    private String report(String extra) {
+        return "{\"eventId\":\"r-1\",\"stationName\":\"A\",\"type\":\"ANOMALY_REPORT\",\"eventTime\":\"2026-10-22T08:00:00Z\"" + extra + "}";
+    }
+
+    @Test
+    void anomalyReportCarriesNoPassageAndIgnoresPassageFields() {
+        var result = parser.parse(report(",\"vehicleCount\":7,\"vehicleClass\":2,\"entryStationName\":\"B\","
+                + "\"anomalies\":[{\"type_ano\":\"Lecteur de badge\",\"cardinalite\":2,\"criticite\":\"Moyenne\"}]"));
+
+        assertThat(result).isInstanceOfSatisfying(ParseResult.Valid.class, valid -> {
+            assertThat(valid.event().type()).isEqualTo(ANOMALY_REPORT);
+            assertThat(valid.event().vehicleCount()).isZero();
+            assertThat(valid.event().vehicleClass()).isNull();
+            assertThat(valid.event().entryStationName()).isNull();
+            assertThat(valid.event().anomalies()).isEqualTo(reported);
+        });
+        assertThat(parser.parse(report(",\"anomalies\":[]"))).isInstanceOfSatisfying(ParseResult.Valid.class,
+                valid -> assertThat(valid.event().anomalies()).isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ",\"anomalies\":null"})
+    void anomalyReportWithoutReportIsRejected(String anomalies) {
+        assertThat(parser.parse(report(anomalies))).isInstanceOfSatisfying(ParseResult.Rejected.class, rejected -> {
+            assertThat(rejected.reason()).isEqualTo(RejectReason.MISSING_FIELD);
+            assertThat(rejected.field()).isEqualTo("anomalies");
+        });
+    }
+
+    @Test
+    void standaloneReportLeavesPassageCountsAndFreshnessUntouched() {
+        var state = new AggregationState(PARIS);
+        state.apply("A", ENTRY, NOW, 1);
+        state.applyAnomalies("A", NOW.plusSeconds(30), reported);
+        state.applyAnomalies("B", NOW, reported);
+
+        assertThat(state.metrics("A", NOW.plusSeconds(30)).last5m().entries()).isEqualTo(1);
+        assertThat(state.metrics("A", NOW.plusSeconds(30)).lastEventTime()).isEqualTo(NOW);
+        assertThat(state.metrics("A", NOW.plusSeconds(30)).anomaliesUpdatedAt()).isEqualTo(NOW.plusSeconds(30));
+        assertThat(state.metrics("B", NOW).anomalies()).isEqualTo(reported);
+        assertThat(state.metrics("B", NOW).lastEventTime()).isNull();
+        state.applyAnomalies("B", NOW.minusSeconds(1), List.of());
+        assertThat(state.metrics("B", NOW).anomalies()).isEqualTo(reported);
+    }
+
+    @Test
+    void checkpointKeepsStationsThatOnlyReceivedReports() {
+        var state = new AggregationState(PARIS);
+        state.applyAnomalies("B", NOW, reported);
+        var codec = new CheckpointCodec();
+        var data = new CheckpointData(NOW, Map.of(), Map.of(), state.export(), List.of(), List.of(), Map.of());
+
+        var restored = new AggregationState(PARIS);
+        restored.restore(codec.decode(codec.encode(data)).stations());
+
+        assertThat(restored.metrics("B", NOW).anomalies()).isEqualTo(reported);
+        assertThat(restored.metrics("B", NOW).anomaliesUpdatedAt()).isEqualTo(NOW);
+        assertThat(restored.metrics("B", NOW).lastEventTime()).isNull();
     }
 
     @ParameterizedTest
