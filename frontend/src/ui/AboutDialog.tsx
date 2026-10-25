@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useUiStore } from '../state/uiStore';
+import { Icon } from './Icon';
 
 /** Fragment d'adresse qui ouvre l'aide : le lien est partageable (#a-propos). */
 export const ABOUT_HASH = '#a-propos';
@@ -40,7 +41,7 @@ export function AboutDialog() {
       {open && <div className="about-content">
         <header>
           <h1 id="about-title">À propos des données</h1>
-          <button type="button" className="icon-button" aria-label="Fermer l’aide" onClick={() => { setOpen(false); }}>✕</button>
+          <button type="button" className="icon-button" aria-label="Fermer l’aide" onClick={() => { setOpen(false); }}><Icon name="close" /></button>
         </header>
 
         <h2>Ce que l’on voit</h2>

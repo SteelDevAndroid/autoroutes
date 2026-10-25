@@ -123,12 +123,14 @@ test.describe('démonstration (flux simulé)', () => {
 
   test('les couleurs adaptées au daltonisme se règlent, s’appliquent et se retrouvent au rechargement', async ({ page }) => {
     await page.goto('/');
+    await page.getByText('Préférences d’affichage', { exact: true }).click();
     await page.getByLabel('Couleurs adaptées au daltonisme').check();
     await expect(page.locator('html')).toHaveAttribute('data-palette', 'cvd');
 
     await page.reload();
 
     await expect(page.locator('html')).toHaveAttribute('data-palette', 'cvd');
+    await page.getByText('Préférences d’affichage', { exact: true }).click();
     await expect(page.getByLabel('Couleurs adaptées au daltonisme')).toBeChecked();
   });
 
@@ -143,6 +145,7 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(map).toHaveAttribute('data-flow-motion', 'on', { timeout: 30_000 });
 
     await page.getByRole('button', { name: 'Couches et gares' }).click();
+    await page.getByText('Préférences d’affichage', { exact: true }).click();
     await page.getByLabel('Réduire les animations').check();
     await expect(map).toHaveAttribute('data-flow-motion', 'off');
     await expect(page.locator('html')).toHaveAttribute('data-reduced-motion', 'true');

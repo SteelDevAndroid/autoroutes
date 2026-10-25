@@ -117,6 +117,17 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
     }
     document.getElementById('station-search')?.focus();
     const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Tab' && !useUiStore.getState().tourActive && !useUiStore.getState().aboutOpen) {
+        const controls = Array.from(document.querySelectorAll<HTMLElement>('#side-panel button, #side-panel input, #side-panel select, #side-panel summary'))
+          .filter((element) => !element.closest('[inert]') && !element.hasAttribute('disabled') && element.getClientRects().length > 0);
+        const first = controls[0];
+        const last = controls[controls.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !document.getElementById('side-panel')?.contains(document.activeElement))) {
+          event.preventDefault(); last?.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !document.getElementById('side-panel')?.contains(document.activeElement))) {
+          event.preventDefault(); first?.focus();
+        }
+      }
       if (event.key === 'Escape' && !useUiStore.getState().tourActive) {
         useUiStore.getState().setDrawerOpen(false);
         document.getElementById('drawer-toggle')?.focus();
@@ -314,8 +325,8 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       <AlertBanner stationCount={store.size} />
       <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
         onResetView={() => { controller.current?.resetView(); }} />
-      {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); }} />}
-      <main className="map-area" data-tour="map">
+      {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }} />}
+      <main className="map-area" id="main-map" aria-label="Supervision cartographique" data-tour="map" inert={compact && drawerOpen}>
         <MapView stations={stations} store={store} onReady={onReady} />
         <AxisFocusChip onBack={() => { controller.current?.resetView(); }} />
         <StationTooltip stations={stations} store={store} />
@@ -383,5 +394,5 @@ export function App() {
   if (redirecting) {
     return <div className="loading">Redirection vers la connexion…</div>;
   }
-  return stations === null ? <div className="loading">Chargement du référentiel…</div> : <Dashboard stations={stations} />;
+  return stations === null ? <main className="startup-loading" aria-busy="true"><div className="loading-brand">Autoroutes<span className="brand-dot">.</span></div><p role="status">Chargement du référentiel…</p><div className="workspace-skeleton" aria-hidden="true"><div /><div /></div></main> : <Dashboard stations={stations} />;
 }

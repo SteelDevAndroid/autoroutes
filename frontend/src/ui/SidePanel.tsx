@@ -4,6 +4,8 @@ import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import type { FlowKey } from '../state/uiStore';
+import { Icon } from './Icon';
+import { useCompact } from './useCompact';
 import { ActivityPanel } from './ActivityPanel';
 import { Legend } from './Legend';
 import { OdPanel } from './OdPanel';
@@ -19,6 +21,7 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   readonly onFocusFlow: (flow: FlowKey) => void;
   readonly onResetView: () => void;
 }) {
+  const compact = useCompact();
   const layers = useUiStore((s) => s.layers);
   const kinds = useUiStore((s) => s.kinds);
   const toggleLayer = useUiStore((s) => s.toggleLayer);
@@ -27,17 +30,21 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   const setReducedMotion = useUiStore((s) => s.setReducedMotion);
   const palette = useUiStore((s) => s.palette);
   const setPalette = useUiStore((s) => s.setPalette);
+  const diagnosticOpen = useUiStore((s) => s.diagnosticOpen);
   const toggleDiagnostic = useUiStore((s) => s.toggleDiagnostic);
   const drawerOpen = useUiStore((s) => s.drawerOpen);
   const segmentCapability = useUiStore((s) => s.capabilities?.segments);
   const segmentsUnavailable = !config.demo && segmentCapability !== 'READY';
   return (
-    <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel">
+    <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel"
+      role={compact && drawerOpen ? 'dialog' : undefined} aria-modal={compact && drawerOpen ? true : undefined} aria-labelledby="explorer-title">
+      <header className="side-heading"><div><p className="eyebrow">Espace de supervision</p><h2 id="explorer-title">Explorer le réseau</h2></div>
+        <button type="button" className="icon-button drawer-close" aria-label="Fermer le panneau" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }}><Icon name="close" /></button>
+      </header>
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
+      <div className="side-content">
       <Section id="layers" title="Couches et gares">
-        <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
-        <label><input type="checkbox" checked={kinds.has('PLEINE_VOIE')} onChange={() => { toggleKind('PLEINE_VOIE'); }} /> Barrières pleine voie</label>
-        <hr />
+        <fieldset className="control-group"><legend>Affichage sur la carte</legend>
         <label><input type="checkbox" checked={layers.stations} onChange={() => { toggleLayer('stations'); }} /> Activité des gares</label>
         <label><input type="checkbox" checked={layers.labels} onChange={() => { toggleLayer('labels'); }} /> Noms des gares</label>
         <label><input type="checkbox" checked={layers.axes} onChange={() => { toggleLayer('axes'); }} /> Noms des autoroutes</label>
@@ -47,16 +54,24 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
           ? 'Estimation indisponible : aucun graphe routier activé.'
           : segmentCapability === 'STARTING' ? 'Le premier calcul des tronçons est en cours.'
           : 'Disponibilité des tronçons non vérifiée. Nouvelle vérification automatique.'}</p>}
-        <label><input type="checkbox" checked={palette === 'cvd'} onChange={(e) => { setPalette(e.target.checked ? 'cvd' : 'default'); }} /> Couleurs adaptées au daltonisme</label>
-        <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
+        </fieldset>
+        <fieldset className="control-group"><legend>Types de gares</legend>
+        <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
+        <label><input type="checkbox" checked={kinds.has('PLEINE_VOIE')} onChange={() => { toggleKind('PLEINE_VOIE'); }} /> Barrières pleine voie</label>
+        </fieldset>
       </Section>
       <ActivityPanel stations={stations} store={store} onFocus={onFocus} />
       {layers.od && <OdPanel stations={stations} onFocusFlow={onFocusFlow} />}
       {layers.segments && <SegmentsPanel />}
       <Legend />
-      <section className="side-actions">
-        <button type="button" className="icon-button" onClick={onResetView}>Vue France entière</button>{' '}
-        <button type="button" className="icon-button" onClick={toggleDiagnostic}>Diagnostic</button>
+      </div>
+      <details className="preferences"><summary><Icon name="settings" /> Préférences d’affichage<Icon name="chevron" className="preferences-chevron" /></summary><div className="preferences-body">
+        <label><input type="checkbox" checked={palette === 'cvd'} onChange={(e) => { setPalette(e.target.checked ? 'cvd' : 'default'); }} /> Couleurs adaptées au daltonisme</label>
+        <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
+      </div></details>
+      <section className="side-actions" aria-label="Outils de la carte">
+        <button type="button" className="icon-button" onClick={() => { onResetView(); if (compact) { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); } }}><Icon name="globe" />Vue France entière</button>{' '}
+        <button id="diagnostic-toggle" type="button" className="icon-button" onClick={() => { toggleDiagnostic(); if (compact) useUiStore.getState().setDrawerOpen(false); }} aria-expanded={diagnosticOpen}><Icon name="activity" />Diagnostic</button>
       </section>
     </aside>
   );

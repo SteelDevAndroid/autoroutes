@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { config } from '../config';
 import { DataNature } from './DataNature';
 import type { StationCollection } from '../map/referentiel';
@@ -11,6 +12,8 @@ import { flowsOfStation } from './stationFlows';
 import { useNewKeys } from './flash';
 import { usePresenceValue } from './usePresenceValue';
 import { useStoreVersion } from './useStoreVersion';
+import { Icon } from './Icon';
+import { COMPACT_QUERY } from './useCompact';
 
 const TOP_FLOWS = 5;
 const EXIT_MS = 150;
@@ -73,6 +76,23 @@ export function StationDetail({ stations, store, onFocusFlow }: {
 }) {
   useStoreVersion(store);
   const selected = useUiStore((s) => s.selectedIndex);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const previousSelection = useRef<number | null>(null);
+  const returnFocus = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (selected !== null) {
+      if (previousSelection.current === null) returnFocus.current = document.activeElement as HTMLElement | null;
+      closeButton.current?.focus({ preventScroll: true });
+    } else if (previousSelection.current !== null) {
+      const origin = returnFocus.current;
+      if (origin?.isConnected && origin.matches('button, input, select, textarea, a[href], [tabindex]') && origin.getClientRects().length > 0 && getComputedStyle(origin).visibility !== 'hidden' && !origin.closest('[inert]')) {
+        origin.focus({ preventScroll: true });
+      } else {
+        document.getElementById(window.matchMedia(COMPACT_QUERY).matches ? 'drawer-toggle' : 'station-search')?.focus({ preventScroll: true });
+      }
+    }
+    previousSelection.current = selected;
+  }, [selected]);
   // À la fermeture, la dernière gare reste affichée le temps de la transition de sortie.
   const { value: index, leaving } = usePresenceValue(selected, EXIT_MS);
   const select = useUiStore((s) => s.select);
@@ -93,18 +113,18 @@ export function StationDetail({ stations, store, onFocusFlow }: {
     <section className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
       <header>
         <div>
+          <p className="eyebrow">Fiche de gare</p>
           <h2>{p.name}</h2>
-          <span className="tag">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'}</span>{' '}
-          <span className="tag">{formatAxes(p.axes)}</span>{' '}
-          <span className="tag">Dép. {p.dept}</span>
+          <p className="station-meta">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'}<span>{formatAxes(p.axes)}</span><span>Dép. {p.dept}</span></p>
         </div>
-        <button type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail">✕</button>
+        <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
       <table>
-        <thead><tr><th>Fenêtre</th><th>Entrées</th><th>Sorties</th><th>Solde</th></tr></thead>
+        <caption className="sr-only">Passages par période et solde des entrées et sorties</caption>
+        <thead><tr><th scope="col">Période</th><th scope="col">Entrées</th><th scope="col">Sorties</th><th scope="col">Solde</th></tr></thead>
         <tbody>
           {rows.map(([label, entries, exits]) => (
-            <tr key={label}><td>{label}</td><td>{formatCount(entries)}</td><td>{formatCount(exits)}</td><td>{formatSigned(entries - exits)}</td></tr>
+            <tr key={label}><th scope="row">{label}</th><td>{formatCount(entries)}</td><td>{formatCount(exits)}</td><td>{formatSigned(entries - exits)}</td></tr>
           ))}
         </tbody>
       </table>
