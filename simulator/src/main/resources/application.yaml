@@ -16,3 +16,4 @@ simulator:
   rate: ${SIMULATOR_RATE:80}
   stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
   aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
+  anomaly-report-rate: ${SIMULATOR_ANOMALY_REPORT_RATE:0.1}

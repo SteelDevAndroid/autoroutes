@@ -21,6 +21,7 @@ public class EventFactory {
     private final Clock clock;
     private final JsonMapper json;
     private final SimulatorProperties properties;
+    private final StationIncidents incidents;
     private SimulatedRecord last;
 
     EventFactory(StationPool pool, Random random, Clock clock, JsonMapper json, SimulatorProperties properties) {
@@ -29,6 +30,12 @@ public class EventFactory {
         this.clock = clock;
         this.json = json;
         this.properties = properties;
+        this.incidents = new StationIncidents(random, properties.anomalyOpenRate(), properties.anomalyResolveRate());
+    }
+
+    /** Gares dont l'état simulé compte au moins un incident actif. */
+    public int stationsWithIncidents() {
+        return incidents.stationsWithIncidents();
     }
 
     public SimulatedRecord next() {
@@ -48,7 +55,8 @@ public class EventFactory {
         var station = pool.pickByLanes();
         var name = unknownName ? "Gare simulée inconnue " + random.nextInt(5) : pool.nameOf(station);
         var eventTime = clock.instant();
-        if (random.nextDouble() < properties.lateRate()) {
+        var late = random.nextDouble() < properties.lateRate();
+        if (late) {
             eventTime = eventTime.minus(Duration.ofSeconds(1 + random.nextLong(properties.maxLateness().toSeconds())));
         }
         var event = new LinkedHashMap<String, Object>();
@@ -64,6 +72,10 @@ public class EventFactory {
         event.put("vehicleCount", 1);
         event.put("vehicleClass", 1 + (random.nextDouble() < 0.12 ? 1 + random.nextInt(4) : 0));
         event.put("simulated", true);
+        // État courant de la gare : seul un événement à l'heure le date correctement ; une gare inconnue part en quarantaine.
+        if (!unknownName && !late && random.nextDouble() < properties.anomalyReportRate()) {
+            event.put("anomalies", incidents.report(station.id()));
+        }
         return new SimulatedRecord(name, json.writeValueAsString(event));
     }
 }

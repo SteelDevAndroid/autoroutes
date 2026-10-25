@@ -602,6 +602,7 @@ simulator/                                      générateur d'événements (mod
 - Spring Boot + producteur Kafka idempotent ; toujours `simulated: true`.
 - Noms tirés de `referentiel/alias-gares.csv`. Origines-destinations selon un **modèle gravitaire** (poids = `nbVoies`, décroissance avec la distance), barrières pleine voie en système ouvert (`entryStationName` absent).
 - Paramètres : débit de base, profil journalier (pointes à 8 h et 18 h, vendredi de départs), et taux de doublons, retards (distribution), messages invalides, noms inconnus, entrées inconnues, avance d'horloge.
+- Rapports d'**anomalies de gare** (champ `anomalies`) : incidents simulés persistants par gare, ouverts et résolus au fil des rapports (voir `docs/anomalies-gares.md`, « Simulateur »).
 - Mode **rejeu déterministe** (graine fixe) pour les tests de non-régression.
 
 ---

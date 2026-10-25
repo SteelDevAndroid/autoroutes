@@ -26,7 +26,12 @@ class EventFactoryTest {
     }
 
     private static SimulatorProperties properties(double duplicate, double late, double invalid, double unknown) {
-        return new SimulatorProperties("toll-events", 80, "s", "a", duplicate, late, Duration.ofMinutes(30), invalid, unknown, 42L);
+        return properties(duplicate, late, invalid, unknown, 0);
+    }
+
+    private static SimulatorProperties properties(double duplicate, double late, double invalid, double unknown, double anomalyReport) {
+        return new SimulatorProperties("toll-events", 80, "s", "a", duplicate, late, Duration.ofMinutes(30), invalid, unknown,
+                anomalyReport, 0.3, 0.2, 42L);
     }
 
     private EventFactory factory(SimulatorProperties properties) {
@@ -83,6 +88,32 @@ class EventFactoryTest {
         assertThat(duplicates).isBetween(120L, 280L);
         assertThat(late).isPositive();
         assertThat(unknown).isPositive();
+    }
+
+    @Test
+    void anomalyReportsFollowTheContractOnlyOnOnTimeEventsOfKnownStations() {
+        var factory = factory(properties(0, 0.2, 0, 0.2, 0.5));
+        var events = generate(factory, 4_000);
+
+        var reports = events.stream().filter(e -> e.has("anomalies")).toList();
+        assertThat(reports).hasSizeBetween(1_000, 1_600).allSatisfy(e -> {
+            assertThat(e.path("eventTime").asString()).isEqualTo(NOW.toString());
+            assertThat(e.path("stationName").asString()).doesNotStartWith("Gare simulée inconnue");
+            assertThat(e.get("anomalies").isArray()).isTrue();
+            e.get("anomalies").forEach(a -> {
+                assertThat(a.propertyNames()).containsExactly("type_ano", "cardinalite", "criticite");
+                assertThat(a.path("cardinalite").asInt()).isPositive();
+                assertThat(a.path("criticite").asString()).isIn("Faible", "Moyenne", "Haute", "Critique");
+            });
+        });
+        assertThat(reports).anySatisfy(e -> assertThat(e.get("anomalies")).isEmpty());
+        assertThat(reports).anySatisfy(e -> assertThat(e.get("anomalies")).isNotEmpty());
+        assertThat(factory.stationsWithIncidents()).isPositive();
+    }
+
+    @Test
+    void noAnomalyReportWhenDisabled() {
+        assertThat(generate(factory(properties(0, 0, 0, 0, 0)), 1_000)).noneMatch(e -> e.has("anomalies"));
     }
 
     @Test
