@@ -33,8 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -45,7 +45,7 @@ jobs:
         run: mvn -B -ntp verify
       - name: Rapports de tests
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: backend-reports
           path: |
@@ -58,8 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: ${{ env.JAVA_VERSION }}
@@ -76,8 +76,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -106,7 +106,7 @@ jobs:
         run: npx playwright test e2e/demo.spec.ts e2e/anomalies.spec.ts
       - name: Rapports Playwright
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: frontend-playwright
           path: |
@@ -118,19 +118,17 @@ jobs:
     name: Régression visuelle (captures de l'interface)
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Même image que `npm run e2e:visual:update` (frontend/scripts/visual-docker.mjs) : navigateur, polices et Node identiques partout.
+    # Son tag suit la version exacte de @playwright/test (package.json) : les faire évoluer ensemble, sinon Playwright ne trouve pas son navigateur.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/checkout@v7
       - run: npm ci --no-audit --no-fund
-      - name: Navigateur Playwright
-        run: npx playwright install --with-deps chromium
       # Captures du panneau, de la légende, des puces et du tiroir (jamais de la carte WebGL), comparées aux références versionnées.
       - name: Comparaison aux références
         if: ${{ !inputs.update_snapshots }}
@@ -140,14 +138,14 @@ jobs:
         run: npx playwright test e2e/visual.spec.ts --update-snapshots
       - name: Images de référence régénérées
         if: ${{ inputs.update_snapshots }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visuel-references
           path: frontend/e2e/visual.spec.ts-snapshots
           retention-days: 7
       - name: Écarts (attendu, obtenu, différence)
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visuel-ecarts
           path: frontend/test-results
@@ -158,8 +156,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -182,8 +180,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - name: Configuration et règles Prometheus (promtool)
@@ -207,7 +205,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: shellcheck cartographie/build.sh scripts/perf_history.sh scripts/fetch_tiles.sh
 
   docker:
@@ -215,8 +213,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
       - name: Compose valide
         run: |
           cp .env.example .env
@@ -224,7 +222,7 @@ jobs:
           # Surcharge « images publiées » : mêmes profils, images du dépôt Docker Hub.
           for profile in demo full tiles; do docker compose -f compose.yaml -f compose.hub.yaml --profile "$profile" config -q; done
       - name: Image backend
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: backend/Dockerfile
@@ -232,7 +230,7 @@ jobs:
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
       - name: Image simulateur
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: simulator/Dockerfile
@@ -240,7 +238,7 @@ jobs:
           cache-from: type=gha,scope=simulator
           cache-to: type=gha,scope=simulator,mode=max
       - name: Image frontend (démonstration)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: frontend
           build-args: MODE=demo
@@ -253,8 +251,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -310,7 +308,7 @@ jobs:
         run: docker compose logs --no-color --tail=300 > compose-logs.txt || true
       - name: Artefacts de diagnostic
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-live
           path: |
@@ -326,8 +324,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -383,7 +381,7 @@ jobs:
         run: docker compose logs --no-color --tail=300 > compose-logs.txt || true
       - name: Artefacts de diagnostic
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-auth
           path: |
@@ -469,13 +467,13 @@ jobs:
           else
             echo "enabled=true" >> "$GITHUB_OUTPUT"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.secrets.outputs.enabled == 'true'
-      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-qemu-action@v4
         if: steps.secrets.outputs.enabled == 'true'
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
         if: steps.secrets.outputs.enabled == 'true'
-      - uses: docker/login-action@v3
+      - uses: docker/login-action@v4
         if: steps.secrets.outputs.enabled == 'true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -483,7 +481,7 @@ jobs:
       - name: Tags et étiquettes
         id: meta
         if: steps.secrets.outputs.enabled == 'true'
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REPOSITORY }}
           # Un seul dépôt Docker Hub pour toutes les images : le préfixe du tag dit laquelle (backend-1.2.3, frontend-latest…).
@@ -500,7 +498,7 @@ jobs:
       - name: Construction et publication
         id: push
         if: steps.secrets.outputs.enabled == 'true'
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}

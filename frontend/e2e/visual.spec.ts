@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 /**
  * Régression visuelle de l'interface HTML (panneau, fiches, puces, légende) : la carte WebGL n'est jamais comparée,
  * son rendu logiciel varie d'une machine à l'autre. Les chiffres de la démonstration étant aléatoires, seules les zones stables sont comparées.
- * Références : e2e/visual.spec.ts-snapshots/, produites sous Linux ; les régénérer avec `npm run e2e:visual:update`
+ * Références : e2e/visual.spec.ts-snapshots/, produites dans l'image Playwright de la CI ; les régénérer avec `npm run e2e:visual:update` (Docker)
  * (ou le workflow CI lancé à la demande avec « update_snapshots ») puis relire les images dans la PR.
  */
 test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
