@@ -12,6 +12,23 @@ const setup = () => {
 };
 
 describe('StationLayerRenderer', () => {
+  it('updates incident markers even when traffic and animation targets do not change', () => {
+    const { store, map, renderer } = setup();
+    store.replaceAll([metrics('A')]);
+    renderer.onData(0);
+    renderer.renderFrame(500, 0);
+    map.setFeatureState.mockClear();
+    store.applyDelta([{ ...metrics('A'), anomalies: [{ type_ano: 'Paiement', cardinalite: 4, criticite: 'Critique' }] }]);
+    renderer.onData(600);
+    renderer.renderFrame(600, 2);
+    expect(map.setFeatureState).not.toHaveBeenCalled(); // Le lot dégradé reste plafonné à 250 ms.
+    renderer.renderFrame(750, 2);
+    expect(map.setFeatureState).toHaveBeenCalledWith({ source: 'stations', id: 0 }, expect.objectContaining({ hasAnomalies: true, anomalySeverity: 4 }));
+    store.applyDelta([{ ...metrics('A'), anomalies: [] }]);
+    renderer.onData(1000);
+    renderer.renderFrame(1000, 2);
+    expect(map.setFeatureState).toHaveBeenLastCalledWith({ source: 'stations', id: 0 }, expect.objectContaining({ hasAnomalies: false }));
+  });
   it('pushes only animated stations, batched at a capped rate', () => {
     const { store, map, renderer } = setup();
     store.replaceAll([metrics('A', 50, 50), metrics('B', 0, 0)]);

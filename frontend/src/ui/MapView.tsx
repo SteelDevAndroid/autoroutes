@@ -36,12 +36,14 @@ export function MapView({ stations, store, onReady }: {
       onAxisClick: (axis) => { useUiStore.getState().chooseAxis(axis); },
     });
     controller.setLayers(ui.layers);
+    controller.setAnomaliesVisible(ui.mode === 'live');
     controller.setKinds(ui.kinds);
     controller.setReducedMotion(ui.reducedMotion);
     controller.setAxisLabelsVisible(ui.layers.axes);
     controller.setActiveAxis(ui.hoverAxis ?? (ui.odFilters.axis || null));
     const unsubscribe = useUiStore.subscribe((state, previous) => {
       if (state.layers !== previous.layers) controller.setLayers(state.layers);
+      if (state.mode !== previous.mode) controller.setAnomaliesVisible(state.mode === 'live');
       if (state.layers.axes !== previous.layers.axes) controller.setAxisLabelsVisible(state.layers.axes);
       if (state.hoverAxis !== previous.hoverAxis || state.odFilters.axis !== previous.odFilters.axis) {
         controller.setActiveAxis(state.hoverAxis ?? (state.odFilters.axis || null));

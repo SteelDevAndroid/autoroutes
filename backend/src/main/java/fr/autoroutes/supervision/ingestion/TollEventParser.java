@@ -8,6 +8,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
+import java.util.List;
+import java.util.ArrayList;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -74,7 +76,31 @@ public class TollEventParser {
                 entryTime,
                 intField(root, "vehicleCount", 1, MAX_VEHICLE_COUNT).orElse(1),
                 intField(root, "vehicleClass", 1, 5).orElse(null),
-                root.path("simulated").asBoolean(false));
+                root.path("simulated").asBoolean(false),
+                anomalies(root.get("anomalies")));
+    }
+
+    private static List<StationAnomaly> anomalies(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (!node.isArray() || node.size() > StationAnomaly.MAX_ITEMS) {
+            throw new FieldException(RejectReason.INVALID_FIELD, "anomalies");
+        }
+        var result = new ArrayList<StationAnomaly>();
+        for (var item : node) {
+            var type = item.get("type_ano");
+            var count = item.get("cardinalite");
+            var severity = item.get("criticite");
+            if (!item.isObject() || type == null || !type.isString() || severity == null || !severity.isString()
+                    || count == null || !count.isIntegralNumber() || !count.canConvertToInt()) {
+                throw new FieldException(RejectReason.INVALID_FIELD, "anomalies");
+            }
+            try {
+                result.add(new StationAnomaly(type.stringValue(), count.intValue(), severity.stringValue()));
+            } catch (IllegalArgumentException e) {
+                throw new FieldException(RejectReason.INVALID_FIELD, "anomalies");
+            }
+        }
+        return List.copyOf(result);
     }
 
     private static String requiredText(JsonNode root, String field) {

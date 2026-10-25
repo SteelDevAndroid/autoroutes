@@ -14,6 +14,7 @@ import { usePresenceValue } from './usePresenceValue';
 import { useStoreVersion } from './useStoreVersion';
 import { Icon } from './Icon';
 import { COMPACT_QUERY } from './useCompact';
+import { StationAnomalies } from './StationAnomalies';
 
 const TOP_FLOWS = 5;
 const EXIT_MS = 150;
@@ -76,6 +77,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
 }) {
   useStoreVersion(store);
   const selected = useUiStore((s) => s.selectedIndex);
+  const mode = useUiStore((s) => s.mode);
   const closeButton = useRef<HTMLButtonElement>(null);
   const previousSelection = useRef<number | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -119,6 +121,8 @@ export function StationDetail({ stations, store, onFocusFlow }: {
         </div>
         <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
+      {mode === 'replay' ? <section className="station-anomalies" aria-label="Incidents et anomalies"><h3>Incidents et anomalies</h3><p className="note">État des anomalies indisponible en relecture : aucun historique d’incidents n’est fourni.</p></section>
+        : <StationAnomalies anomalies={store.anomalies[index] ?? null} updatedAt={store.anomaliesUpdatedAt[index] ?? null} />}
       <table>
         <caption className="sr-only">Passages par période et solde des entrées et sorties</caption>
         <thead><tr><th scope="col">Période</th><th scope="col">Entrées</th><th scope="col">Sorties</th><th scope="col">Solde</th></tr></thead>

@@ -75,6 +75,44 @@ class SupervisionIT {
     private final HttpClient http = HttpClient.newHttpClient();
 
     @Test
+    void publishesAnomaliesFromKafkaThroughTheStationApiAndSseSnapshot() throws Exception {
+        var id = stationId("Ablis");
+        var report = List.of(Map.of("type_ano", "Paiement central", "cardinalite", 4, "criticite", "Critique"));
+        var payload = new java.util.LinkedHashMap<String, Object>();
+        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("stationName", "Ablis");
+        payload.put("type", "ENTRY");
+        payload.put("eventTime", Instant.now().toString());
+        payload.put("anomalies", report);
+        send(json.writeValueAsString(payload));
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
+            var metrics = get("/api/v1/stations/" + id).path("metrics");
+            assertThat(metrics.path("anomalies").path(0).path("type_ano").asString()).isEqualTo("Paiement central");
+            assertThat(metrics.path("anomalies").path(0).path("cardinalite").asInt()).isEqualTo(4);
+            assertThat(metrics.path("anomaliesUpdatedAt").isString()).isTrue();
+        });
+        assertTimeoutPreemptively(Duration.ofSeconds(10), () -> {
+            try (var stream = openStream(null)) {
+                var snapshot = json.readTree(nextEventOfType(stream, "snapshot").data());
+                var found = false;
+                for (var station : snapshot.path("payload").path("stations")) {
+                    if (station.path("stationId").asString().equals(id)) {
+                        assertThat(station.path("anomalies").path(0).path("criticite").asString()).isEqualTo("Critique");
+                        found = true;
+                    }
+                }
+                assertThat(found).isTrue();
+            }
+        });
+        payload.put("eventId", UUID.randomUUID().toString());
+        payload.put("eventTime", Instant.now().toString());
+        payload.put("anomalies", List.of());
+        send(json.writeValueAsString(payload));
+        await().atMost(Duration.ofSeconds(30)).untilAsserted(() ->
+                assertThat(get("/api/v1/stations/" + id).path("metrics").path("anomalies").isEmpty()).isTrue());
+    }
+
+    @Test
     void persistsMixedProvenanceAndDistinguishesMissingHistoryWithoutReclassifyingLegacyRows() throws Exception {
         var hour = Instant.now().minus(Duration.ofDays(2)).truncatedTo(java.time.temporal.ChronoUnit.HOURS);
         var minute = hour.getEpochSecond() / 60;

@@ -1,6 +1,7 @@
 package fr.autoroutes.supervision.aggregation;
 
 import fr.autoroutes.supervision.ingestion.EventType;
+import fr.autoroutes.supervision.ingestion.StationAnomaly;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public final class AggregationState {
     private final ZoneId displayZone;
     private final Map<String, MinuteRing> rings = new HashMap<>();
     private final Map<String, Instant> lastEventTime = new HashMap<>();
+    private final Map<String, AnomalyState> anomalies = new HashMap<>();
     private final Set<String> dirty = new HashSet<>();
 
     public AggregationState(ZoneId displayZone) {
@@ -27,8 +29,19 @@ public final class AggregationState {
     }
 
     public void apply(String stationId, EventType type, Instant eventTime, int vehicleCount) {
+        apply(stationId, type, eventTime, vehicleCount, null);
+    }
+
+    public void apply(String stationId, EventType type, Instant eventTime, int vehicleCount, List<StationAnomaly> report) {
         rings.computeIfAbsent(stationId, id -> new MinuteRing()).add(epochMinute(eventTime), type, vehicleCount);
         lastEventTime.merge(stationId, eventTime, (a, b) -> a.isAfter(b) ? a : b);
+        if (report != null) {
+            var previous = anomalies.get(stationId);
+            // État complet, jamais cumulé. Un événement retardé ne doit pas rétablir un incident résolu.
+            if (previous == null || !eventTime.isBefore(previous.at())) {
+                anomalies.put(stationId, new AnomalyState(eventTime, List.copyOf(report)));
+            }
+        }
         dirty.add(stationId);
     }
 
@@ -41,13 +54,16 @@ public final class AggregationState {
         var now = epochMinute(reference);
         // Début de journée en heure locale : la journée dure 23 h ou 25 h aux changements d'heure.
         var midnight = epochMinute(reference.atZone(displayZone).toLocalDate().atStartOfDay(displayZone).toInstant());
+        var report = anomalies.get(stationId);
         return new StationMetrics(
                 stationId,
                 ring.sum(now - 4, now),
                 ring.sum(now - 14, now),
                 ring.sum(now - 59, now),
                 ring.sum(midnight, now),
-                lastEventTime.get(stationId));
+                lastEventTime.get(stationId),
+                report == null ? null : report.items(),
+                report == null ? null : report.at());
     }
 
     public Optional<Instant> lastEventTime(String stationId) {
@@ -60,7 +76,9 @@ public final class AggregationState {
         rings.forEach((id, ring) -> {
             var minutes = new ArrayList<long[]>();
             ring.forEachSlot((minute, in, out) -> minutes.add(new long[] {minute, in, out}));
-            exported.add(new StationCheckpoint(id, lastEventTime.get(id), List.copyOf(minutes)));
+            var report = anomalies.get(id);
+            exported.add(new StationCheckpoint(id, lastEventTime.get(id), List.copyOf(minutes),
+                    report == null ? null : report.items(), report == null ? null : report.at()));
         });
         return exported;
     }
@@ -68,6 +86,7 @@ public final class AggregationState {
     public void restore(List<StationCheckpoint> checkpoint) {
         rings.clear();
         lastEventTime.clear();
+        anomalies.clear();
         dirty.clear();
         for (var station : checkpoint) {
             var ring = new MinuteRing();
@@ -76,13 +95,22 @@ public final class AggregationState {
             if (station.lastEventTime() != null) {
                 lastEventTime.put(station.stationId(), station.lastEventTime());
             }
+            if (station.anomalies() != null && station.anomaliesUpdatedAt() != null) {
+                anomalies.put(station.stationId(), new AnomalyState(station.anomaliesUpdatedAt(), List.copyOf(station.anomalies())));
+            }
             dirty.add(station.stationId());
         }
     }
 
     /** @param minutes triplets {minute epoch, entrées, sorties} des minutes non vides */
-    public record StationCheckpoint(String stationId, Instant lastEventTime, List<long[]> minutes) {
+    public record StationCheckpoint(String stationId, Instant lastEventTime, List<long[]> minutes,
+                                    List<StationAnomaly> anomalies, Instant anomaliesUpdatedAt) {
+        public StationCheckpoint(String stationId, Instant lastEventTime, List<long[]> minutes) {
+            this(stationId, lastEventTime, minutes, null, null);
+        }
     }
+
+    private record AnomalyState(Instant at, List<StationAnomaly> items) { }
 
     /** Sorties de toutes les gares entre deux minutes (incluses) : source indépendante du rapprochement des flux O/D. */
     public long exitsBetween(long fromMinuteInclusive, long toMinuteInclusive) {

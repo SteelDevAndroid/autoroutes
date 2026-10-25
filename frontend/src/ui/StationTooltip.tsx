@@ -6,11 +6,14 @@ import { formatAxes } from '../map/axes';
 import { formatCount, formatTime } from './format';
 import { tooltipPosition } from './tooltipPosition';
 import { useStoreVersion } from './useStoreVersion';
+import { anomalySummary } from '../realtime/anomalies';
+import { Icon } from './Icon';
 
 /** Aperçu d'une gare au survol, sans clic : nom, passages sur 15 min et fraîcheur. Le détail complet reste dans le panneau. */
 export function StationTooltip({ stations, store }: { readonly stations: StationCollection; readonly store: StationStore }) {
   useStoreVersion(store);
   const hover = useUiStore((s) => s.hover);
+  const mode = useUiStore((s) => s.mode);
   const staleIds = useUiStore((s) => s.freshness?.staleStations);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -32,11 +35,13 @@ export function StationTooltip({ stations, store }: { readonly stations: Station
   const p = feature.properties;
   const last = store.lastEventMs[hover.index];
   const stale = staleIds?.includes(p.id) ?? false;
+  const anomalies = anomalySummary(store.anomalies[hover.index] ?? null);
   return (
     <div ref={ref} className="station-tooltip" role="tooltip">
       <strong>{p.name}</strong>
       <span className="tooltip-meta">{p.kind === 'ECHANGEUR' ? 'Gare d’échangeur' : 'Barrière pleine voie'} · {formatAxes(p.axes)}</span>
       <span>15 min : {formatCount(store.entries15m[hover.index] ?? 0)} entrées · {formatCount(store.exits15m[hover.index] ?? 0)} sorties</span>
+      {mode === 'live' && anomalies.count > 0 && <span className={`anomaly-severity anomaly-level-${anomalies.severity}`}><Icon name="warning" />{formatCount(anomalies.count)} {anomalies.count === 1 ? 'anomalie' : 'anomalies'} · {anomalies.label}{anomalies.unknown ? ' · criticité à vérifier' : ''}</span>}
       <span className={stale ? 'status-warn' : 'tooltip-meta'}>
         {stale ? 'Données périmées' : `Dernier passage ${formatTime(last === undefined || Number.isNaN(last) ? null : last)}`}
       </span>

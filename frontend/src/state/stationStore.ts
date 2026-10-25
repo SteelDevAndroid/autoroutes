@@ -1,4 +1,5 @@
 import type { StationMetrics } from '../realtime/protocol';
+import type { StationAnomaly } from '../realtime/anomalies';
 
 type Listener = () => void;
 
@@ -19,6 +20,8 @@ export class StationStore {
   readonly lastEventMs: Float64Array;
   /** Passages observés depuis la mise à jour précédente (variation du cumul du jour, ≥ 0). */
   readonly increment: Float64Array;
+  readonly anomalies: (readonly StationAnomaly[] | null)[];
+  readonly anomaliesUpdatedAt: (string | null)[];
 
   private readonly indexById: ReadonlyMap<string, number>;
   private readonly changed = new Set<number>();
@@ -40,6 +43,8 @@ export class StationStore {
     this.exitsToday = new Float64Array(n);
     this.lastEventMs = new Float64Array(n).fill(Number.NaN);
     this.increment = new Float64Array(n);
+    this.anomalies = Array.from({ length: n }, () => null);
+    this.anomaliesUpdatedAt = Array.from({ length: n }, () => null);
   }
 
   get size(): number {
@@ -65,6 +70,8 @@ export class StationStore {
       array.fill(0);
     }
     this.lastEventMs.fill(Number.NaN);
+    this.anomalies.fill(null);
+    this.anomaliesUpdatedAt.fill(null);
     this.unknownIds = 0;
     // Un snapshot n'est pas une activité nouvelle : pas d'incrément, donc pas d'impulsion visuelle.
     this.write(stations, false);
@@ -111,6 +118,8 @@ export class StationStore {
       this.entriesToday[i] = metrics.today.entries;
       this.exitsToday[i] = metrics.today.exits;
       this.lastEventMs[i] = metrics.lastEventTime === null ? Number.NaN : Date.parse(metrics.lastEventTime);
+      this.anomalies[i] = metrics.anomalies ?? null;
+      this.anomaliesUpdatedAt[i] = metrics.anomaliesUpdatedAt ?? null;
       this.changed.add(i);
     }
   }

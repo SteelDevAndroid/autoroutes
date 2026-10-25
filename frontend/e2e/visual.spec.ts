@@ -18,6 +18,12 @@ async function ready(page: Page): Promise<void> {
 }
 
 test.describe('régression visuelle', () => {
+  test('anomalies de gare : criticités et cardinalités', async ({ page }) => {
+    await ready(page);
+    await page.getByLabel('Nom de gare').fill('La Boisse');
+    await page.getByRole('button', { name: /La Boisse/ }).first().click();
+    await expect(page.locator('.anomaly-list')).toHaveScreenshot('fiche-gare-anomalies.png', SHOT);
+  });
   test('panneau latéral par défaut', async ({ page }) => {
     await ready(page);
 

@@ -43,6 +43,11 @@ export const stationColor = (theme: Theme): unknown => [
   theme.stationEchangeur,
 ];
 
+export const anomalyColor = (theme: Theme): unknown => [
+  'match', ['coalesce', ['feature-state', 'anomalySeverity'], 0],
+  1, theme.anomalyLow, 2, theme.anomalyMedium, 3, theme.anomalyHigh, 4, theme.anomalyCritical, theme.stationStroke,
+];
+
 export const segmentColor = (theme: Theme): unknown => [
   'interpolate', ['linear'], ['coalesce', ['feature-state', 'load'], 0],
   0, theme.segmentRamp[0], 0.25, theme.segmentRamp[1], 0.5, theme.segmentRamp[2],
@@ -167,6 +172,18 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
         'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
         // Indice de forme en plus de la couleur : contour épais pour les barrières pleine voie.
         'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'PLEINE_VOIE'], 2, 0.75],
+      },
+    },
+    {
+      id: 'stations-anomalies',
+      type: 'circle',
+      source: SOURCE.stations,
+      paint: {
+        'circle-radius': stationRadius(7),
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-stroke-color': anomalyColor(theme),
+        'circle-stroke-width': ['case', ['>=', ['coalesce', ['feature-state', 'anomalySeverity'], 0], 3], 3, 2],
+        'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'hasAnomalies'], false], 1, 0],
       },
     },
     {

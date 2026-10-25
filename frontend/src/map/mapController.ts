@@ -16,7 +16,7 @@ import type { OdProperties } from './odGeometry';
 import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
-import { MOTORWAYS_SOURCE_LAYER, SOURCE, flowGradient, segmentColor, stationColor } from './layers';
+import { MOTORWAYS_SOURCE_LAYER, SOURCE, anomalyColor, flowGradient, segmentColor, stationColor } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
 import type { SegmentLoad } from '../realtime/protocol';
@@ -40,7 +40,7 @@ export interface MapControllerOptions {
   readonly onAxisClick: (axis: string) => void;
 }
 
-const STATION_LAYERS = ['stations', 'stations-halo', 'stations-axis', 'stations-selected', 'stations-label'] as const;
+const STATION_LAYERS = ['stations', 'stations-halo', 'stations-anomalies', 'stations-axis', 'stations-selected', 'stations-label'] as const;
 
 const FLOW_FADE_MS = 300;
 const SEGMENT_FADE_MS = 500;
@@ -83,6 +83,8 @@ export class MapController {
   private readonly container: HTMLElement;
   private reduced = false;
   private odVisible = false;
+  private anomaliesVisible = true;
+  private stationsVisible = true;
   private readonly flowPresence = new Presence(FLOW_FADE_MS);
   private flowFeatures: ReadonlyMap<string, Feature<LineString, OdProperties>> = new Map();
   private flowIds: ReadonlyMap<string, number> = new Map();
@@ -425,6 +427,7 @@ export class MapController {
   };
 
   setLayers(visibility: LayerVisibility): void {
+    this.stationsVisible = visibility.stations;
     this.whenStyleReady(() => {
       const show = (id: string, visible: boolean) => {
         if (this.map.getLayer(id) !== undefined) {
@@ -432,12 +435,21 @@ export class MapController {
         }
       };
       ['stations', 'stations-halo', 'stations-axis', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
+      show('stations-anomalies', visibility.stations && this.anomaliesVisible);
       show('stations-label', visibility.stations && visibility.labels);
       show('od-flows', visibility.od);
       show('od-flows-motion', visibility.od && !this.reduced);
       this.odVisible = visibility.od;
       this.updateMotion();
       show('segments-load', visibility.segments);
+    });
+  }
+
+  /** Le direct ne doit jamais projeter ses incidents sur une carte historique, même pendant son chargement. */
+  setAnomaliesVisible(visible: boolean): void {
+    this.anomaliesVisible = visible;
+    this.whenStyleReady(() => {
+      this.map.setLayoutProperty('stations-anomalies', 'visibility', visible && this.stationsVisible ? 'visible' : 'none');
     });
   }
 
@@ -480,6 +492,7 @@ export class MapController {
         }
       };
       paint('stations', 'circle-color', stationColor(theme));
+      paint('stations-anomalies', 'circle-stroke-color', anomalyColor(theme));
       paint('stations-axis', 'circle-stroke-color', theme.odFlow);
       paint('od-flows', 'line-gradient', flowGradient(theme));
       paint('segments-load', 'line-color', segmentColor(theme));
