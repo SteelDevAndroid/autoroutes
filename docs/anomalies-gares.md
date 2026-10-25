@@ -69,6 +69,16 @@ Le rapport est conservé dans les points de reprise et dans les événements mis
 - **Relecture** : anomalies et contour du direct masqués dès l'entrée en relecture, même pendant son chargement. La fiche explique qu'aucun historique d'incidents n'est fourni. Le dataset historique actuel ne contient que des passages.
 - **Démonstration** : La Boisse (`GL-BPV-0054`) présente les quatre anomalies de l'exemple, dans le contexte explicitement simulé. Les autres gares de démonstration déclarent un tableau vide. Aucun incident fictif n'est introduit dans le flux réel.
 
+## Simulateur
+
+Le simulateur Kafka (`simulator/`, événements `simulated: true`) génère des rapports d'anomalies pour exercer toute la chaîne en mode direct (`StationIncidents`) :
+
+- **Incidents persistants par gare logique.** À chaque rapport, chaque type actif perd une occurrence avec la probabilité `anomaly-resolve-rate` (0,25). Une nouvelle occurrence s'ouvre ensuite avec la probabilité `anomaly-open-rate` (0,05). Le rapport déclare l'état complet de la gare, trié de Critique à Faible. Il vaut `[]` quand tout est résolu, ce qui exerce l'effacement.
+- **Catalogue.** Il comprend les quatre types de l'exemple et cinq autres, chacun avec une criticité fixe. Les pannes graves sont plus rares (poids de 8 pour « Défaut d'imprimante de ticket » à 1 pour « Erreur de communication avec le serveur central de paiement »).
+- **Événements porteurs.** Une part `anomaly-report-rate` (0,1, variable `SIMULATOR_ANOMALY_REPORT_RATE`, 0 = désactivé) des événements porte le rapport. Seuls les événements à l'heure et de gare connue sont concernés : un événement en retard daterait mal l'état courant, une gare inconnue part en quarantaine. Les doublons rejouent le même rapport.
+- **Ordres de grandeur.** À 80 évt/s sur 667 gares, chaque gare rend compte environ toutes les 80 s. Vérification avec le vrai `TollEventParser` : sur 10 minutes simulées, les 48 000 événements sont acceptés, dont 4 847 rapports, et 78 gares ont un incident actif. En régime établi, un test borne la part de gares concernées entre 10 et 30 %.
+- **Journalisation.** Le journal du simulateur indique chaque minute le nombre de gares avec incidents simulés.
+
 ## Déploiement et compatibilité
 
 - Migration Flyway **V4** : colonne JSONB nullable `quarantined_event.anomalies`, avec contrainte de tableau. Les anciennes lignes restent à `NULL`.

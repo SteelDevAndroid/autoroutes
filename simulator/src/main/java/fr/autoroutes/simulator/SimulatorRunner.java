@@ -43,7 +43,7 @@ class SimulatorRunner {
         sent += count;
         var now = clock.millis();
         if (now - lastReport >= 60_000) {
-            LOG.info("{} événements simulés émis", sent);
+            LOG.info("{} événements simulés émis, {} gares avec incidents simulés", sent, factory.stationsWithIncidents());
             lastReport = now;
         }
     }
