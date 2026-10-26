@@ -1,8 +1,33 @@
 # Docker Compose
 
-Un seul fichier, `compose.yaml`, décrit toute la pile. Les profils choisissent ce qui démarre.
+`compose.yaml` décrit toute la pile et permet de construire les sources. `compose.hub.yaml` reprend ces
+définitions pour lancer directement les images publiées, sans compilation locale. Les profils choisissent
+ce qui démarre. Conserver les deux fichiers et les configurations du dépôt.
 
-## Démarrage rapide
+## Démarrage rapide avec Docker Hub
+
+Avec Docker Compose ≥ 2.24.4, depuis la racine du dépôt, sous PowerShell :
+
+```powershell
+Copy-Item .env.example .env             # première installation seulement ; conserver ensuite .env
+# Adapter les mots de passe dans .env.
+docker compose -f compose.hub.yaml --profile full --profile monitoring pull
+docker compose -f compose.hub.yaml --profile full --profile monitoring up -d --wait
+```
+
+Sous Linux/macOS : `cp .env.example .env` pour l’initialisation. Le profil `full` inclut Kafka,
+l’initialisation des topics, PostgreSQL, le simulateur, le backend et le frontend. `monitoring` ajoute
+Prometheus, Alertmanager et Grafana. Ajouter `--profile mcp` pour le serveur MCP.
+L’application est accessible sur http://localhost:8080 et Grafana sur http://localhost:3000.
+
+`latest` suit les versions stables ; `edge` suit les publications de `main` après CI. Définir
+`AUTOROUTES_TAG=0.3.0` dans `.env` pour figer une version publiée, ou `AUTOROUTES_TAG=edge` pour suivre main.
+Les tuiles et le graphe s’installent séparément (voir la section cartographie).
+
+Le lanceur Windows `start.ps1` utilise actuellement `compose.yaml` et les images locales ; pour Docker Hub,
+utiliser les commandes ci-dessus. La [présentation Docker Hub](dockerhub.md) fournit le guide synthétique.
+
+## Démarrage avec construction locale
 
 Sous Windows, depuis PowerShell (Docker Desktop démarré) :
 
@@ -146,7 +171,8 @@ Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/a
 | Interface de démonstration (flux simulé, sans backend) | `frontend-demo-<version>` | amd64, arm64 |
 | Chaîne cartographique (tuiles et graphe) | `cartographie-<version>` | amd64 |
 
-`<version>` : `edge` et `sha-<7 caractères>` pour chaque poussée sur `main` ; `1.2.3`, `1.2` et `latest` pour une version.
+`<version>` : `edge` pour les publications de `main` ; `1.2.3`, `1.2` et `latest` pour une version stable.
+Pour figer toute la pile applicative, utiliser une version publiée avec `AUTOROUTES_TAG`, plutôt que le tag SHA partagé.
 Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
 
 **Publier une version** : `git tag v1.2.3 && git push origin v1.2.3`. La CI complète s'exécute, puis, seulement si « CI réussie » est verte, le job « Publication Docker Hub » construit et pousse les six images. Jamais sur une pull request ni sur une autre branche que `main`.
@@ -168,15 +194,29 @@ Les dépendances attendent les sondes de santé et l’initialisation des topics
 
 Le fichier reprend les définitions de `compose.yaml` via `extends` : conserver le dépôt
 et ses configurations locales. Il peut aussi rester utilisé avec l’ancienne commande
-`-f compose.yaml -f compose.hub.yaml`. Il supprime les constructions locales. L’image cartographique embarque ses scripts et
+`-f compose.yaml -f compose.hub.yaml`. Il supprime les constructions locales.
+L’image cartographique embarque ses scripts et
 référentiels ; seuls `cartographie/out` et `cartographie/work` sont montés pour la tâche `tiles`.
-Après publication de cette correction, utiliser une version qui la contient (`edge` pour main) :
+Pour produire les tuiles avec la version sélectionnée (la version stable 0.3.0 inclut les scripts embarqués) :
 
 ```bash
-AUTOROUTES_TAG=edge docker compose -f compose.hub.yaml --profile tiles run --rm tiles
+docker compose -f compose.hub.yaml --profile tiles run --rm tiles
 ```
 
 Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour d'autres adresses `VITE_*`, construire avec `compose.yaml` seul. Les images arm64 sont construites sans émulation pour la partie compilation (jar et fichiers statiques indépendants de l'architecture) ; l'image cartographique reste amd64.
+
+Pour mettre à jour les images et diagnostiquer le lancement :
+
+```bash
+docker compose -f compose.hub.yaml --profile full --profile monitoring pull
+docker compose -f compose.hub.yaml --profile full --profile monitoring up -d --wait
+docker compose -f compose.hub.yaml --profile full --profile monitoring ps -a
+docker compose -f compose.hub.yaml --profile full --profile monitoring logs --tail=100 backend kafka postgres
+```
+
+Répéter les profils facultatifs activés, notamment `mcp` et `auth`. Les volumes de données sont conservés
+avec `down` ; **`down -v` supprime leurs données**. Une modification des mots de passe dans `.env`
+ne met pas à jour les identifiants déjà persistés dans PostgreSQL ou Grafana.
 
 ## Durcissement et ressources
 
@@ -246,5 +286,5 @@ Après `down -v`, le backend repart sans point de reprise : il relit Kafka depui
 - Alertmanager (port 9093, `ALERTMANAGER_PORT`) regroupe les alertes (4 h de répétition, 1 h pour `critical`) et inhibe les autres alertes quand `BackendDown` est actif ; **aucun récepteur externe n'est configuré** : renseigner e-mail, webhook ou chat dans `observability/alertmanager/alertmanager.yml` (récepteur `equipe`, secrets via `url_file`/`password_file`).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
-- La chaîne `tiles` a été exécutée de bout en bout sur l'hôte (voir `docs/increment-4.md`, section 4) ; l'image `cartographie/Dockerfile` **se construit** (vérifié : `pmtiles`, `tippecanoe`, `osmium`) mais son exécution (`docker compose --profile tiles run --rm tiles`) n'a pas été rejouée de bout en bout, et la CI ne la construit pas ; derrière un proxy qui intercepte le TLS, déposer son certificat dans `cartographie/ca/` (voir plus haut), et Docker Hub peut limiter le débit (`GOLANG_IMAGE` / `UBUNTU_IMAGE` pour un miroir). Les sources ont changé selon l'accessibilité : `OSM_MODE=regions` utilise les extraits régionaux d'OpenStreetMap France quand Geofabrik n'est pas joignable.
-- Les images sont construites par `docker compose --build` ; dans l'environnement de développement, `docker build` ne pouvait pas télécharger les dépendances (proxy TLS) et les images locales ont été construites à partir des artefacts. La CI exécute le build complet.
+- L’image cartographique est construite et ses scripts et référentiels sont vérifiés sans montage du dépôt en CI. La production complète des données reste une tâche séparée, exécutée par le workflow de tuiles. Derrière un proxy TLS d’entreprise, installer le certificat dans `cartographie/ca/` avant une construction locale ; `OSM_MODE=regions` permet d’utiliser les extraits OpenStreetMap France si Geofabrik est inaccessible.
+- Les images Docker Hub sont préconstruites ; les réglages frontend `VITE_*` nécessitent une construction locale avec `compose.yaml` pour être modifiés.
