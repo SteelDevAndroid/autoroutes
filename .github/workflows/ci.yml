@@ -237,6 +237,17 @@ jobs:
           for profile in demo infra full monitoring auth tiles; do docker compose --profile "$profile" config -q; done
           # Surcharge « images publiées » : mêmes profils, images du dépôt Docker Hub.
           for profile in demo full tiles; do docker compose -f compose.yaml -f compose.hub.yaml --profile "$profile" config -q; done
+          # Le fichier Hub est aussi utilisable seul, avec toute son infrastructure.
+          for profile in demo infra full monitoring auth tiles; do docker compose -f compose.hub.yaml --profile "$profile" config -q; done
+          docker compose -f compose.hub.yaml --profile full --profile monitoring --profile mcp config --format json | python3 -c '
+          import json, sys
+          services = json.load(sys.stdin)["services"]
+          expected = {"frontend-live", "backend", "simulator", "kafka", "kafka-init", "postgres", "prometheus", "alertmanager", "grafana", "mcp-anomalies"}
+          assert expected <= services.keys(), expected - services.keys()
+          assert all("build" not in service for service in services.values())
+          assert services["backend"]["depends_on"]["postgres"]["condition"] == "service_healthy"
+          assert services["backend"]["depends_on"]["kafka-init"]["condition"] == "service_completed_successfully"
+          '
           # Le serveur MCP s'appuie sur le Kafka du profil « full ».
           docker compose --profile full --profile mcp config -q
           docker compose -f compose.yaml -f compose.hub.yaml --profile full --profile mcp config -q
