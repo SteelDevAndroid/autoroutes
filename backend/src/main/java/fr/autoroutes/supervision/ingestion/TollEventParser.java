@@ -63,6 +63,7 @@ public class TollEventParser {
         if (eventTime.isAfter(clock.instant().plus(MAX_CLOCK_AHEAD))) {
             throw new FieldException(RejectReason.FUTURE_EVENT_TIME, "eventTime");
         }
+        var source = anomalySource(root.get("source"));
         if (!type.isPassage()) {
             // Rapport seul : l'état déclaré est sa raison d'être ; les champs de passage sont ignorés.
             var report = anomalies(root.get("anomalies"));
@@ -70,7 +71,7 @@ public class TollEventParser {
                 throw new FieldException(RejectReason.MISSING_FIELD, "anomalies");
             }
             return new TollEvent(eventId, stationName, type, eventTime, null, null, 0, null,
-                    root.path("simulated").asBoolean(false), report);
+                    root.path("simulated").asBoolean(false), report, source);
         }
         // Gare et heure d'entrée n'ont de sens que sur une sortie : ignorées sur une entrée.
         var entryStation = type == EventType.EXIT ? optionalText(root, "entryStationName") : null;
@@ -86,7 +87,17 @@ public class TollEventParser {
                 intField(root, "vehicleCount", 1, MAX_VEHICLE_COUNT).orElse(1),
                 intField(root, "vehicleClass", 1, 5).orElse(null),
                 root.path("simulated").asBoolean(false),
-                anomalies(root.get("anomalies")));
+                anomalies(root.get("anomalies")),
+                source);
+    }
+
+    /** Émetteur du rapport ({@code peage}, {@code mcp:<agent>}…) : chaque source remplace son propre état. */
+    private static String anomalySource(JsonNode node) {
+        if (node == null || node.isNull()) return null;
+        if (!node.isString() || !TollEvent.isValidSource(node.stringValue())) {
+            throw new FieldException(RejectReason.INVALID_FIELD, "source");
+        }
+        return node.stringValue();
     }
 
     private static List<StationAnomaly> anomalies(JsonNode node) {

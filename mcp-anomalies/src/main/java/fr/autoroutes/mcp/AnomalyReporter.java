@@ -29,11 +29,16 @@ public class AnomalyReporter {
     public static final int MAX_TEXT = 256;
     public static final List<String> SEVERITIES = List.of("Faible", "Moyenne", "Haute", "Critique");
 
-    public record Anomaly(@JsonProperty("type_ano") String typeAno, int cardinalite, String criticite) {
+    public record Anomaly(@JsonProperty(value = "type_ano", required = true) String typeAno, int cardinalite, String criticite) {
     }
 
-    public record Published(String eventId, String stationId, String stationName, Instant eventTime, List<Anomaly> anomalies) {
+    /** @param eventTime nouvelle version de l'état de la source, à repasser en {@code version_attendue} */
+    public record Published(String eventId, String stationId, String stationName, String source, Instant eventTime, List<Anomaly> anomalies) {
     }
+
+    /** Préfixe des sources d'agents : {@code mcp:<compte>}, chaque agent ne remplace que son propre état. */
+    public static final String SOURCE_PREFIX = "mcp:";
+    private static final int MAX_SOURCE = 64;
 
     private static final Logger LOG = LoggerFactory.getLogger(AnomalyReporter.class);
 
@@ -49,14 +54,21 @@ public class AnomalyReporter {
         this.properties = properties;
     }
 
-    /** @param reporter auteur authentifié (sujet du jeton), journalisé pour l'audit ; jamais publié */
+    /** Source publiée pour un agent : caractères hors {@code [A-Za-z0-9._@-]} remplacés, longueur bornée comme dans le backend. */
+    public static String sourceFor(String reporter) {
+        var source = SOURCE_PREFIX + reporter.replaceAll("[^A-Za-z0-9._@-]", "-");
+        return source.length() <= MAX_SOURCE ? source : source.substring(0, MAX_SOURCE);
+    }
+
+    /** @param reporter auteur authentifié, journalisé pour l'audit ; publié seulement comme source ({@code mcp:<compte>}) */
     public Published publish(StationCatalog.Station station, List<Anomaly> anomalies, String reporter) {
         var report = validate(anomalies);
-        var published = new Published("mcp-" + UUID.randomUUID(), station.id(), station.name(), clock.instant(), report);
+        var published = new Published("mcp-" + UUID.randomUUID(), station.id(), station.name(), sourceFor(reporter), clock.instant(), report);
         var event = new LinkedHashMap<String, Object>();
         event.put("eventId", published.eventId());
         event.put("stationName", published.stationName());
         event.put("type", "ANOMALY_REPORT");
+        event.put("source", published.source());
         event.put("eventTime", published.eventTime().toString());
         event.put("anomalies", report);
         try {

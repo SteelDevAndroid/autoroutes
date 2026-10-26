@@ -29,8 +29,15 @@ class QuarantineStoreIT {
         store.save(new TollEvent("empty", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()));
         store.save(new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, report));
         store.save(new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()));
+        store.save(new TollEvent("agent", "Gare inconnue", EventType.ANOMALY_REPORT, at, null, null, 0, null, false, report, "mcp:agent-1"));
         var events = store.pending(10);
-        assertThat(events).hasSize(3);
+        assertThat(events).hasSize(4);
+        assertThat(events).filteredOn(e -> e.eventId().equals("agent")).singleElement().satisfies(e -> {
+            assertThat(e.type()).isEqualTo(EventType.ANOMALY_REPORT);
+            assertThat(e.anomalySource()).isEqualTo("mcp:agent-1");
+        });
+        assertThat(events).filteredOn(e -> e.eventId().equals("reported")).singleElement()
+                .satisfies(e -> assertThat(e.anomalySourceOrDefault()).isEqualTo("peage"));
         assertThat(events).filteredOn(e -> e.eventId().equals("unknown")).singleElement().satisfies(e -> assertThat(e.anomalies()).isNull());
         assertThat(events).filteredOn(e -> e.eventId().equals("empty")).singleElement().satisfies(e -> assertThat(e.anomalies()).isEmpty());
         assertThat(events).filteredOn(e -> e.eventId().equals("reported")).singleElement().satisfies(e -> assertThat(e.anomalies()).isEqualTo(report));

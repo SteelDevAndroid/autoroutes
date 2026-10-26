@@ -20,3 +20,8 @@ spring:
             token-uri: ${OIDC_TOKEN_URI}
             jwk-set-uri: ${OIDC_JWK_SET_URI}
             user-name-attribute: preferred_username
+      # Jetons porteurs des agents (serveur MCP) : mêmes clés que la connexion, émetteur vu par le navigateur.
+      resourceserver:
+        jwt:
+          jwk-set-uri: ${OIDC_JWK_SET_URI}
+          issuer-uri: ${OIDC_ISSUER:}

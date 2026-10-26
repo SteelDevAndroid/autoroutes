@@ -6,8 +6,10 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
- * @param topic       topic des événements de péage, lu par le backend
- * @param sendTimeout attente maximale de l'accusé Kafka : l'agent n'est informé du succès qu'après écriture effective
+ * @param topic          topic des événements de péage, lu par le backend
+ * @param sendTimeout    attente maximale de l'accusé Kafka : l'agent n'est informé du succès qu'après écriture effective
+ * @param backendUrl     backend de supervision, lu par consulter_anomalies et par la garde de version
+ * @param backendTimeout délai de connexion et de lecture vers le backend
  */
 @ConfigurationProperties("mcp-anomalies")
 public record McpAnomaliesProperties(
@@ -15,6 +17,8 @@ public record McpAnomaliesProperties(
         @DefaultValue("../referentiel/alias-gares.csv") String aliasesFile,
         @DefaultValue("../referentiel/gares-logiques-proposition.csv") String stationsFile,
         @DefaultValue("10s") Duration sendTimeout,
+        @DefaultValue("http://localhost:8081") String backendUrl,
+        @DefaultValue("5s") Duration backendTimeout,
         @DefaultValue Security security) {
 
     /**

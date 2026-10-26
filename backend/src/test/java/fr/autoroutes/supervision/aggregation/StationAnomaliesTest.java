@@ -155,6 +155,94 @@ class StationAnomaliesTest {
         assertThat(restored.metrics("B", NOW).lastEventTime()).isNull();
     }
 
+    private final List<StationAnomaly> agentReport = List.of(new StationAnomaly("Barrière bloquée", 1, "Haute"));
+
+    @Test
+    void eachSourceReplacesOnlyItsOwnStateAndTheUnionIsPublished() {
+        var state = new AggregationState(PARIS);
+        state.apply("A", ENTRY, NOW, 1, reported);
+        state.applyAnomalies("A", "mcp:agent-1", NOW.plusSeconds(10), agentReport);
+        state.apply("A", ENTRY, NOW.plusSeconds(20), 1, List.of()); // le péage lève ses incidents, pas ceux de l'agent
+
+        var metrics = state.metrics("A", NOW);
+        assertThat(metrics.anomalies()).isEqualTo(agentReport);
+        assertThat(metrics.anomaliesUpdatedAt()).isEqualTo(NOW.plusSeconds(20));
+        assertThat(metrics.anomalySources()).containsExactly(
+                new AnomalySourceReport("mcp:agent-1", NOW.plusSeconds(10), agentReport),
+                new AnomalySourceReport("peage", NOW.plusSeconds(20), List.of()));
+
+        state.applyAnomalies("A", "mcp:agent-1", NOW.plusSeconds(5), List.of()); // plus ancien que le dernier rapport de l'agent
+        assertThat(state.metrics("A", NOW).anomalies()).isEqualTo(agentReport);
+    }
+
+    @Test
+    void parsesTheReportSourceAndRejectsMalformedOnes() {
+        assertThat(parser.parse(event(",\"source\":\"mcp:agent-1\",\"anomalies\":[]"))).isInstanceOfSatisfying(ParseResult.Valid.class,
+                valid -> assertThat(valid.event().anomalySourceOrDefault()).isEqualTo("mcp:agent-1"));
+        assertThat(parser.parse(event(",\"anomalies\":[]"))).isInstanceOfSatisfying(ParseResult.Valid.class,
+                valid -> assertThat(valid.event().anomalySourceOrDefault()).isEqualTo("peage"));
+        for (var invalid : List.of("\"\"", "\"a b\"", "12", "\"" + "x".repeat(65) + "\"")) {
+            assertThat(parser.parse(event(",\"source\":" + invalid))).isInstanceOfSatisfying(ParseResult.Rejected.class,
+                    rejected -> assertThat(rejected.field()).isEqualTo("source"));
+        }
+    }
+
+    @Test
+    void checkpointKeepsEverySourceWithItsOwnOrderingTimestamp() {
+        var state = new AggregationState(PARIS);
+        state.apply("A", ENTRY, NOW, 1, reported);
+        state.applyAnomalies("A", "mcp:agent-1", NOW.plusNanos(1), agentReport);
+        var codec = new CheckpointCodec();
+        var data = new CheckpointData(NOW, Map.of(), Map.of(), state.export(), List.of(), List.of(), Map.of());
+
+        var restored = new AggregationState(PARIS);
+        restored.restore(codec.decode(codec.encode(data)).stations());
+        restored.applyAnomalies("A", "mcp:agent-1", NOW, List.of());
+
+        assertThat(restored.metrics("A", NOW).anomalySources()).isEqualTo(state.metrics("A", NOW).anomalySources());
+    }
+
+    @Test
+    void ignoresNewSourcesBeyondTheCheckpointLimit() {
+        var state = new AggregationState(PARIS);
+        for (var i = 0; i < AnomalySourceReport.MAX_SOURCES_PER_STATION + 5; i++) {
+            state.applyAnomalies("A", "mcp:agent-" + i, NOW, agentReport);
+        }
+        var codec = new CheckpointCodec();
+        var data = new CheckpointData(NOW, Map.of(), Map.of(), state.export(), List.of(), List.of(), Map.of());
+
+        assertThat(state.metrics("A", NOW).anomalySources()).hasSize(AnomalySourceReport.MAX_SOURCES_PER_STATION);
+        assertThat(codec.decode(codec.encode(data)).stations().getFirst().anomalySources()).hasSize(AnomalySourceReport.MAX_SOURCES_PER_STATION);
+    }
+
+    @Test
+    void version3CheckpointsBecomeThePassageSource() throws Exception {
+        var bytes = new ByteArrayOutputStream();
+        try (var out = new DataOutputStream(new GZIPOutputStream(bytes))) {
+            out.writeInt(3);
+            out.writeLong(NOW.toEpochMilli());
+            out.writeInt(0); // offsets
+            out.writeInt(0); // watermarks
+            out.writeInt(1);
+            out.writeUTF("A");
+            out.writeLong(NOW.toEpochMilli());
+            out.writeInt(0); // minutes
+            out.writeLong(NOW.getEpochSecond());
+            out.writeInt(0);
+            out.writeInt(1);
+            out.writeUTF("Lecteur de badge");
+            out.writeInt(2);
+            out.writeUTF("Moyenne");
+            out.writeInt(0); // flux
+            out.writeInt(0); // couverture
+            out.writeInt(0); // déduplication
+        }
+        var restored = new AggregationState(PARIS);
+        restored.restore(new CheckpointCodec().decode(bytes.toByteArray()).stations());
+
+        assertThat(restored.metrics("A", NOW).anomalySources()).containsExactly(new AnomalySourceReport("peage", NOW, reported));
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 2})
     void oldCheckpointsRemainReadableWithoutInventingAnomalyData(int version) throws Exception {

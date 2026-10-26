@@ -12,6 +12,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.kafka.test.EmbeddedKafkaBroker;
 import org.springframework.kafka.test.context.EmbeddedKafka;
 import org.springframework.kafka.test.utils.KafkaTestUtils;
@@ -31,6 +34,20 @@ import tools.jackson.databind.json.JsonMapper;
                 "logging.level.kafka=WARN", "logging.level.state.change.logger=WARN"})
 @EmbeddedKafka(partitions = 1, topics = "toll-events")
 class McpServerTest {
+
+    private static final FakeBackend BACKEND = new FakeBackend();
+    /** Source de l'agent en accès libre (développement) : utilisateur anonyme de Spring Security. */
+    private static final String SOURCE = "mcp:anonymousUser";
+
+    @DynamicPropertySource
+    static void backend(DynamicPropertyRegistry registry) {
+        registry.add("mcp-anomalies.backend-url", BACKEND::url);
+    }
+
+    @AfterAll
+    static void stopBackend() {
+        BACKEND.close();
+    }
 
     @LocalServerPort
     private int port;
@@ -50,7 +67,8 @@ class McpServerTest {
         client.initialize();
         var props = KafkaTestUtils.consumerProps(broker, "test-" + System.nanoTime(), true);
         consumer = new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer()).createConsumer();
-        broker.consumeFromAnEmbeddedTopic(consumer, "toll-events");
+        // Lecture à partir de la fin : chaque test ne voit que ce qu'il publie sur le topic partagé.
+        broker.consumeFromEmbeddedTopics(consumer, true, "toll-events");
     }
 
     @AfterEach
@@ -78,10 +96,12 @@ class McpServerTest {
         var tools = client.listTools().tools();
 
         assertThat(tools).extracting(McpSchema.Tool::name)
-                .containsExactlyInAnyOrder("rechercher_gares", "declarer_anomalies", "lever_anomalies");
+                .containsExactlyInAnyOrder("rechercher_gares", "consulter_anomalies", "declarer_anomalies", "lever_anomalies");
         var report = tools.stream().filter(t -> t.name().equals("declarer_anomalies")).findFirst().orElseThrow();
         assertThat(json.writeValueAsString(report.inputSchema())).contains("type_ano", "cardinalite", "criticite", "gare");
         assertThat(report.annotations().destructiveHint()).isTrue();
+        assertThat(json.readTree(json.writeValueAsString(report.inputSchema())).at("/properties/anomalies/items/required").toString())
+                .contains("type_ano", "cardinalite", "criticite");
     }
 
     @Test
@@ -101,6 +121,7 @@ class McpServerTest {
         assertThat(reported.isError()).as(text(reported)).isFalse();
         var event = nextEvent();
         assertThat(event.path("type").asString()).isEqualTo("ANOMALY_REPORT");
+        assertThat(event.path("source").asString()).isEqualTo(SOURCE);
         assertThat(event.path("anomalies")).hasSize(2);
         assertThat(event.path("anomalies").get(1).path("criticite").asString()).isEqualTo("Moyenne");
         assertThat(text(reported)).contains(event.path("eventId").asString());
@@ -109,6 +130,50 @@ class McpServerTest {
 
         assertThat(cleared.isError()).isFalse();
         assertThat(nextEvent().path("anomalies").isEmpty()).isTrue();
+    }
+
+    @Test
+    void readsTheCurrentStateBySourceWithTheCallersVersion() {
+        BACKEND.respond("""
+                [{"source":"%s","updatedAt":"2026-10-25T15:00:00Z","anomalies":[{"type_ano":"Barrière","cardinalite":1,"criticite":"Haute"}]},
+                 {"source":"peage","updatedAt":"2026-10-25T14:00:00Z","anomalies":[]}]""".formatted(SOURCE));
+
+        var result = call("consulter_anomalies", Map.of("gare", "La Boisse"));
+
+        assertThat(result.isError()).as(text(result)).isFalse();
+        var state = json.readTree(text(result));
+        assertThat(state.path("gare").asString()).isEqualTo("GL-BPV-0054");
+        assertThat(state.path("maSource").asString()).isEqualTo(SOURCE);
+        assertThat(state.path("versionAttendue").asString()).isEqualTo("2026-10-25T15:00:00Z");
+        assertThat(state.path("sources")).hasSize(2);
+    }
+
+    @Test
+    void publishesOnlyWhenTheExpectedVersionStillHolds() {
+        BACKEND.respond("""
+                [{"source":"%s","updatedAt":"2026-10-25T15:00:00Z","anomalies":[]}]""".formatted(SOURCE));
+
+        var stale = call("lever_anomalies", Map.of("gare", "GL-BPV-0054", "version_attendue", "2026-10-25T14:59:00Z"));
+        var none = call("declarer_anomalies", Map.of("gare", "GL-BPV-0054", "anomalies", List.of(), "version_attendue", "aucune"));
+        assertThat(stale.isError()).isTrue();
+        assertThat(text(stale)).contains("2026-10-25T15:00:00Z", "consulter_anomalies");
+        assertThat(none.isError()).isTrue();
+        assertThat(KafkaTestUtils.getRecords(consumer, Duration.ofSeconds(1)).count()).isZero();
+
+        var current = call("lever_anomalies", Map.of("gare", "GL-BPV-0054", "version_attendue", "2026-10-25T15:00:00Z"));
+        assertThat(current.isError()).as(text(current)).isFalse();
+        assertThat(nextEvent().path("anomalies").isEmpty()).isTrue();
+    }
+
+    @Test
+    void firstDeclarationOfASourceMatchesNoVersion() {
+        BACKEND.respond("[]");
+
+        var first = call("declarer_anomalies", Map.of("gare", "GL-BPV-0054", "version_attendue", "aucune", "anomalies", List.of(
+                Map.of("type_ano", "Voie fermée", "cardinalite", 1, "criticite", "Faible"))));
+
+        assertThat(first.isError()).as(text(first)).isFalse();
+        assertThat(nextEvent().path("anomalies")).hasSize(1);
     }
 
     @Test

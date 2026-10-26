@@ -69,11 +69,23 @@ Un producteur qui ne voit pas passer les véhicules, comme un agent via le [serv
 
 Criticités reconnues, par gravité croissante : **Faible, Moyenne, Haute, Critique**. Une valeur future inconnue est conservée et affichée avec un traitement neutre et une mention « Criticité non reconnue » ; elle n'est pas convertie en faible criticité.
 
+### Sources (`source`)
+
+Un événement peut nommer l'émetteur de son rapport dans un champ **`source`** de premier niveau : 1 à 64 caractères parmi `A-Z a-z 0-9 . _ : @ -`. Sinon, l'événement est rejeté (`INVALID_FIELD`, champ `source`). Sans ce champ, la source vaut **`peage`**, ce qui couvre les événements de passage existants. Le serveur MCP publie `mcp:<compte de l'agent>`.
+
+**Chaque source remplace uniquement son propre état.** La règle de remplacement par `eventTime` s'applique source par source. Un agent ne peut donc ni effacer les incidents remontés par les équipements de péage ni ceux d'un autre agent, et réciproquement. L'affichage montre l'union de toutes les sources. Au plus 64 sources sont conservées par gare : au-delà, une nouvelle source est ignorée, pour que le point de reprise reste lisible.
+
 ## Diffusion et conservation
 
 Le rapport validé traverse `TollEventParser` → `TollEvent` → `EventProcessor` → `AggregationState` → `StationMetrics`. L'identification de la gare, la déduplication et la politique de retard existantes restent applicables. Le rapport ne modifie ni les compteurs de véhicules ni les calculs de flux origine–destination.
 
-Les snapshots et deltas SSE, ainsi que le détail REST d'une gare, exposent les mêmes champs `anomalies` et **`anomaliesUpdatedAt`**. Ce dernier est l'`eventTime` du dernier rapport appliqué, distinct du dernier passage de véhicule. Un passage ultérieur sans rapport ne rafraîchit pas artificiellement la date des incidents.
+Les snapshots et deltas SSE, ainsi que le détail REST d'une gare, exposent trois champs :
+
+- `anomalies` : l'union des états de toutes les sources, au même format qu'avant, pour les clients existants ;
+- **`anomaliesUpdatedAt`** : le rapport le plus récent, toutes sources confondues, distinct du dernier passage de véhicule ;
+- **`anomalySources`** : la liste `[{source, updatedAt, anomalies}]`, triée par nom de source.
+
+Un passage ultérieur sans rapport ne rafraîchit pas artificiellement la date des incidents. L'interface reporte la source sur chaque anomalie et l'affiche dans la fiche : « Équipements de péage » pour `peage`, « Agent <compte> » pour `mcp:<compte>`.
 
 À cette frontière, un objet `StationMetrics` est un état complet : `null` ou l'absence du champ signifie que l'information n'est pas disponible. Le frontend ne conserve donc pas des anomalies anciennes lorsqu'il reçoit un nouvel état de supervision sans cette information. Les anciens messages restent acceptés.
 
@@ -101,7 +113,8 @@ Le simulateur Kafka (`simulator/`, événements `simulated: true`) génère des 
 ## Déploiement et compatibilité
 
 - Migration Flyway **V4** : colonne JSONB nullable `quarantined_event.anomalies`, avec contrainte de tableau. Les anciennes lignes restent à `NULL`.
-- Point de reprise **version 3**, avec rapports et dates ; le nouveau lecteur accepte toujours les versions 1 et 2 et considère alors les anomalies comme inconnues. Un ancien binaire ne sait pas lire un point de reprise v3 : en cas de retour à une ancienne version, utiliser une stratégie de reprise compatible, sans supposer cette rétrocompatibilité.
+- Migration Flyway **V5** : colonne `quarantined_event.anomaly_source`. `NULL` équivaut à `peage`, ce qui couvre les anciennes lignes.
+- Point de reprise **version 4** : un état par source, avec sa date à la nanoseconde. Le lecteur accepte les versions 1 et 2, où les anomalies sont inconnues, et la version 3, dont l'état unique devient la source `peage`. Un ancien binaire ne sait pas lire un point de reprise v4 : pour revenir à une ancienne version, utiliser une stratégie de reprise compatible.
 - Aucun nouvel endpoint, aucune dépendance supplémentaire. Le contrat existant des événements reste obligatoire (`eventId`, gare, type, date).
 - Le type `ANOMALY_REPORT` (voir « Rapport seul ») est le seul canal de rapport sans passage. Il passe par le même topic Kafka que les passages, il n'y a pas de second chemin d'écriture. Un ancien backend le rejette (`INVALID_FIELD`, champ `type`) : déployer le backend avant le serveur MCP.
 - L'historisation des ouvertures/résolutions d'incidents et leur relecture ne font pas partie de cette évolution.

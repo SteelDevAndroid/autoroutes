@@ -1,6 +1,6 @@
 /** Messages du flux SSE (protocole de la phase 2, section 8). Types en lecture seule : l'état n'est modifié que par les stores. */
 import type { Provenance } from '../capabilities';
-import { parseAnomalies } from './anomalies';
+import { parseAnomalies, parseAnomalySources } from './anomalies';
 import type { StationAnomaly } from './anomalies';
 
 export interface WindowCounts {
@@ -18,6 +18,8 @@ export interface StationMetrics {
   /** Absent/null : information non communiquée. [] : aucune anomalie signalée. */
   readonly anomalies?: readonly StationAnomaly[] | null;
   readonly anomaliesUpdatedAt?: string | null;
+  /** Détail par source envoyé par le backend ; reporté sur la source de chaque anomalie par parseStreamMessage. */
+  readonly anomalySources?: unknown;
 }
 
 export interface OdFlow {
@@ -112,7 +114,9 @@ export function parseStreamMessage(raw: string): StreamMessage | null {
   if (value.type === 'snapshot' || value.type === 'delta') {
     const stations = (value.payload.stations as unknown[]).map((station) => {
       if (!isObject(station)) return station;
-      return { ...station, ...(station.anomalies === undefined ? {} : { anomalies: parseAnomalies(station.anomalies) }),
+      // Le détail par source, quand il est présent et valide, remplace l'union anonyme : même contenu, source en plus.
+      const bySource = station.anomalySources === undefined || station.anomalySources === null ? null : parseAnomalySources(station.anomalySources);
+      return { ...station, ...(station.anomalies === undefined ? {} : { anomalies: bySource ?? parseAnomalies(station.anomalies) }),
         ...(station.anomaliesUpdatedAt === undefined ? {} : { anomaliesUpdatedAt: typeof station.anomaliesUpdatedAt === 'string' && Number.isFinite(Date.parse(station.anomaliesUpdatedAt)) ? station.anomaliesUpdatedAt : null }) };
     });
     return { ...value, payload: { ...value.payload, stations } } as unknown as StreamMessage;
