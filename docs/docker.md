@@ -156,16 +156,24 @@ Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
 **Utiliser les images publiées** plutôt que les construire (Docker Compose ≥ 2.24.4) :
 
 ```bash
-docker compose -f compose.yaml -f compose.hub.yaml pull
-docker compose -f compose.yaml -f compose.hub.yaml up -d --no-build     # AUTOROUTES_TAG=1.2.3 pour figer une version (défaut : latest)
+docker compose -f compose.hub.yaml --profile full --profile monitoring pull
+docker compose -f compose.hub.yaml --profile full --profile monitoring up -d --wait     # AUTOROUTES_TAG=1.2.3 pour figer une version (défaut : latest)
 ```
 
-La surcharge supprime les constructions locales. L’image cartographique embarque ses scripts et
+`compose.hub.yaml` est une pile complète : frontend, backend, simulateur, Kafka,
+initialisation des topics et PostgreSQL avec le profil `full`. Le profil `monitoring`
+ajoute Prometheus, Alertmanager et Grafana ; `auth` ajoute Keycloak et `mcp` le
+serveur MCP (à combiner avec `full`). Les données restent dans les volumes nommés.
+Les dépendances attendent les sondes de santé et l’initialisation des topics.
+
+Le fichier reprend les définitions de `compose.yaml` via `extends` : conserver le dépôt
+et ses configurations locales. Il peut aussi rester utilisé avec l’ancienne commande
+`-f compose.yaml -f compose.hub.yaml`. Il supprime les constructions locales. L’image cartographique embarque ses scripts et
 référentiels ; seuls `cartographie/out` et `cartographie/work` sont montés pour la tâche `tiles`.
 Après publication de cette correction, utiliser une version qui la contient (`edge` pour main) :
 
 ```bash
-AUTOROUTES_TAG=edge docker compose -f compose.yaml -f compose.hub.yaml --profile tiles run --rm tiles
+AUTOROUTES_TAG=edge docker compose -f compose.hub.yaml --profile tiles run --rm tiles
 ```
 
 Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour d'autres adresses `VITE_*`, construire avec `compose.yaml` seul. Les images arm64 sont construites sans émulation pour la partie compilation (jar et fichiers statiques indépendants de l'architecture) ; l'image cartographique reste amd64.
