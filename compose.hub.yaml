@@ -1,3 +1,4 @@
+# Nécessite Docker Compose >= 2.24.4 (!override).
 # Images publiées sur Docker Hub (compagnonsdudev/autoroutes) au lieu d'images construites sur le poste.
 #
 #   docker compose -f compose.yaml -f compose.hub.yaml pull
@@ -10,19 +11,28 @@
 services:
   backend:
     image: compagnonsdudev/autoroutes:backend-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
   simulator:
     image: compagnonsdudev/autoroutes:simulator-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
   frontend-live:
     image: compagnonsdudev/autoroutes:frontend-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
   frontend:
     image: compagnonsdudev/autoroutes:frontend-demo-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
   mcp-anomalies:
     image: compagnonsdudev/autoroutes:mcp-anomalies-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
   tiles:
     image: compagnonsdudev/autoroutes:cartographie-${AUTOROUTES_TAG:-latest}
+    build: !reset null
     pull_policy: always
+    volumes: !override
+      - ./cartographie/out:/repo/cartographie/out
+      - ./cartographie/work:/repo/cartographie/work

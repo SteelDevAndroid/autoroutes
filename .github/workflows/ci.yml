@@ -240,6 +240,23 @@ jobs:
           # Le serveur MCP s'appuie sur le Kafka du profil « full ».
           docker compose --profile full --profile mcp config -q
           docker compose -f compose.yaml -f compose.hub.yaml --profile full --profile mcp config -q
+      - name: Image cartographique autonome
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: cartographie/Dockerfile
+          load: true
+          tags: autoroutes-cartographie:smoke
+          cache-from: type=gha,scope=cartographie
+      - name: Scripts cartographiques sans montage du dépôt
+        run: |
+          docker run --rm --network none --entrypoint bash autoroutes-cartographie:smoke -ec '
+            test -s "$REPO/cartographie/build.sh"
+            test -s "$REPO/cartographie/prepare_motorways.py"
+            test -s "$REPO/referentiel/gares-logiques-proposition.csv"
+            test -s "$REPO/echangeurs-rrnc-2025.csv"
+            bash -n "$REPO/cartographie/build.sh"
+          '
       - name: Image backend
         uses: docker/build-push-action@v7
         with:
@@ -495,7 +512,7 @@ jobs:
             build-args: MODE=demo
           # Outil de production des tuiles et du graphe : exécuté sur un poste, amd64 suffit.
           - image: cartographie
-            context: cartographie
+            context: .
             file: cartographie/Dockerfile
             platforms: linux/amd64
             build-args: ""

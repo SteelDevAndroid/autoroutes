@@ -153,11 +153,19 @@ Exemple : `docker pull compagnonsdudev/autoroutes:backend-latest`.
 
 **Mise en place (une fois)** : créer un jeton d'accès Docker Hub avec écriture sur `compagnonsdudev/autoroutes` (Docker Hub → Account settings → Personal access tokens), puis, dans GitHub → Settings → Secrets and variables → Actions, les secrets `DOCKERHUB_USERNAME` (le compte propriétaire du jeton) et `DOCKERHUB_TOKEN`. Sans eux, le job le signale par un avertissement et ne publie rien (la CI reste verte).
 
-**Utiliser les images publiées** plutôt que les construire :
+**Utiliser les images publiées** plutôt que les construire (Docker Compose ≥ 2.24.4) :
 
 ```bash
 docker compose -f compose.yaml -f compose.hub.yaml pull
 docker compose -f compose.yaml -f compose.hub.yaml up -d --no-build     # AUTOROUTES_TAG=1.2.3 pour figer une version (défaut : latest)
+```
+
+La surcharge supprime les constructions locales. L’image cartographique embarque ses scripts et
+référentiels ; seuls `cartographie/out` et `cartographie/work` sont montés pour la tâche `tiles`.
+Après publication de cette correction, utiliser une version qui la contient (`edge` pour main) :
+
+```bash
+AUTOROUTES_TAG=edge docker compose -f compose.yaml -f compose.hub.yaml --profile tiles run --rm tiles
 ```
 
 Limite : l'interface publiée embarque les adresses de tuiles par défaut ; pour d'autres adresses `VITE_*`, construire avec `compose.yaml` seul. Les images arm64 sont construites sans émulation pour la partie compilation (jar et fichiers statiques indépendants de l'architecture) ; l'image cartographique reste amd64.
