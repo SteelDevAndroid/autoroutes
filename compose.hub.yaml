@@ -12,6 +12,9 @@ services:
     extends:
       file: compose.yaml
       service: frontend-live
+    # Évite les doublons extends + surcharge avec Compose 2.x.
+    security_opt: !override
+      - no-new-privileges:true
     image: compagnonsdudev/autoroutes:frontend-${AUTOROUTES_TAG:-latest}
     build: !reset null
     pull_policy: always
@@ -19,6 +22,9 @@ services:
     extends:
       file: compose.yaml
       service: backend
+    # Évite les doublons extends + surcharge avec Compose 2.x.
+    security_opt: !override
+      - no-new-privileges:true
     image: compagnonsdudev/autoroutes:backend-${AUTOROUTES_TAG:-latest}
     build: !reset null
     pull_policy: always
@@ -26,6 +32,9 @@ services:
     extends:
       file: compose.yaml
       service: simulator
+    # Évite les doublons extends + surcharge avec Compose 2.x.
+    security_opt: !override
+      - no-new-privileges:true
     image: compagnonsdudev/autoroutes:simulator-${AUTOROUTES_TAG:-latest}
     build: !reset null
     pull_policy: always
@@ -33,6 +42,9 @@ services:
     extends:
       file: compose.yaml
       service: mcp-anomalies
+    # Évite les doublons extends + surcharge avec Compose 2.x.
+    security_opt: !override
+      - no-new-privileges:true
     image: compagnonsdudev/autoroutes:mcp-anomalies-${AUTOROUTES_TAG:-latest}
     build: !reset null
     pull_policy: always
@@ -40,6 +52,9 @@ services:
     extends:
       file: compose.yaml
       service: frontend
+    # Évite les doublons extends + surcharge avec Compose 2.x.
+    security_opt: !override
+      - no-new-privileges:true
     image: compagnonsdudev/autoroutes:frontend-demo-${AUTOROUTES_TAG:-latest}
     build: !reset null
     pull_policy: always
