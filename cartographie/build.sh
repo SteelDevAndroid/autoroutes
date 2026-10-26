@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Chaîne cartographique reproductible : fond PMTiles, polices et sprites, couche autoroutes et graphe routier.
 # Usage (depuis la racine du dépôt) :
-#   docker build -t autoroutes-cartographie cartographie
+#   docker build -f cartographie/Dockerfile -t autoroutes-cartographie .
 #   docker run --rm -v "$PWD:/repo" autoroutes-cartographie                              # dernier build Protomaps disponible
 #   docker run --rm -v "$PWD:/repo" -e PROTOMAPS_BUILD=AAAAMMJJ autoroutes-cartographie  # build précis
 set -euo pipefail

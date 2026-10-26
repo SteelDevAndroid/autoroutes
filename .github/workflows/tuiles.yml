@@ -55,7 +55,8 @@ jobs:
       - name: Image de la chaîne cartographique
         uses: docker/build-push-action@v7
         with:
-          context: cartographie
+          context: .
+          file: cartographie/Dockerfile
           load: true
           tags: autoroutes-cartographie:ci
           cache-from: type=gha,scope=cartographie

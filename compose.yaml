@@ -364,7 +364,8 @@ services:
   tiles:
     profiles: [tiles]
     build:
-      context: ./cartographie
+      context: .
+      dockerfile: cartographie/Dockerfile
     image: autoroutes-cartographie:latest
     environment:
       # « latest » : le build Protomaps le plus récent publié ; sinon une date AAAAMMJJ.
