@@ -22,6 +22,9 @@ describe('buildStyle', () => {
     const segments = style.layers.find((l) => l.id === 'segments-load');
 
     expect(ids.indexOf('stations')).toBeGreaterThan(ids.indexOf('motorways'));
+    expect(ids.indexOf('motorways-selected')).toBeGreaterThan(ids.indexOf('motorways'));
+    expect(ids.indexOf('segments-load')).toBeGreaterThan(ids.indexOf('motorways-selected'));
+    expect(ids.indexOf('stations')).toBeGreaterThan(ids.indexOf('motorways-selected'));
     expect(ids.at(-1)).toBe('stations-label');
     expect(segments?.type === 'line' ? segments.paint?.['line-dasharray'] : undefined).toBeDefined();
   });

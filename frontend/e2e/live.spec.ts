@@ -7,6 +7,23 @@ import { expect, test } from './fixtures';
 test.describe('flux réel (backend + simulateur)', () => {
   test.skip(process.env.E2E_LIVE !== '1', 'E2E_LIVE=1 requis');
 
+  test('surligne le tracé recherché puis le retire au retour à la vue d’ensemble', async ({ page }) => {
+    test.skip(process.env.E2E_MOTORWAYS !== '1', 'E2E_MOTORWAYS=1 et tuiles autoroutières requis');
+    const errors: string[] = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto('/');
+    const map = page.getByRole('region', { name: 'Carte des gares de péage' });
+    await expect(map).toHaveAttribute('data-ready', 'true');
+    await page.keyboard.press('/');
+    await page.keyboard.type('a7');
+    await page.keyboard.press('Enter');
+    await expect.poll(async () => Number(await map.getAttribute('data-highlighted-roads')), { timeout: 20_000 }).toBeGreaterThan(0);
+    await page.screenshot({ path: 'test-results/selected-motorway-a7.png' });
+    await page.getByRole('button', { name: /Revenir à la vue d’ensemble/ }).click();
+    await expect(map).toHaveAttribute('data-highlighted-roads', '0');
+    expect(errors).toEqual([]);
+  });
+
   test('affiche les données du backend avec une provenance explicite', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));

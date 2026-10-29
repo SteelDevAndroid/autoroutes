@@ -16,6 +16,7 @@ import type { OdProperties } from './odGeometry';
 import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
+import { selectedRoadIds } from './motorwaySelection';
 import { MOTORWAYS_SOURCE_LAYER, SOURCE, anomalyColor, flowGradient, segmentColor, stationColor } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
@@ -79,6 +80,8 @@ export class MapController {
   private axisLabelsOn = true;
   private activeAxis: string | null = null;
   private highlightedStations: ReadonlySet<number> = new Set();
+  private highlightedRoads: ReadonlySet<string | number> = new Set();
+  private roadHighlightHandle: number | null = null;
   private readonly options: MapControllerOptions;
   private readonly container: HTMLElement;
   private reduced = false;
@@ -143,6 +146,15 @@ export class MapController {
     });
     this.map.on('moveend', () => { this.layoutAxisLabels(); });
     this.map.on('resize', () => { this.layoutAxisLabels(); });
+    this.map.on('sourcedata', (event) => {
+      if (event.sourceId === SOURCE.motorways && event.sourceDataType === 'content' && this.activeAxis !== null
+        && this.roadHighlightHandle === null) {
+        this.roadHighlightHandle = requestAnimationFrame(() => {
+          this.roadHighlightHandle = null;
+          this.highlightAxisRoads();
+        });
+      }
+    });
     // Exposé pour les tests de bout en bout et la supervision synthétique : nombre de gares effectivement dessinées.
     this.map.on('idle', () => {
       container.dataset.renderedStations = String(this.map.queryRenderedFeatures({ layers: ['stations'] }).length);
@@ -238,7 +250,26 @@ export class MapController {
         this.map.setFeatureState({ source: SOURCE.stations, id: index }, { axis: active, dim: dimming && !active });
       }
       this.highlightedStations = next;
+      this.highlightAxisRoads();
     });
+  }
+
+  /** Rejoué à l’arrivée des tuiles : la recherche peut précéder le chargement du tracé. */
+  private highlightAxisRoads(): void {
+    if (!this.ready || this.map.getSource(SOURCE.motorways) === undefined) {
+      this.container.dataset.highlightedRoads = '0';
+      return;
+    }
+    const next = this.activeAxis === null ? new Set<string | number>()
+      : selectedRoadIds(this.map.querySourceFeatures(SOURCE.motorways, { sourceLayer: MOTORWAYS_SOURCE_LAYER }), this.activeAxis);
+    for (const id of this.highlightedRoads) {
+      if (!next.has(id)) this.map.setFeatureState({ source: SOURCE.motorways, sourceLayer: MOTORWAYS_SOURCE_LAYER, id }, { axisSelected: false });
+    }
+    for (const id of next) {
+      if (!this.highlightedRoads.has(id)) this.map.setFeatureState({ source: SOURCE.motorways, sourceLayer: MOTORWAYS_SOURCE_LAYER, id }, { axisSelected: true });
+    }
+    this.highlightedRoads = next;
+    this.container.dataset.highlightedRoads = String(next.size);
   }
 
   /** Un seul appel par image : le pointeur peut émettre bien plus d'événements que l'écran n'affiche d'images. */
@@ -498,6 +529,7 @@ export class MapController {
       paint('stations-axis', 'circle-stroke-color', theme.odFlow);
       paint('od-flows', 'line-gradient', flowGradient(theme));
       paint('segments-load', 'line-color', segmentColor(theme));
+      paint('motorways-selected', 'line-color', theme.selection);
     });
   }
 
@@ -536,7 +568,7 @@ export class MapController {
 
   destroy(): void {
     document.removeEventListener('visibilitychange', this.onVisibility);
-    for (const handle of [this.fadeHandle, this.motionHandle, this.segmentHandle]) {
+    for (const handle of [this.fadeHandle, this.motionHandle, this.segmentHandle, this.roadHighlightHandle]) {
       if (handle !== null) {
         cancelAnimationFrame(handle);
       }
