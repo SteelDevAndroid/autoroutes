@@ -134,9 +134,23 @@ Sans tuiles, définir les quatre variables `VITE_*` vides dans `.env` (fond neut
 
 ```bash
 # Par défaut, le build Protomaps le plus récent publié ; pour en figer un : echo "PROTOMAPS_BUILD=20261021" >> .env
+docker compose --profile tiles build tiles
 docker compose --profile tiles run --rm tiles          # écrit cartographie/out/tiles et cartographie/out/basemaps-assets
 # retirer les VITE_* vides de .env, puis reconstruire le frontend :
 docker compose up -d --build frontend-live
+```
+
+`tiles` est une tâche ponctuelle : `up -d --build` la lance en arrière-plan sans attendre la fin
+de la génération. Utiliser `run --rm tiles` pour voir sa progression et son éventuel échec.
+Pour diagnostiquer un lancement détaché : `docker compose --profile tiles ps -a` puis
+`docker compose --profile tiles logs --tail=100 tiles`. Une sortie 0 indique une fin normale ;
+le frontend attend les fichiers PMTiles, les polices et les sprites produits, pas un serveur `tiles` permanent.
+
+Sous Windows, créer les dossiers de sortie depuis PowerShell avant le premier lancement, notamment
+si Docker signale `mkdir ... File exists` alors que le dossier est absent dans l’Explorateur :
+
+```powershell
+New-Item -ItemType Directory -Force -Path cartographie/out/tiles,cartographie/out/basemaps-assets,cartographie/out/graph,cartographie/work
 ```
 
 **Sans produire soi-même : tuiles générées par la CI.** Le workflow « Tuiles et graphe routier » (`.github/workflows/tuiles.yml`) produit chaque mois (le 3, et à la demande) le fond avec le **dernier build Protomaps disponible**, les tronçons, le graphe et les polices, exécute la chaîne dans l'image `cartographie/Dockerfile` puis `cartographie/verify_tiles.py` (en-têtes PMTiles, zoom, taille, graphe, **au moins 90 % des gares rattachées à moins de 500 m d'un nœud**, polices et sprites complets), et publie une release `tuiles-AAAAMMJJ` (fichiers, `manifest.json` de traçabilité, `SHA256SUMS`). Pour les installer :
@@ -144,6 +158,11 @@ docker compose up -d --build frontend-live
 ```bash
 scripts/fetch_tiles.sh                  # la plus récente, dans cartographie/out ; ou : scripts/fetch_tiles.sh tuiles-20261023
 ```
+
+Sous PowerShell sans Bash, le [guide Docker Hub](dockerhub.md#installer-les-données-publiées-sans-les-régénérer)
+fournit les commandes `gh release download`, la vérification SHA-256 et l’installation des fichiers.
+Le fond publié du 23 octobre 2026 a été contrôlé le 29 octobre : archives et graphe valides,
+99,4 % des gares rattachées au graphe, tuiles servies en HTTP 206 et rendu confirmé dans le navigateur.
 
 Lancement à la demande (onglet Actions → « Tuiles et graphe routier » → Run workflow) : `build` (`latest` ou une date), `osm_mode` (`single` ou `regions`), `maxzoom` (12 par défaut : au-delà d'environ 1,9 Go le fichier ne tient plus dans une release, le contrôle le signale), `publish`. Les données dérivées d'OpenStreetMap restent sous ODbL (voir `docs/increment-4.md`).
 

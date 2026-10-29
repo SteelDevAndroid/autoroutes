@@ -25,6 +25,16 @@ Le profil `full` inclut Kafka, l’initialisation des topics, PostgreSQL, le bac
 
 Les tuiles et le graphe sont à installer séparément : voir le [guide Docker](docs/docker.md). Les données persistent dans des volumes nommés ; `down -v` les supprime.
 
+Si le fond de carte est absent, installer les [tuiles publiées](docs/dockerhub.md#installer-les-données-publiées-sans-les-régénérer)
+ou exécuter la tâche ponctuelle au premier plan :
+
+```powershell
+docker compose -f compose.hub.yaml --profile tiles run --rm tiles
+```
+
+`up -d` masque sa progression. Sous Windows, le [guide de dépannage](docs/dockerhub.md#fond-absent-ou-génération-arrêtée)
+explique le cas `mkdir ... File exists` et la création des dossiers de sortie.
+
 ## Construire les sources
 
 ```powershell
