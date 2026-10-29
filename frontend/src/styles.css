@@ -335,11 +335,11 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
   .brand-mark { display: none; }
   .topbar h1 { font-size: 12px; line-height: 1.4; }
   .topbar-actions { padding: var(--space-3) var(--space-4) var(--space-3) 0; gap: var(--space-3); flex-wrap: wrap; max-width: 44vw; }
-  .topbar-metrics { padding: var(--space-3) var(--space-4); gap: var(--space-4); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .topbar-metrics { padding: var(--space-3) var(--space-4); gap: var(--space-4); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .kpi-secondary { display: none; }
   .kpi-value, .kpi-time .kpi-value { font-size: 18px; line-height: 1.4; }
   .kpi-label { font-size: 12px; }
-  .kpi + .kpi { padding-left: var(--space-4); }
+  .topbar-metrics .kpi { padding-left: 0; border-left: 0; }
   .drawer-toggle.icon-button, .drawer-close.icon-button { display: inline-flex; }
   .side { position: fixed; z-index: 20; top: 0; bottom: 0; left: 0; width: min(88vw, 360px); padding: 20px var(--space-4) max(var(--space-4), env(safe-area-inset-bottom)); transform: translateX(-100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
   .side.side-open { transform: none; visibility: visible; transition: transform .2s ease, visibility 0s; }
