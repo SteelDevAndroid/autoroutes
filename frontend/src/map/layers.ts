@@ -60,6 +60,7 @@ export const flowGradient = (theme: Theme): unknown =>
 export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[] {
   // zoom doit rester l'entrée d'une interpolation de premier niveau : le facteur s'applique aux paliers, pas au résultat.
   const width = (factor = 1): unknown => ['interpolate', ['exponential', 1.5], ['zoom'], 4, 0.6 * factor, 8, 1.6 * factor, 12, 4 * factor, 15, 10 * factor];
+  const selectedWidth = (factor = 1): unknown => ['interpolate', ['linear'], ['zoom'], 4, 3 * factor, 8, 4 * factor, 12, 6 * factor, 15, 11 * factor];
   return [
     {
       id: 'motorways-casing',
@@ -79,6 +80,24 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
         'line-color': ['case', ['get', 'concede'], theme.motorway, theme.motorwayNonConcede],
         'line-width': width(),
       },
+    },
+    {
+      id: 'motorways-selected-casing',
+      type: 'line',
+      source: SOURCE.motorways,
+      'source-layer': MOTORWAYS_SOURCE_LAYER,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': theme.background, 'line-width': selectedWidth(1.7),
+        'line-opacity': ['case', ['boolean', ['feature-state', 'axisSelected'], false], 1, 0] },
+    },
+    {
+      id: 'motorways-selected',
+      type: 'line',
+      source: SOURCE.motorways,
+      'source-layer': MOTORWAYS_SOURCE_LAYER,
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': theme.selection, 'line-width': selectedWidth(),
+        'line-opacity': ['case', ['boolean', ['feature-state', 'axisSelected'], false], 1, 0] },
     },
     {
       id: 'segments-load',
