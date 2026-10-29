@@ -98,7 +98,7 @@ describe('layoutLabels', () => {
     expect(labels[0]).toMatchObject({ value: 'A0001', key: 'A1#0' });
   });
 
-  it('keeps the axis with the most stations when two labels collide', () => {
+  it('places the busiest axis first and moves a neighbouring label to a free position', () => {
     const crowded = [
       { id: 'A1', codes: ['A0001'], value: 'A0001', stations: [0] },
       { id: 'A9', codes: ['A0009'], value: 'A0009', stations: [1, 2, 3] },
@@ -108,7 +108,39 @@ describe('layoutLabels', () => {
 
     const labels = layoutLabels(crowded, close, project, 5, viewport);
 
-    expect(labels.map((l) => l.text)).toEqual(['A9']);
+    expect(labels.map((l) => l.text)).toEqual(['A9', 'A1']);
+    expect(labels[0]?.offset).not.toEqual(labels[1]?.offset);
+  });
+
+  it('keeps labels clear of their station and neighbouring circles, including large anomaly rings', () => {
+    const nearby = [[100, 100], [100, 65], [150, 100]] as const;
+    const axis = [{ id: 'A7', codes: ['A0007'], value: 'A0007', stations: [0] }];
+    const labels = layoutLabels(axis, nearby, (point) => point, 5, { width: 300, height: 300 });
+    expect(labels).toHaveLength(1);
+    const label = labels[0];
+    if (label === undefined) throw new Error('Étiquette absente');
+    const cx = label.lon + label.offset[0];
+    const cy = label.lat + label.offset[1];
+    // Rectangle de 34 × 20 px réservé pour A7 ; le cercle et son anneau doivent rester dégagés.
+    for (const [x, y] of nearby) {
+      const distance = Math.hypot(Math.max(Math.abs(x - cx) - 17, 0), Math.max(Math.abs(y - cy) - 10, 0));
+      expect(distance).toBeGreaterThanOrEqual(26);
+    }
+    expect(label.offset[1]).toBeGreaterThan(0); // La position supérieure est occupée par une autre gare.
+  });
+
+  it('keeps the full label inside the viewport at an edge', () => {
+    const axis = [{ id: 'A7', codes: ['A0007'], value: 'A0007', stations: [0] }];
+    const [label] = layoutLabels(axis, [[3, 3]], (point) => point, 5, { width: 150, height: 150 });
+    expect(label).toBeDefined();
+    if (label === undefined) throw new Error('Étiquette absente');
+    expect(label.lon + label.offset[0] - 17).toBeGreaterThanOrEqual(0);
+    expect(label.lat + label.offset[1] - 10).toBeGreaterThanOrEqual(0);
+  });
+
+  it('hides a label when the viewport has no room outside the station circle', () => {
+    const axis = [{ id: 'A7', codes: ['A0007'], value: 'A0007', stations: [0] }];
+    expect(layoutLabels(axis, [[25, 25]], (point) => point, 5, { width: 50, height: 50 })).toEqual([]);
   });
 
   it('shows more labels per axis as the map is zoomed in', () => {

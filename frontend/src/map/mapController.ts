@@ -193,7 +193,9 @@ export class MapController {
       }
     }
     for (const candidate of wanted) {
-      if (this.axisLabels.has(candidate.key)) {
+      const existing = this.axisLabels.get(candidate.key);
+      if (existing !== undefined) {
+        existing.marker.setLngLat([candidate.lon, candidate.lat]).setOffset([...candidate.offset]);
         continue;
       }
       const element = document.createElement('div');
@@ -205,7 +207,7 @@ export class MapController {
       element.addEventListener('mouseenter', () => { this.options.onAxisHover(candidate.value); });
       element.addEventListener('mouseleave', () => { this.options.onAxisHover(null); });
       element.addEventListener('click', (event) => { event.stopPropagation(); this.options.onAxisClick(candidate.value); });
-      const marker = new maplibregl.Marker({ element, anchor: 'bottom', offset: [0, -7] })
+      const marker = new maplibregl.Marker({ element, anchor: 'center', offset: [...candidate.offset] })
         .setLngLat([candidate.lon, candidate.lat]).addTo(this.map);
       this.axisLabels.set(candidate.key, { marker, element, value: candidate.value });
     }

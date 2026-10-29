@@ -1,4 +1,5 @@
 import type { StationCollection } from './referentiel';
+import { RADIUS_MAX_PX } from './scales';
 
 /** Autoroute (ou route nationale) regroupant tous les codes du référentiel qui la désignent : A0007 et A0007N sont « A7 ». */
 export interface AxisGroup {
@@ -61,6 +62,8 @@ export interface LabelCandidate {
   readonly value: string;
   readonly lon: number;
   readonly lat: number;
+  /** Décalage du centre de l’étiquette en pixels par rapport à sa gare de référence. */
+  readonly offset: readonly [x: number, y: number];
 }
 
 export interface Viewport {
@@ -95,6 +98,8 @@ const MARGIN = 24;
 const CHAR_WIDTH = 8;
 const BOX_PADDING = 18;
 const BOX_HEIGHT = 20;
+// Réserve aussi le contour des anomalies et une marge, même si le trafic augmente après le placement.
+const STATION_CLEARANCE = RADIUS_MAX_PX + 8;
 
 /**
  * Étiquettes à afficher pour la vue courante : points visibles de chaque axe répartis selon le zoom, puis évitement des
@@ -119,21 +124,36 @@ export function layoutLabels(
     });
     pickSpread(visible, labelCount(zoom)).forEach((point, i) => {
       candidates.push({
-        candidate: { key: `${group.id}#${i}`, text: group.id, value: group.value, lon: point.position[0], lat: point.position[1] },
+        candidate: { key: `${group.id}#${i}`, text: group.id, value: group.value, lon: point.position[0], lat: point.position[1], offset: [0, 0] },
         x: point.x, y: point.y, priority: group.stations.length,
       });
     });
   }
   candidates.sort((a, b) => b.priority - a.priority || a.candidate.key.localeCompare(b.candidate.key));
+  const obstacles = positions.map(project).filter(([x, y]) => x >= -STATION_CLEARANCE && x <= viewport.width + STATION_CLEARANCE
+    && y >= -STATION_CLEARANCE && y <= viewport.height + STATION_CLEARANCE);
   const kept: typeof candidates = [];
   for (const c of candidates) {
     const width = c.candidate.text.length * CHAR_WIDTH + BOX_PADDING;
-    const overlaps = kept.some((k) => {
-      const keptWidth = k.candidate.text.length * CHAR_WIDTH + BOX_PADDING;
-      return Math.abs(c.x - k.x) < (width + keptWidth) / 2 && Math.abs(c.y - k.y) < BOX_HEIGHT;
-    });
-    if (!overlaps) {
-      kept.push(c);
+    const dy = STATION_CLEARANCE + BOX_HEIGHT / 2;
+    const dx = STATION_CLEARANCE + width / 2;
+    const offsets: readonly (readonly [number, number])[] = [[0, -dy], [0, dy], [dx, 0], [-dx, 0],
+      [dx, -dy], [-dx, -dy], [dx, dy], [-dx, dy]];
+    for (const offset of offsets) {
+      const x = c.x + offset[0];
+      const y = c.y + offset[1];
+      if (x - width / 2 < 0 || x + width / 2 > viewport.width || y - BOX_HEIGHT / 2 < 0 || y + BOX_HEIGHT / 2 > viewport.height) continue;
+      const coversStation = obstacles.some(([sx, sy]) => {
+        const nearestX = Math.max(Math.abs(sx - x) - width / 2, 0);
+        const nearestY = Math.max(Math.abs(sy - y) - BOX_HEIGHT / 2, 0);
+        return Math.hypot(nearestX, nearestY) < STATION_CLEARANCE;
+      });
+      const coversLabel = kept.some((k) => Math.abs(x - k.x) < (width + k.candidate.text.length * CHAR_WIDTH + BOX_PADDING) / 2 + 4
+        && Math.abs(y - k.y) < BOX_HEIGHT + 4);
+      if (!coversStation && !coversLabel) {
+        kept.push({ ...c, x, y, candidate: { ...c.candidate, offset } });
+        break;
+      }
     }
   }
   return kept.map((c) => c.candidate);
