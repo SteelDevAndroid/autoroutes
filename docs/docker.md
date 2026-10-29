@@ -20,6 +20,8 @@ l’initialisation des topics, PostgreSQL, le simulateur, le backend et le front
 Prometheus, Alertmanager et Grafana. Ajouter `--profile mcp` pour le serveur MCP.
 L’application est accessible sur http://localhost:8080 et Grafana sur http://localhost:3000.
 
+Le parcours simulateur → Kafka → backend → navigateur a été [validé sur les images Hub le 29 octobre 2026](validation-dockerhub-simulator.md) : deux tests navigateur réussis, p95 de latence à 2 secondes et événements simulés persistés dans PostgreSQL.
+
 `latest` suit les versions stables ; `edge` suit les publications de `main` après CI. Définir
 `AUTOROUTES_TAG=0.3.0` dans `.env` pour figer une version publiée, ou `AUTOROUTES_TAG=edge` pour suivre main.
 Les tuiles et le graphe s’installent séparément (voir la section cartographie).
