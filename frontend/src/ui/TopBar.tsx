@@ -4,6 +4,7 @@ import { AnimatedCount } from './AnimatedCount';
 import { formatCount, formatTime } from './format';
 import { useStoreVersion } from './useStoreVersion';
 import { Icon } from './Icon';
+import { anomalySummary } from '../realtime/anomalies';
 
 const sum = (array: Float64Array): number => array.reduce((total, value) => total + value, 0);
 
@@ -55,8 +56,16 @@ function HelpButton() {
 export function TopBar({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
   const watermark = useUiStore((s) => s.watermark);
+  const mode = useUiStore((s) => s.mode);
   let active = 0;
+  let anomalies = 0;
+  let reported = 0;
   for (let i = 0; i < store.size; i++) {
+    const stationAnomalies = store.anomalies[i];
+    if (stationAnomalies != null) {
+      reported++;
+      anomalies += anomalySummary(stationAnomalies).count;
+    }
     if ((store.entries15m[i] ?? 0) + (store.exits15m[i] ?? 0) > 0) {
       active++;
     }
@@ -72,6 +81,14 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       <div className="topbar-metrics">
       <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></div>
       <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></div>
+      <div className="kpi" role="group" aria-label="Anomalies en cours"
+        title={mode === 'replay' ? 'Historique des anomalies indisponible en relecture.'
+          : reported === 0 ? 'État des anomalies non communiqué.'
+          : `Occurrences signalées sur ${formatCount(reported)} / ${formatCount(store.size)} gares. Les états non communiqués ne sont pas comptés comme zéro.`}>
+        <span className="kpi-label">Anomalies en cours</span>
+        <span className="kpi-value">{mode === 'replay' || reported === 0 ? '—'
+          : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</span>
+      </div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></div>
       <div className="kpi kpi-secondary"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></div>
       <div className="kpi kpi-time"><span className="kpi-label">Données à · Paris</span><span className="kpi-value">{formatTime(watermark)}</span></div>
