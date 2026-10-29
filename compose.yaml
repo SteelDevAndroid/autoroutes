@@ -377,7 +377,8 @@ services:
       # Téléchargements parallèles en mode « regions ».
       REGION_JOBS: ${REGION_JOBS:-8}
     volumes:
-      - .:/repo
+      - ./cartographie/out:/repo/cartographie/out
+      - ./cartographie/work:/repo/cartographie/work
     restart: "no"
 
 volumes:

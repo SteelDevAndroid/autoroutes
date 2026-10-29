@@ -76,6 +76,58 @@ docker compose -f compose.hub.yaml --profile tiles run --rm tiles
 
 L’image cartographique embarque ses scripts et référentiels. Elle écrit dans `cartographie/out` et utilise `cartographie/work` pour les fichiers intermédiaires. Le frontend monte les sorties en lecture seule. Pour activer les tronçons estimés, renseigner dans `.env` le chemin du graphe, par exemple `ASSIGNMENT_GRAPH_FILE=/app/graph/graph-AAAAMMJJ.json`, puis relancer le backend.
 
+### Fond absent ou génération arrêtée
+
+`tiles` est une tâche ponctuelle, pas un serveur permanent. `up -d --build` démarre la génération en arrière-plan sans attendre sa fin. Préférer `run --rm tiles` pour voir la progression et les erreurs ; une sortie 0 signifie que la production est terminée.
+
+```bash
+docker compose -f compose.hub.yaml --profile tiles ps -a
+docker compose -f compose.hub.yaml --profile tiles logs --tail=100 tiles
+```
+
+Sous Windows, si les journaux indiquent `mkdir ... File exists` alors que les dossiers sont absents dans l’Explorateur, les créer depuis PowerShell avant de relancer la tâche :
+
+```powershell
+New-Item -ItemType Directory -Force -Path cartographie/out/tiles,cartographie/out/basemaps-assets,cartographie/out/graph,cartographie/work
+docker compose -f compose.hub.yaml --profile tiles run --rm tiles
+```
+
+Pour construire le générateur depuis les sources, utiliser `docker compose --profile tiles build tiles`, puis `docker compose --profile tiles run --rm tiles`.
+
+### Installer les données publiées sans les régénérer
+
+La [release `tuiles-20261023`](https://github.com/SteelDevAndroid/autoroutes/releases/tag/tuiles-20261023) contient le fond France (environ 1,2 Go), les autoroutes, le graphe et les polices/sprites. Sous Linux ou Git Bash, `scripts/fetch_tiles.sh` installe le dernier jeu publié et vérifie ses empreintes SHA-256.
+
+Sous Windows avec GitHub CLI (`gh`) et `tar` disponibles, depuis la racine du dépôt :
+
+```powershell
+$tilesRelease = 'tuiles-20261023'
+$tilesDownload = "build/$tilesRelease"
+New-Item -ItemType Directory -Force -Path $tilesDownload,cartographie/out/tiles,cartographie/out/basemaps-assets,cartographie/out/graph | Out-Null
+gh release download $tilesRelease --repo SteelDevAndroid/autoroutes --dir $tilesDownload --skip-existing
+if ($LASTEXITCODE -ne 0) { throw 'Téléchargement incomplet' }
+Get-Content "$tilesDownload/SHA256SUMS" | ForEach-Object {
+    $expected, $name = $_ -split '\s+', 2
+    $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath "$tilesDownload/$name").Hash
+    if ($actual -ne $expected) { throw "Empreinte invalide : $name" }
+}
+Copy-Item "$tilesDownload/france.pmtiles","$tilesDownload/motorways.pmtiles" cartographie/out/tiles/
+Copy-Item "$tilesDownload/graph-*.json" cartographie/out/graph/
+Copy-Item "$tilesDownload/manifest.json" cartographie/out/
+tar -xzf "$tilesDownload/basemaps-assets.tar.gz" -C cartographie/out
+if ($LASTEXITCODE -ne 0) { throw 'Extraction incomplète' }
+```
+
+Un téléchargement incomplet déjà présent sera détecté par SHA-256 : retirer ce fichier du dossier de téléchargement avant de réessayer. Les fichiers du fond sont servis par nginx dès leur installation dans les dossiers montés. Recharger la page du navigateur.
+
+Pour contrôler le service HTTP sous PowerShell :
+
+```powershell
+(Invoke-WebRequest http://localhost:8080/tiles/france.pmtiles -Headers @{ Range = 'bytes=0-126' }).StatusCode
+```
+
+Le résultat attendu est **206** (contenu partiel), pas 404. Les sprites et polices sous `/basemaps-assets/` doivent aussi être disponibles. Si le frontend local a été construit avec les quatre `VITE_*` vides, retirer ces valeurs puis reconstruire `frontend-live` avec le profil `full` pour activer le fond.
+
 Les paramètres `VITE_*` sont intégrés au frontend à la construction : les modifier dans `.env` ne reconfigure pas une image publiée. Pour personnaliser ces paramètres, construire avec `compose.yaml` ; voir le [guide Docker](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/docker.md).
 
 ## Images et versions
