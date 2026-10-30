@@ -9,6 +9,7 @@ import type { QualityLevel } from '../animation/frameLoop';
 import type { StationKind } from '../map/referentiel';
 import type { Palette } from '../map/theme';
 import { loadPalette, savePalette } from '../ui/paletteStorage';
+import { segmentReference } from '../map/segmentLoads';
 import type { ReplayStatus } from '../replay/replaySession';
 
 export interface LayerVisibility {
@@ -79,6 +80,8 @@ export interface UiState {
   readonly kinds: ReadonlySet<StationKind>;
   readonly connection: ConnectionStatus;
   readonly freshness: Freshness | null;
+  /** La fraîcheur doit être confirmée à nouveau après chaque reconnexion ; la dernière valeur reste consultable. */
+  readonly freshnessConfirmed: boolean;
   readonly watermark: string | null;
   readonly odView: OdView;
   readonly odFilters: OdFilters;
@@ -89,6 +92,8 @@ export interface UiState {
   readonly me: Me | null;
   /** Dernière charge ESTIMÉE des tronçons reçue (null : graphe routier non configuré ou premier calcul en cours). */
   readonly segments: SegmentsState | null;
+  /** Référence de couleur commune à la carte et à la légende, conservée jusqu'au changement de graphe ou d'algorithme. */
+  readonly segmentReference: number | null;
   readonly axisFocus: AxisFocus | null;
   readonly openSection: SectionId | null;
   /** Petit écran : le panneau latéral est un tiroir, ouvert ou fermé. Sans effet au-delà de 900 px. */
@@ -159,6 +164,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   kinds: new Set<StationKind>(['ECHANGEUR', 'PLEINE_VOIE']),
   connection: 'connecting',
   freshness: null,
+  freshnessConfirmed: false,
   watermark: null,
   odView: EMPTY_OD_VIEW,
   odFilters: DEFAULT_OD_FILTERS,
@@ -166,6 +172,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
   odError: null,
   me: null,
   segments: null,
+  segmentReference: null,
   quality: 0,
   // Le réglage du système (« réduire les animations ») s'applique d'emblée ; la case du panneau le modifie ensuite.
   reducedMotion: typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -243,8 +250,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
       return { kinds };
     });
   },
-  setConnection: (connection) => { set({ connection }); },
-  setFreshness: (freshness) => { set({ freshness }); },
+  setConnection: (connection) => { set((s) => ({ connection, freshnessConfirmed: connection === 'open' && s.freshnessConfirmed })); },
+  setFreshness: (freshness) => { set((s) => ({ freshness, freshnessConfirmed: s.connection === 'open' })); },
   setWatermark: (watermark) => { set({ watermark }); },
   // Le flux SSE ne contient ni filtres ni couverture : il n'alimente la vue que sans lecture par l'API.
   setOdFlows: (flows) => { if (get().odSource === 'stream') set({ odView: streamOdView(flows) }); },
@@ -253,7 +260,10 @@ export const useUiStore = create<UiState>()((set, get) => ({
   setOdSource: (odSource) => { set({ odSource }); },
   setOdError: (odError) => { set({ odError }); },
   setMe: (me) => { set({ me }); },
-  setSegments: (segments) => { set({ segments }); },
+  setSegments: (segments) => { set((s) => ({ segments,
+    segmentReference: s.segments?.graphVersion === segments.graphVersion && s.segments.algorithm === segments.algorithm
+      ? s.segmentReference ?? segmentReference(segments.loads) : segmentReference(segments.loads),
+  })); },
   setQuality: (quality) => { set({ quality }); },
   setReducedMotion: (reducedMotion) => { set({ reducedMotion }); },
   setPalette: (palette) => { savePalette(palette); set({ palette }); },

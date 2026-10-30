@@ -30,6 +30,15 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('OdPanel', () => {
+  it('distinguishes an estimated road itinerary from a schematic link', () => {
+    useUiStore.setState({ odView: view({ flows: [
+      { originId: 'A', destinationId: 'B', vehicles: 5, route: { nature: 'ESTIMATED', graphVersion: 'g1', algorithm: 'fastest', coordinates: [[4.8, 45.7], [5.4, 43.3]] } },
+      { originId: 'B', destinationId: 'A', vehicles: 4 },
+    ] }) });
+    render(<OdPanel stations={stations} onFocusFlow={vi.fn()} />);
+    expect(screen.getByText('Itinéraire estimé')).toBeTruthy();
+    expect(screen.getByText('Liaison schématique')).toBeTruthy();
+  });
   const departments = view({
     level: 'DEPARTMENT',
     flows: [{ originId: '06', destinationId: '06', vehicles: 28 }, { originId: '69', destinationId: '13', vehicles: 9 }],

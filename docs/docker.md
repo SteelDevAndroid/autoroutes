@@ -300,6 +300,44 @@ curl -s localhost:8081/api/v1/diagnostic | python3 -m json.tool                 
 
 Après `down -v`, le backend repart sans point de reprise : il relit Kafka depuis minuit (heure de Paris).
 
+## Flux suivant les routes
+
+Le [guide de la carte du trafic](animation-trafic.md) rassemble la lecture des itinéraires, les niveaux de zoom,
+la suspension sur données périmées, l'échelle de couleur stable et les scénarios de vérification.
+
+Le frontend demande `GET /api/v1/od?includeRoutes=true` au niveau **Gares**. Si le graphe contient la géométrie complète,
+les flux et leurs tirets suivent l'itinéraire estimé le plus rapide. Le volume garde sa provenance ; le champ facultatif
+`flows[].route` porte séparément `nature: ESTIMATED`, `graphVersion`, `algorithm` et `coordinates` (positions WGS84
+dans l'ordre origine → destination). Seuls les flux déjà filtrés et diffusables sont enrichis ; la lecture enrichie est
+limitée à 500 flux et conserve l'indicateur `truncated`. Sans ce paramètre, le contrat JSON précédent est conservé.
+
+La chaîne `cartographie/prepare_motorways.py` ajoute désormais `coordinates` à chaque arête, y compris les courbes
+intermédiaires, dans son sens de circulation. Pour activer le rendu sur une installation existante :
+
+1. Régénérer le graphe avec la chaîne cartographique décrite plus haut. Les graphes anciens restent compatibles pour
+   les charges, mais leurs seules extrémités ne suffisent pas à dessiner les routes.
+2. Renseigner `ASSIGNMENT_GRAPH_FILE=/app/graph/graph-AAAAMMJJ.json` avec le nouveau fichier, puis reconstruire et
+   redémarrer le backend et le frontend depuis les sources modifiées.
+3. Afficher les flux et sélectionner une autoroute. La liste distingue **Itinéraire estimé** et **Liaison schématique**.
+
+Le détail s'adapte au zoom : avant le niveau 6, les flux sont statiques, plus fins et plus discrets ; de 6 à 8,
+seuls les flux moyens et forts de l'axe choisi sont animés ; à partir de 8, les petits flux le sont aussi.
+Les tracés et les volumes restent disponibles à tous les niveaux.
+
+En direct, les tirets se figent pendant une coupure, un rattrapage, une péremption signalée par le serveur ou une erreur
+de lecture O/D. Les dernières valeurs, les géométries et l'heure des données sont conservées. Après reconnexion,
+une nouvelle confirmation de fraîcheur est nécessaire ; la reprise conserve la phase des tirets. Le délai de détection
+d'un flux SSE silencieux reste celui du client existant (45 secondes sans message). Le mouvement réduit et la qualité
+adaptative continuent de s'appliquer.
+
+Sans géométrie complète, sans chemin ou sans rattachement au graphe, le flux conserve un arc schématique : aucun
+raccord routier n'est inventé. Les vues par département, la démonstration sans backend et la relecture historique
+conservent leurs arcs ; un graphe actuel ne prétend pas décrire le réseau à une date passée.
+
+Vérification navigateur isolée : `cd frontend` puis `npm run e2e:routes` (Chromium Playwright installé).
+Elle construit le frontend de production, fournit une API et un flux SSE de test et vérifie le tracé routier, les niveaux
+de zoom, le gel pendant les interruptions, la confirmation après reconnexion et le repli schématique.
+
 ## Limites connues
 
 - Kafka est un nœud unique (KRaft, facteur de réplication 1) et les liaisons sont en clair : adapté au développement et à la démonstration, pas à la production telle quelle.

@@ -43,9 +43,21 @@ explique le cas `mkdir ... File exists` et la création des dossiers de sortie.
 
 Ou : `docker compose --profile full --profile monitoring up -d --build`.
 
+## Lire le trafic sur la carte
+
+Les flux suivent les itinéraires routiers **estimés** quand le graphe contient leur géométrie ; sinon, ils restent des
+liaisons schématiques. Sur l'axe sélectionné, la densité des tirets représente le volume, avec une vitesse visuelle
+constante. La vue nationale reste statique, puis le détail augmente en zoomant. En direct, les tirets se figent si les
+données ne sont plus à jour ; les dernières valeurs et leur heure restent affichées.
+
+Voir le [guide des animations et de la fraîcheur du trafic](docs/animation-trafic.md) pour les niveaux de zoom,
+les états de suspension, la configuration du graphe et les vérifications.
+
 ## Documentation
 
 - [Docker : lancement, profils, secrets, cartographie et diagnostic](docs/docker.md)
+- [Carte du trafic : itinéraires, animation, zoom et fraîcheur](docs/animation-trafic.md)
+- [Intégration continue et vérifications locales](docs/ci.md)
 - [Serveur MCP des anomalies](docs/mcp-anomalies.md)
 - [Présentation Docker Hub](docs/dockerhub.md)
 - [Images publiées](https://hub.docker.com/r/compagnonsdudev/autoroutes)

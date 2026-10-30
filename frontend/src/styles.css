@@ -188,6 +188,7 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
 .sparkline-down path { stroke: var(--warn); }
 .od-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; min-height: 44px; background: none; border: 0; border-radius: var(--radius-sm); padding: 10px 6px; text-align: left; font-size: var(--text-small); }
 .od-route { min-width: 0; overflow-wrap: anywhere; }
+.od-route .note { display: block; margin-top: 2px; }
 .od-count { flex: none; font-weight: 600; white-space: nowrap; }
 
 .map-area { grid-area: map; position: relative; min-width: 0; min-height: 0; background: var(--bg); }

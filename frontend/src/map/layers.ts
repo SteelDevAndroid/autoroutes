@@ -2,6 +2,7 @@ import type { FeatureCollection } from 'geojson';
 import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import { theme as defaultTheme } from './theme';
 import type { Theme } from './theme';
+import { FLOW_DASH_LENGTH, FLOW_MARK_WIDTH, FLOW_MOTION_BANDS, motionMinZoom } from '../animation/flowMotion';
 
 export const SOURCE = { stations: 'stations', od: 'od', motorways: 'motorways' } as const;
 export const MOTORWAYS_SOURCE_LAYER = 'motorways';
@@ -133,6 +134,8 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
 }
 
 export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[] {
+  const flowWidth: unknown = ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]];
+  const flowOpacity: unknown = ['*', ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]];
   return [
     {
       id: 'od-flows',
@@ -141,26 +144,28 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       layout: { 'line-cap': 'round', visibility: 'none' },
       paint: {
         // Flux ciblé dans la liste : plus épais ; les autres s'estompent (états posés par MapController.setHighlightedFlow).
-        'line-width': ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, ['*', flowWidth, 0.5], 6, ['*', flowWidth, 0.75], 8, flowWidth],
         // `fade` : apparition et disparition en fondu (états posés par MapController, voir animation/presence.ts).
-        'line-opacity': ['*', ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]],
+        'line-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['*', flowOpacity, 0.4], 6, ['*', flowOpacity, 0.7], 8, flowOpacity],
         'line-gradient': flowGradient(theme),
       },
     },
-    {
+    ...FLOW_MOTION_BANDS.map(({ id, density, gap }) => ({
       // Tirets clairs qui avancent dans le sens origine → destination (motif changé à chaque pas, voir animation/dash.ts).
       // line-dasharray est incompatible avec line-gradient : c'est une couche à part, au-dessus des arcs.
-      id: 'od-flows-motion',
-      type: 'line',
+      id,
+      minzoom: motionMinZoom(density),
+      type: 'line' as const,
       source: SOURCE.od,
+      filter: ['==', ['get', 'density'], density],
       layout: { 'line-cap': 'butt', visibility: 'none' },
       paint: {
         'line-color': '#FFFFFF',
-        'line-width': ['max', 1.2, ['*', ['get', 'width'], 0.4]],
+        'line-width': FLOW_MARK_WIDTH,
         'line-opacity': ['*', 0.85, ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]],
-        'line-dasharray': [1.5, 2.5],
+        'line-dasharray': [FLOW_DASH_LENGTH, gap],
       },
-    },
+    })),
     {
       id: 'stations-halo',
       type: 'circle',

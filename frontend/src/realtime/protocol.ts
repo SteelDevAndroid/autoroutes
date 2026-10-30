@@ -26,6 +26,15 @@ export interface OdFlow {
   readonly originId: string;
   readonly destinationId: string;
   readonly vehicles: number;
+  /** Enrichissement REST facultatif : le volume et l'itinéraire ont des natures distinctes. */
+  readonly route?: EstimatedRoute | null;
+}
+
+export interface EstimatedRoute {
+  readonly nature: 'ESTIMATED';
+  readonly graphVersion: string;
+  readonly algorithm: string;
+  readonly coordinates: readonly (readonly number[])[];
 }
 
 export interface SegmentLoad {

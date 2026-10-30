@@ -3,12 +3,14 @@ package fr.autoroutes.supervision.assignment;
 import fr.autoroutes.supervision.SupervisionProperties;
 import fr.autoroutes.supervision.aggregation.LiveView;
 import fr.autoroutes.supervision.aggregation.OdSnapshot;
+import fr.autoroutes.supervision.aggregation.OdFlow;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -71,6 +73,11 @@ public class AssignmentRunner {
 
     public Optional<SegmentLoads> latest() {
         return Optional.ofNullable(latest.get());
+    }
+
+    /** Enrichit uniquement les flux déjà diffusables et bornés par la lecture O/D. */
+    public List<OdFlow> routedFlows(List<OdFlow> flows) {
+        return service.routedFlows(flows);
     }
 
     /** Contrôle de rattachement des gares au graphe (critère de la phase 2 : moins de 500 m). */

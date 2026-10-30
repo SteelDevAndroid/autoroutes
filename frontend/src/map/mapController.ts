@@ -2,7 +2,9 @@ import * as maplibregl from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { Protocol } from 'pmtiles';
-import { dashSequence, dashStep } from '../animation/dash';
+import { FLOW_MOTION_BANDS, FLOW_STEP_MS, flowPattern, flowDetail, motionMinZoom } from '../animation/flowMotion';
+import type { FlowDensity, FlowDetail } from '../animation/flowMotion';
+import type { TrafficMotionState } from '../animation/trafficMotion';
 import { distanceKm, flightDurationMs } from '../animation/flight';
 import { FrameLoop } from '../animation/frameLoop';
 import { LoadTween } from '../animation/loadTween';
@@ -48,9 +50,6 @@ const SEGMENT_FADE_MS = 500;
 /** Au-delà, les tronçons passent à leur nouvelle charge d'un coup : animer des milliers d'états par image coûterait plus que le fondu n'apporte. */
 const SEGMENT_TWEEN_LIMIT = 2_500;
 const SEGMENT_FRAME_MS = 50;
-const DASH_STEPS = 16;
-const DASH_STEP_MS = 70;
-const DASH_SEQUENCE = dashSequence(1.5, 2.5, DASH_STEPS);
 const flowKey = (p: { readonly originId: string; readonly destinationId: string }): string => `${p.originId}>${p.destinationId}`;
 
 interface AxisLabel {
@@ -79,6 +78,7 @@ export class MapController {
   private readonly axisLabels = new Map<string, AxisLabel>();
   private axisLabelsOn = true;
   private activeAxis: string | null = null;
+  private motionStations: ReadonlySet<string> = new Set();
   private highlightedStations: ReadonlySet<number> = new Set();
   private highlightedRoads: ReadonlySet<string | number> = new Set();
   private roadHighlightHandle: number | null = null;
@@ -94,10 +94,19 @@ export class MapController {
   private fadeHandle: number | null = null;
   private motionHandle: number | null = null;
   private motionStep = -1;
+  private motionElapsedMs = 0;
+  private motionLastTime: number | null = null;
+  private motionDataState: TrafficMotionState = 'waiting';
+  private motionDetail: FlowDetail | null = null;
+  private motionDensities: ReadonlySet<FlowDensity> = new Set();
   private readonly loadTween = new LoadTween(SEGMENT_FADE_MS);
   private segmentHandle: number | null = null;
   private segmentLastFrame = 0;
   private readonly onVisibility = (): void => { this.updateMotion(); };
+  private readonly onZoom = (): void => {
+    // Les styles interpolent en continu ; seuls les changements de niveau réveillent ou arrêtent la boucle.
+    if (flowDetail(this.map.getZoom()) !== this.motionDetail) this.updateMotion();
+  };
 
   constructor(
     container: HTMLElement,
@@ -145,6 +154,7 @@ export class MapController {
       this.layoutAxisLabels();
     });
     this.map.on('moveend', () => { this.layoutAxisLabels(); });
+    this.map.on('zoom', this.onZoom);
     this.map.on('resize', () => { this.layoutAxisLabels(); });
     this.map.on('sourcedata', (event) => {
       if (event.sourceId === SOURCE.motorways && event.sourceDataType === 'content' && this.activeAxis !== null
@@ -254,6 +264,22 @@ export class MapController {
     });
   }
 
+  /** Seul le filtre choisi anime les flux ; le survol conserve uniquement la mise en évidence des gares. */
+  setMotionAxis(value: string): void {
+    this.motionStations = new Set(stationsOnAxes(this.stations, value).flatMap((index) => {
+      const id = this.stations.features[index]?.properties.id;
+      return id === undefined ? [] : [id];
+    }));
+    this.whenStyleReady(() => { this.updateMotion(); });
+  }
+
+  /** Une interruption fige les tirets affichés ; elle ne retire ni géométrie, ni volume, ni date. */
+  setTrafficMotion(state: TrafficMotionState): void {
+    if (state === this.motionDataState) return;
+    this.motionDataState = state;
+    this.whenStyleReady(() => { this.updateMotion(); });
+  }
+
   /** Rejoué à l’arrivée des tuiles : la recherche peut précéder le chargement du tracé. */
   private highlightAxisRoads(): void {
     if (!this.ready || this.map.getSource(SOURCE.motorways) === undefined) {
@@ -311,7 +337,9 @@ export class MapController {
       ? new Map(this.od.nodes.map((n) => [n.id, [n.longitude, n.latitude] as const]))
       : this.coordinates;
     const visible = selectFlows(this.od.flows, departments ? null : this.selectedId);
-    const wanted = buildOdFeatures(visible, coordinates).features;
+    const wanted = buildOdFeatures(visible, coordinates, !departments).features;
+    this.container.dataset.roadFlows = String(wanted.filter((f) => f.properties.routeKind === 'ROAD').length);
+    this.container.dataset.schematicFlows = String(wanted.filter((f) => f.properties.routeKind === 'SCHEMATIC').length);
     const now = performance.now();
     this.flowPresence.update(wanted.map((f) => flowKey(f.properties)), now);
     // Un flux qui disparaît garde sa géométrie le temps de son fondu, puis est retiré par `fadeTick`.
@@ -361,24 +389,57 @@ export class MapController {
   };
 
   /**
-   * Tirets animés sur les flux : seulement si les flux sont affichés et non vides, mouvement non réduit, onglet visible
-   * et rendu à pleine qualité. `data-flow-motion` expose l'état aux tests de bout en bout.
+   * Tirets des flux entre gares de l'axe choisi : mouvement non réduit, onglet visible et rendu à pleine qualité.
+   * Les arcs restent visibles sans axe. `data-flow-motion` expose l'état aux tests de bout en bout.
    */
   private updateMotion(): void {
-    const wanted = this.odVisible && !this.reduced && this.odFeatureKeys.length > 0 && !document.hidden && this.loop.quality === 0;
+    const members = [...this.motionStations];
+    const zoom = this.map.getZoom();
+    this.motionDetail = flowDetail(zoom);
+    const axisFlows = this.od.level === 'STATION' ? [...this.flowFeatures.values()].filter((flow) =>
+      this.motionStations.has(flow.properties.originId) || this.motionStations.has(flow.properties.destinationId)) : [];
+    const bands = FLOW_MOTION_BANDS.map((band) => ({ ...band,
+      count: zoom < motionMinZoom(band.density) ? 0 : axisFlows.filter((flow) => flow.properties.density === band.density).length,
+    }));
+    const count = bands.reduce((sum, band) => sum + band.count, 0);
+    const shown = this.odVisible && !this.reduced && this.loop.quality === 0;
+    this.motionDensities = new Set(bands.filter((band) => shown && band.count > 0).map((band) => band.density));
+    const current = this.motionDataState === 'live' || this.motionDataState === 'replay';
+    const wanted = shown && count > 0 && !document.hidden && current;
     this.container.dataset.flowMotion = wanted ? 'on' : 'off';
+    this.container.dataset.flowDetail = this.motionDetail;
+    this.container.dataset.flowMotionReason = wanted ? 'running' : !current ? this.motionDataState
+      : document.hidden ? 'hidden' : this.motionDetail === 'national' ? 'zoom' : 'display';
+    this.container.dataset.animatedFlows = String(wanted ? count : 0);
+    for (const { id, density, count: bandCount } of bands) {
+      if (this.map.getLayer(id) !== undefined) {
+        this.map.setFilter(id, ['all', ['==', ['get', 'density'], density], ['any',
+          ['in', ['get', 'originId'], ['literal', members]], ['in', ['get', 'destinationId'], ['literal', members]],
+        ]]);
+        this.map.setLayoutProperty(id, 'visibility', shown && bandCount > 0 ? 'visible' : 'none');
+      }
+    }
     if (wanted && this.motionHandle === null) {
+      this.motionStep = -1;
+      this.motionLastTime = null;
       this.motionHandle = requestAnimationFrame(this.motionTick);
     } else if (!wanted && this.motionHandle !== null) {
       cancelAnimationFrame(this.motionHandle);
       this.motionHandle = null;
+      this.motionLastTime = null;
     }
   }
 
   private readonly motionTick = (now: number): void => {
-    const step = dashStep(now, DASH_STEP_MS, DASH_STEPS);
-    if (step !== this.motionStep && this.map.getLayer('od-flows-motion') !== undefined) {
-      this.map.setPaintProperty('od-flows-motion', 'line-dasharray', DASH_SEQUENCE[step] ?? [1.5, 2.5]);
+    if (this.motionLastTime !== null) this.motionElapsedMs += Math.max(0, now - this.motionLastTime);
+    this.motionLastTime = now;
+    const step = Math.floor(this.motionElapsedMs / FLOW_STEP_MS);
+    if (step !== this.motionStep) {
+      for (const { id, density } of FLOW_MOTION_BANDS) {
+        if (this.motionDensities.has(density) && this.map.getLayer(id) !== undefined) {
+          this.map.setPaintProperty(id, 'line-dasharray', flowPattern(density, this.motionElapsedMs));
+        }
+      }
       this.motionStep = step;
     }
     this.motionHandle = requestAnimationFrame(this.motionTick);
@@ -401,16 +462,22 @@ export class MapController {
     });
   }
 
-  /** Cadre la carte sur les deux extrémités d'un flux. */
+  /** Cadre tout l'itinéraire, y compris les détours qui débordent du rectangle de ses deux gares. */
   focusFlow(flow: FlowKey): void {
     const origin = this.odCoordinates.get(flow.originId);
     const destination = this.odCoordinates.get(flow.destinationId);
     if (origin === undefined || destination === undefined) {
       return;
     }
-    this.map.fitBounds([[Math.min(origin[0], destination[0]), Math.min(origin[1], destination[1])],
-      [Math.max(origin[0], destination[0]), Math.max(origin[1], destination[1])]],
-    { padding: 80, maxZoom: 9, duration: this.flightTo([(origin[0] + destination[0]) / 2, (origin[1] + destination[1]) / 2]) });
+    const points = this.flowFeatures.get(flowKey(flow))?.geometry.coordinates ?? [origin, destination];
+    const bounds = new maplibregl.LngLatBounds();
+    for (const point of points) {
+      const [lon, lat] = point;
+      bounds.extend([lon, lat]);
+    }
+    const center = bounds.getCenter();
+    this.map.fitBounds(bounds,
+      { padding: 80, maxZoom: 9, duration: this.flightTo([center.lng, center.lat]) });
   }
 
   /** Durée d'un déplacement vers `target` : proportionnelle (en logarithme) à la distance depuis le centre actuel, nulle en mouvement réduit. */
@@ -423,12 +490,12 @@ export class MapController {
    * Charge ESTIMÉE : intensité 0 à 1 posée en feature-state sur les tronçons de la couche autoroutes (promoteId segmentId).
    * Le passage d'une estimation à la suivante se fait en fondu (voir animation/loadTween.ts).
    */
-  setSegmentLoads(loads: readonly SegmentLoad[]): void {
+  setSegmentLoads(loads: readonly SegmentLoad[], reference: number): void {
     this.whenStyleReady(() => {
       if (this.map.getSource(SOURCE.motorways) === undefined) {
         return;
       }
-      const diff = diffSegmentLoads(this.segmentIntensity, loads);
+      const diff = diffSegmentLoads(this.segmentIntensity, loads, reference);
       this.segmentIntensity = diff.next;
       const now = performance.now();
       this.loadTween.retarget(diff.set, diff.clear, now);
@@ -471,7 +538,6 @@ export class MapController {
       show('stations-anomalies', visibility.stations && this.anomaliesVisible);
       show('stations-label', visibility.stations && visibility.labels);
       show('od-flows', visibility.od);
-      show('od-flows-motion', visibility.od && !this.reduced);
       this.odVisible = visibility.od;
       this.updateMotion();
       show('segments-load', visibility.segments);
@@ -539,9 +605,6 @@ export class MapController {
     this.flowPresence.setDuration(reduced ? 0 : FLOW_FADE_MS);
     this.loadTween.setDuration(reduced ? 0 : SEGMENT_FADE_MS);
     this.whenStyleReady(() => {
-      if (this.map.getLayer('od-flows-motion') !== undefined) {
-        this.map.setLayoutProperty('od-flows-motion', 'visibility', this.odVisible && !reduced ? 'visible' : 'none');
-      }
       this.updateMotion();
     });
   }

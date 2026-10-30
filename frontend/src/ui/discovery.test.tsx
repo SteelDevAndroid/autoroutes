@@ -170,11 +170,22 @@ describe('StationDetail flows', () => {
 });
 
 describe('Legend segment scale', () => {
+  it('explains zoom detail and frozen stale traffic while retaining the displayed estimate', () => {
+    const ui = useUiStore.getState();
+    useUiStore.setState({ openSection: 'legend', layers: { ...ui.layers, od: true } });
+    ui.setConnection('open');
+    ui.setFreshness({ status: 'STALE', watermarkLagSeconds: 180, consumerLag: 0, staleStations: [] });
+    render(<Legend />);
+    expect(screen.getByText(/Vue nationale statique/)).toBeTruthy();
+    expect(screen.getByText('Animation suspendue : données périmées. Dernières valeurs conservées.')).toBeTruthy();
+    act(() => { ui.setFreshness({ status: 'LIVE', watermarkLagSeconds: 1, consumerLag: 0, staleStations: [] }); });
+    expect(screen.queryByText(/Animation suspendue/)).toBeNull();
+  });
   it('shows a gradient scale in vehicles per hour once an estimate arrived', () => {
     useUiStore.setState({
       openSection: 'legend', layers: { ...useUiStore.getState().layers, segments: true },
-      segments: { graphVersion: 'g1', algorithm: 'fastest', loads: Array.from({ length: 100 }, (_, i) => ({ segmentId: `s${i}`, vehicles: (i + 1) * 20 })) },
     });
+    useUiStore.getState().setSegments({ graphVersion: 'g1', algorithm: 'fastest', loads: Array.from({ length: 100 }, (_, i) => ({ segmentId: `s${i}`, vehicles: (i + 1) * 20 })) });
 
     render(<Legend />);
     const scale = screen.getByTestId('segment-scale');
@@ -190,6 +201,18 @@ describe('Legend segment scale', () => {
     render(<Legend />);
 
     expect(screen.getByText('Échelle disponible à la première estimation.')).toBeTruthy();
+  });
+
+  it('keeps the legend aligned with the retained map reference as loads change', () => {
+    useUiStore.setState({ openSection: 'legend', layers: { ...useUiStore.getState().layers, segments: true } });
+    const estimate = { graphVersion: 'g1', algorithm: 'fastest', loads: [{ segmentId: 's1', vehicles: 100 }] };
+    useUiStore.getState().setSegments(estimate);
+    render(<Legend />);
+    act(() => { useUiStore.getState().setSegments({ ...estimate, loads: [{ segmentId: 's1', vehicles: 1000 }] }); });
+    expect(screen.getByTestId('segment-scale').textContent).toContain(`≥ ${formatCount(100)}`);
+    expect(screen.getByTestId('segment-scale').textContent).not.toContain(formatCount(1000));
+    act(() => { useUiStore.getState().setSegments({ ...estimate, loads: [] }); });
+    expect(screen.getByTestId('segment-scale').textContent).toContain(`≥ ${formatCount(100)}`);
   });
 });
 

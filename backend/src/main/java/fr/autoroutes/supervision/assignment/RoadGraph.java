@@ -13,7 +13,18 @@ import java.util.TreeSet;
  */
 public final class RoadGraph {
 
-    public record Edge(String id, int from, int to, double lengthM, int speedKmh, Set<String> refs, boolean link) {
+    public record Edge(String id, int from, int to, double lengthM, int speedKmh, Set<String> refs, boolean link,
+                       List<List<Double>> coordinates) {
+
+        public Edge {
+            refs = Set.copyOf(refs);
+            coordinates = coordinates.stream().map(List::copyOf).toList();
+        }
+
+        /** Compatibilité des graphes anciens : leurs cordes ne doivent pas être présentées comme le tracé routier. */
+        public Edge(String id, int from, int to, double lengthM, int speedKmh, Set<String> refs, boolean link) {
+            this(id, from, to, lengthM, speedKmh, refs, link, List.of());
+        }
 
         /** Temps de parcours à la vitesse maximale, en secondes. */
         public double seconds() {

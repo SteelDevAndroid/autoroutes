@@ -1,5 +1,9 @@
 # Interface : refonte du panneau latéral et des flux O/D
 
+Ce document conserve les étapes successives de l'interface ; les décomptes de tests de chaque étape sont historiques.
+Le [guide de la carte du trafic](animation-trafic.md) décrit le comportement actuel des itinéraires, du zoom,
+de la densité, de la fraîcheur et de la reprise des animations.
+
 Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modification de l'API).
 
 | # | Changement | Détail |
@@ -7,7 +11,7 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 | 1 | **Sections repliables** | Le panneau latéral est un accordéon (`Section`) : « Couches et gares », « Flux O/D », « Charge estimée », « Légende ». Une seule section est ouverte à la fois, donc le panneau tient dans l'écran quel que soit le nombre de couches actives. Activer une couche à section propre (flux O/D, charge estimée) ouvre sa section. Les sections portent `aria-expanded` et `aria-controls`. |
 | 1 | **Relecture en barre de lecture** | Elle quitte le panneau pour le pied de la carte : un bouton « Relecture » qui déploie début, durée, vitesse ; pendant la relecture, lecture/pause, vitesse, **barre d'avancement**, heure virtuelle et « Retour au direct ». |
 | 2 | **Flux internes masqués par défaut** | Au niveau départements, les flux d'un département vers lui-même dominaient la liste sans être tracés. Ils sont masqués (case « Inclure les flux internes », compteur « N flux internes masqués »). La mention « observé » est portée une seule fois, par l'en-tête de section. |
-| 3 | **Liste ↔ carte** | Survoler ou focaliser une ligne met en évidence son arc (plus épais, les autres s'estompent, par `feature-state`) ; cliquer cadre la carte sur les deux extrémités. Les lignes sont des boutons : tout est faisable au clavier. |
+| 3 | **Liste ↔ carte** | Survoler ou focaliser une ligne met en évidence son tracé (plus épais, les autres s'estompent, par `feature-state`) ; cliquer cadre tout l'itinéraire, détours compris. Les lignes sont des boutons : tout est faisable au clavier. |
 | 4 | **États vides et erreurs utiles** | Chaque vide propose l'issue adaptée : afficher les flux internes, retirer les filtres, ou passer par départements. L'erreur O/D propose « Réessayer ». L'absence d'estimation de charge explique ses deux causes possibles et renvoie à la procédure. |
 | 6 | **Légende contextuelle** | Une ligne par couche affichée, avec sa nature (observé ou estimé) ; l'avertissement sur le trafic non mesuré n'apparaît qu'avec les flux ou la charge. |
 | 8 | **Info-bulle au survol d'une gare** | Nom, type et axe, passages sur 15 min, dernier passage ou « données périmées », sans cliquer. Un seul événement par image d'animation ; positionnée pour ne pas sortir de la carte. |
@@ -85,7 +89,7 @@ Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modif
 | Clavier | `/` met le focus sur le champ (ouvre le tiroir sur petit écran), sauf pendant une saisie ou devant une fenêtre ; ↓ descend dans les résultats, ↑ remonte, Entrée ouvre le premier, Échap vide. |
 | Retour | Après la recherche d'une autoroute, une **puce** en haut de la carte (« Revenir à la vue d'ensemble », ou Échap) défait tout : filtre « Axe » retiré, couche des flux rétablie dans son état d'avant (éteinte si la recherche l'avait allumée), carte recadrée sur la France. Une seconde recherche garde l'état d'origine ; si le filtre est changé à la main entre-temps, la puce disparaît sans rien défaire. |
 | Fiche de gare | La fiche (fenêtres 5 min à aujourd'hui, courbe J / J-7) gagne les **principaux flux** de la gare (5 au plus, « Vers » / « Depuis »), lus dans la liste déjà chargée : mêmes filtres et même seuil de 3 véhicules que la section « Flux O/D », survol = arc mis en évidence, clic = carte cadrée. Sans la couche des flux, un bouton l'affiche ; au niveau départements, la fiche l'explique. |
-| Légende | La charge estimée a une **échelle continue** (dégradé de la carte, repères 0 / moitié / maximum arrondis à 2 chiffres, « ≥ » pour le plafond), calculée sur les mêmes charges que la carte (95e centile, comme `diffSegmentLoads`) ; l'estimation reste signalée par ses tirets. |
+| Légende | La charge estimée a une **échelle continue** (dégradé de la carte, repères 0 / moitié / maximum, « ≥ » pour le plafond). La référence commune à la carte et à la légende est fixée au 95ᵉ centile arrondi de la première estimation positive de la session, puis conservée tant que le graphe et l'algorithme restent identiques. L'estimation reste signalée par ses tirets. |
 | Gares les plus actives | Section « Gares les plus actives » (observé) : 8 gares au plus, classées sur 1 h, rafraîchies toutes les 10 s, avec une **courbe** des 3 dernières heures par quart d'heure (historique du serveur, rechargée toutes les minutes) ; chiffre sans courbe en démonstration et en relecture. Texte accessible : maximum et sens (hausse, baisse, stable à ±10 %). |
 
 ## Vérifications
@@ -135,7 +139,7 @@ Rien ne bougeait hors des cercles des gares (changement de taille en 800 ms, hal
 
 | # | Animation | Choix |
 |---|---|---|
-| 1 | Flux O/D animés | Des tirets clairs avancent le long de chaque arc, **dans le sens origine → destination**, épaisseur proportionnelle au volume. `line-dasharray` n'est pas animable et est incompatible avec `line-gradient` : couche à part (`od-flows-motion`) au-dessus des arcs, dont le motif change toutes les 70 ms sur 16 pas de même longueur (`animation/dash.ts`). S'arrêtent quand les flux sont masqués ou vides, onglet masqué, qualité de rendu dégradée, ou mouvement réduit. `data-flow-motion` sur la carte expose l'état aux tests. |
+| 1 | Flux O/D animés | Des tirets de largeur constante avancent **dans le sens origine → destination**, sur les itinéraires estimés ou les arcs schématiques. Trois couches `od-flows-motion-low/medium/high` représentent la densité de volume ; les motifs avancent au même rythme, avec des pas de 40 ms (`animation/flowMotion.ts`). Seul l'axe sélectionné est animé : flux moyens et forts dès le zoom 6, petits flux dès le zoom 8. Les données périmées, le rattrapage et les coupures figent les tirets ; la reprise attend une nouvelle confirmation de fraîcheur et conserve la phase. Mouvement réduit, onglet masqué et qualité dégradée restent pris en compte. Voir le [guide actuel](animation-trafic.md). |
 | 2 | Fondu des flux et des tronçons | Un flux qui apparaît monte de 0 à 1 en 300 ms ; un flux qui disparaît garde sa géométrie le temps de son fondu (`animation/presence.ts`). Les charges de tronçons passent de l'estimation précédente à la suivante en 500 ms (`animation/loadTween.ts`) ; au-delà de 2 500 tronçons modifiés, application directe (animer autant d'états par image coûterait plus que le fondu n'apporte). |
 | 3 | Cadrage adaptatif | Durée du déplacement de caméra selon la distance (500 ms pour un voisin, logarithmique, 2,2 s au plus, `animation/flight.ts`) pour la fiche, l'autoroute, le flux et « Vue France entière » ; instantané en mouvement réduit. |
 | 4 | Compteurs | Les trois chiffres de la barre du haut glissent de l'ancienne à la nouvelle valeur en 400 ms. Le premier affichage et le départ de zéro sont immédiats (compter depuis 0 n'apprend rien). Le texte animé est `aria-hidden` ; un texte caché donne la valeur finale aux lecteurs d'écran. |
@@ -152,5 +156,5 @@ Rien ne bougeait hors des cercles des gares (changement de taille en 800 ms, hal
 ## Limites
 
 - Le mouvement des tirets est une animation du navigateur, non rejouable dans les captures ; le contrôle automatique porte sur l'état (`data-flow-motion`) et la séquence de motifs, pas sur l'aspect image par image.
-- Les tirets coûtent un changement de style de couche à environ 14 images par seconde ; ils s'éteignent d'abord quand la qualité de rendu se dégrade.
+- Les motifs des couches visibles sont mis à jour au plus 25 fois par seconde, uniquement lorsque le mouvement est autorisé. Les tirets s'éteignent d'abord quand la qualité de rendu se dégrade.
 - Les tronçons du fond OSM ne font pas l'objet d'un fondu à l'apparition des tuiles (comportement de MapLibre).

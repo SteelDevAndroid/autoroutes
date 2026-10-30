@@ -28,8 +28,17 @@ class GraphLoaderTest {
             assertThat(edge.seconds()).isEqualTo(1570.0 / (130 / 3.6));
         });
         assertThat(graph.refsOf(1)).containsExactly("A7");
+        assertThat(graph.edges().getFirst().coordinates()).isEmpty();
         assertThat(graph.version()).startsWith("graph-").isEqualTo(loader.load(file).version());
         Files.writeString(file, GRAPH.replace("1570.0", "1571.0"));
         assertThat(loader.load(file).version()).isNotEqualTo(graph.version());
+    }
+
+    @Test
+    void readsTheFullRoadGeometryWhenPresent(@TempDir Path dir) throws Exception {
+        var content = GRAPH.replace("\"link\":false", "\"link\":false,\"coordinates\":[[5.0,45.0],[5.01,45.01],[5.02,45.0]]");
+        var graph = new GraphLoader(JsonMapper.builder().build()).load(Files.writeString(dir.resolve("graph.json"), content));
+        assertThat(graph.edges().getFirst().coordinates()).containsExactly(
+                java.util.List.of(5.0, 45.0), java.util.List.of(5.01, 45.01), java.util.List.of(5.02, 45.0));
     }
 }

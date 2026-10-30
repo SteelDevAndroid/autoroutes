@@ -120,6 +120,8 @@ jobs:
       # Le serveur de prévisualisation est lancé par playwright.config.ts ; WebGL logiciel (SwiftShader).
       - name: E2E démonstration (rendu réel, erreurs console, accessibilité axe-core)
         run: npx playwright test e2e/demo.spec.ts e2e/anomalies.spec.ts
+      - name: E2E itinéraires routiers (frontend de production, API contrôlée)
+        run: npm run e2e:routes
       - name: Rapports Playwright
         if: failure()
         uses: actions/upload-artifact@v7

@@ -4,6 +4,7 @@ import { MapController } from '../map/mapController';
 import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
+import { trafficMotionState } from '../animation/trafficMotion';
 
 /**
  * Monte la carte une seule fois. Les changements d'interface sont relayés au contrôleur par abonnement
@@ -41,15 +42,24 @@ export function MapView({ stations, store, onReady }: {
     controller.setReducedMotion(ui.reducedMotion);
     controller.setAxisLabelsVisible(ui.layers.axes);
     controller.setActiveAxis(ui.hoverAxis ?? (ui.odFilters.axis || null));
+    controller.setMotionAxis(ui.odFilters.axis);
+    controller.setTrafficMotion(trafficMotionState(ui));
+    if (ui.segments !== null) controller.setSegmentLoads(ui.segments.loads, ui.segmentReference ?? 0);
     const unsubscribe = useUiStore.subscribe((state, previous) => {
+      if (state.connection !== previous.connection || state.freshness !== previous.freshness || state.mode !== previous.mode
+        || state.freshnessConfirmed !== previous.freshnessConfirmed
+        || state.odSource !== previous.odSource || state.odError !== previous.odError) {
+        controller.setTrafficMotion(trafficMotionState(state));
+      }
       if (state.layers !== previous.layers) controller.setLayers(state.layers);
       if (state.mode !== previous.mode) controller.setAnomaliesVisible(state.mode === 'live');
       if (state.layers.axes !== previous.layers.axes) controller.setAxisLabelsVisible(state.layers.axes);
       if (state.hoverAxis !== previous.hoverAxis || state.odFilters.axis !== previous.odFilters.axis) {
         controller.setActiveAxis(state.hoverAxis ?? (state.odFilters.axis || null));
       }
+      if (state.odFilters.axis !== previous.odFilters.axis) controller.setMotionAxis(state.odFilters.axis);
       if (state.kinds !== previous.kinds) controller.setKinds(state.kinds);
-      if (state.segments !== previous.segments && state.segments !== null) controller.setSegmentLoads(state.segments.loads);
+      if (state.segments !== previous.segments && state.segments !== null) controller.setSegmentLoads(state.segments.loads, state.segmentReference ?? 0);
       if (state.highlightedFlow !== previous.highlightedFlow) controller.setHighlightedFlow(state.highlightedFlow);
       if (state.odView !== previous.odView) controller.setOd(state.odView);
       if (state.reducedMotion !== previous.reducedMotion) controller.setReducedMotion(state.reducedMotion);

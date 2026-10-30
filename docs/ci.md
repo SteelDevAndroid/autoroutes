@@ -9,7 +9,7 @@ Workflow : `.github/workflows/ci.yml`, déclenché à chaque pull request, à ch
 | **Backend** | `mvn verify` sous **Java 25** : 85 tests unitaires (dont la vérification Spring Modulith des frontières entre modules) puis 7 tests d'intégration avec **Kafka et PostgreSQL réels** (Testcontainers) : déduplication, quarantaine, rejets, SSE avec reprise, historique identique au temps réel, flux O/D filtrés et rapprochés des sorties, charge estimée des tronçons sur un graphe de test, redémarrage sans double comptage | 5 à 8 min |
 | **Simulateur** | `mvn verify` : 4 tests (contrat, système ouvert ou fermé, anomalies, modèle gravitaire) | 2 min |
 | **Serveur MCP des anomalies** | `mvn verify` : 25 tests (client MCP réel contre le serveur avec Kafka embarqué et backend factice : lecture par source, garde de version, relais du jeton, refus sans publication, jeton et rôle exigés en mode sécurisé, catalogue des gares). Voir `docs/mcp-anomalies.md` | 2 min |
-| **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, 160 tests Vitest (dont validité du style MapLibre), builds de production et de démonstration, **E2E Playwright** de la démonstration : rendu WebGL réel, plus de 600 gares dessinées, **aucune erreur console**, accessibilité axe-core | 4 à 6 min |
+| **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, tests Vitest (dont validité du style MapLibre, niveaux de zoom, fraîcheur, reprise sans saut et référence de couleur stable), builds de production et de démonstration. **E2E Playwright** démonstration/anomalies : WebGL, plus de 600 gares, erreurs console, axe-core. Puis `npm run e2e:routes` : frontend de production avec API contrôlée et vrai flux HTTP SSE de test, itinéraires, zoom, péremption et confirmation après reconnexion | 4 à 6 min |
 | **Tuiles et graphe routier** (workflow `tuiles.yml`, hors pull request) | Mensuel (le 3) et à la demande : image `cartographie/Dockerfile` construite puis **exécutée** (fond Protomaps `latest`, OSM, tronçons, graphe, polices), `verify_tiles.py` (zooms, taille, graphe, ≥ 90 % des gares rattachées), release `tuiles-AAAAMMJJ` avec `SHA256SUMS`. Installation : `scripts/fetch_tiles.sh` | 1 à 3 h |
 | **Publication Docker Hub** | Après « CI réussie », sur `main` et sur les tags `v*` seulement : construit et pousse les 6 images (backend, simulateur, serveur MCP, interface de production et de démonstration, chaîne cartographique) dans `compagnonsdudev/autoroutes`, tags `<image>-edge`, `<image>-sha-…` ou `<image>-1.2.3` / `-1.2` / `-latest`. Secrets `DOCKERHUB_USERNAME` et `DOCKERHUB_TOKEN` ; sans eux, avertissement et rien de publié. Détails : `docs/docker.md` | 10 à 15 min |
 | **Régression visuelle** | Captures de l'interface HTML (panneau, légende, puces, tiroir ; jamais la carte) comparées aux références versionnées ; en cas d'écart, artefact `visuel-ecarts` (attendu, obtenu, différence). Exigé par « CI réussie » (premier passage vert sur la CI avec les références produites en local). Lancé à la demande avec `update_snapshots`, il régénère les références | 3 à 5 min |
@@ -32,7 +32,7 @@ En cas d'échec, les rapports de tests, les captures et les journaux des service
 ( cd mcp-anomalies && mvn -B verify )
 
 # Frontend
-cd frontend && npm ci && npx tsc -b && npx eslint . && npx vitest run && npx playwright test e2e/demo.spec.ts
+( cd frontend && npm ci && npx tsc -b && npx eslint . && npx vitest run && npx playwright install chromium && npx playwright test e2e/demo.spec.ts e2e/anomalies.spec.ts && npm run e2e:routes )
 
 # Référentiel et cartographie
 pip install -r scripts/requirements.txt
@@ -45,6 +45,10 @@ docker compose up -d --build
 E2E_LIVE=1 E2E_BASE_URL=http://localhost:8080 npx playwright test e2e/live.spec.ts   # depuis frontend/
 GRAFANA_PASSWORD=changez-moi python3 scripts/verify_observability.py
 ```
+
+Le [guide de la carte du trafic](animation-trafic.md#vérifier-les-changements) précise les assertions du scénario
+itinéraires/zoom/fraîcheur et la différence avec les tests de la chaîne complète. Les tests visuels Docker ciblés sur
+les légendes se lancent depuis `frontend` avec `npm run e2e:visual:docker -- --grep légende`.
 
 ## Protection de branche recommandée
 

@@ -1,12 +1,16 @@
 import type { FeatureCollection, LineString } from 'geojson';
 import type { OdFlow } from '../realtime/protocol';
 import { flowWidth, percentile } from './scales';
+import { flowDensity } from '../animation/flowMotion';
+import type { FlowDensity } from '../animation/flowMotion';
 
 export interface OdProperties {
   readonly originId: string;
   readonly destinationId: string;
   readonly vehicles: number;
   readonly width: number;
+  readonly density: FlowDensity;
+  readonly routeKind: 'ROAD' | 'SCHEMATIC';
 }
 
 const ARC_SEGMENTS = 16;
@@ -46,6 +50,7 @@ export function selectFlows(flows: readonly OdFlow[], selectedId: string | null,
 export function buildOdFeatures(
   flows: readonly OdFlow[],
   coordinates: ReadonlyMap<string, readonly [number, number]>,
+  useRoadRoutes = true,
 ): FeatureCollection<LineString, OdProperties> {
   const reference = percentile(flows.map((f) => f.vehicles), 0.95);
   const features = flows.flatMap((flow, index) => {
@@ -54,12 +59,31 @@ export function buildOdFeatures(
     if (origin === undefined || destination === undefined || flow.originId === flow.destinationId) {
       return [];
     }
+    const route = useRoadRoutes ? roadCoordinates(flow) : null;
     return [{
       type: 'Feature' as const,
       id: index,
-      geometry: { type: 'LineString' as const, coordinates: arc(origin, destination) },
-      properties: { ...flow, width: flowWidth(flow.vehicles, reference) },
+      geometry: { type: 'LineString' as const, coordinates: route ?? arc(origin, destination) },
+      properties: { originId: flow.originId, destinationId: flow.destinationId, vehicles: flow.vehicles,
+        width: flowWidth(flow.vehicles, reference), density: flowDensity(flow.vehicles, reference),
+        routeKind: route === null ? 'SCHEMATIC' as const : 'ROAD' as const },
     }];
   });
   return { type: 'FeatureCollection', features };
+}
+
+/** Géométrie complète uniquement : un arc de repli ne prétend jamais suivre le réseau. */
+export function roadCoordinates(flow: OdFlow): [number, number][] | null {
+  const route = flow.route;
+  if (route?.nature !== 'ESTIMATED' || !Array.isArray(route.coordinates) || route.coordinates.length < 2) return null;
+  const points: [number, number][] = [];
+  for (const point of route.coordinates) {
+    if (!Array.isArray(point)) return null;
+    const lon: unknown = point[0];
+    const lat: unknown = point[1];
+    if (point.length !== 2 || typeof lon !== 'number' || typeof lat !== 'number' || !Number.isFinite(lon) || !Number.isFinite(lat)
+      || Math.abs(lon) > 180 || Math.abs(lat) > 90) return null;
+    points.push([lon, lat]);
+  }
+  return points;
 }

@@ -1,4 +1,4 @@
-import { percentile } from '../map/scales';
+import { segmentReference } from '../map/segmentLoads';
 import type { LayerVisibility } from '../state/uiStore';
 
 export type LegendRowId = 'echangeur' | 'pleine-voie' | 'stale' | 'od' | 'segments' | 'axes';
@@ -18,7 +18,7 @@ export function legendRows(layers: LayerVisibility, kinds: { echangeur: boolean;
 }
 
 export interface SegmentScale {
-  /** Charge (véhicules sur 1 h) à laquelle la couleur atteint son maximum : 95e centile des tronçons, comme sur la carte. */
+  /** Charge (véhicules sur 1 h) à laquelle la couleur atteint son maximum. */
   readonly reference: number;
   /** Repères de l'échelle, du plus faible au plus fort, arrondis. */
   readonly ticks: readonly number[];
@@ -34,12 +34,9 @@ export function roundSignificant(value: number): number {
 }
 
 /** Échelle de la légende des tronçons, à partir des mêmes charges que la carte (voir `diffSegmentLoads`). */
-export function segmentScale(loads: readonly { readonly vehicles: number }[]): SegmentScale | null {
-  const vehicles = loads.map((l) => l.vehicles).filter((v) => v > 0);
-  if (vehicles.length === 0) {
+export function segmentScale(loads: readonly { readonly vehicles: number }[], reference = segmentReference(loads)): SegmentScale | null {
+  if (reference === null) {
     return null;
   }
-  const reference = percentile(vehicles, 0.95);
-  const top = roundSignificant(reference);
-  return { reference: top, ticks: [0, roundSignificant(top / 2), top] };
+  return { reference, ticks: [0, roundSignificant(reference / 2), reference] };
 }
