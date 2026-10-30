@@ -12,6 +12,8 @@ import { OdPanel } from './OdPanel';
 import { SearchBox } from './SearchBox';
 import { Section } from './Section';
 import { SegmentsPanel } from './SegmentsPanel';
+import { ActiveFilters } from './ActiveFilters';
+import { AxisSummary } from './AxisSummary';
 
 export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, onResetView }: {
   readonly stations: StationCollection;
@@ -43,6 +45,8 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
       </header>
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
       <div className="side-content">
+      <ActiveFilters stations={stations} />
+      <AxisSummary stations={stations} store={store} />
       <Section id="layers" title="Couches et gares">
         <fieldset className="control-group"><legend>Affichage sur la carte</legend>
         <label><input type="checkbox" checked={layers.stations} onChange={() => { toggleLayer('stations'); }} /> Activité des gares</label>

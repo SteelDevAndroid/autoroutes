@@ -147,7 +147,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     await labels.first().click();
     await request;
 
-    await expect(page.getByLabel('Axe')).toHaveValue(axis ?? '');
+    await expect(page.getByRole('combobox', { name: 'Axe', exact: true })).toHaveValue(axis ?? '');
     await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
   });
 });

@@ -4,6 +4,64 @@ Ce document conserve les étapes successives de l'interface ; les décomptes de 
 Le [guide de la carte du trafic](animation-trafic.md) décrit le comportement actuel des itinéraires, du zoom,
 de la densité, de la fraîcheur et de la reprise des animations.
 
+## Harmonisation visuelle de l’interface
+
+La palette bleu nuit utilise quatre niveaux de surface et un accent menthe pour les sélections.
+Les indicateurs de la barre supérieure sont délimités individuellement ; l’état de connexion prend
+la forme d’un badge avec texte et point coloré. L’identité et le sous-titre forment un groupe vertical.
+Les sections du panneau sont encadrées, la section ouverte possède une bordure accentuée et
+les cases cochées disposent d’un fond distinct. Les fiches, graphiques, états vides et fenêtres d’aide
+partagent les mêmes arrondis et niveaux d’ombre. Les couleurs métier et les libellés de provenance sont conservés.
+
+Sur téléphone, les champs utilisent une taille de texte de 16 px et les lignes de filtre offrent
+une cible tactile de 44 px. La palette adaptée au daltonisme et les options de mouvement réduit
+restent disponibles. Les références visuelles sont produites dans l’image Docker Playwright de la CI.
+
+### Indicateurs et filtres actifs
+
+Les indicateurs d’entrées, de sorties, de passages du jour et de gares actives ouvrent le classement
+correspondant dans le panneau (tiroir sur téléphone). Les huit premières gares avec des passages sont
+affichées avec leur période et leur valeur. Le compteur d’anomalies ouvre toutes les gares ayant des
+occurrences signalées ; la couverture des états communiqués est précisée. Les états inconnus ne sont
+pas assimilés à zéro et l’historique des anomalies n’est pas proposé en relecture. Choisir une gare
+utilise le cadrage et la fiche existants. Ces listes portent sur l’ensemble du réseau, sans modifier la carte.
+
+Les puces « Filtres et vue » distinguent les types de gares masqués, l’axe, les filtres O/D et la liste
+ouverte par un indicateur. Chaque suppression conserve les autres réglages et rend le focus à la recherche.
+Les filtres O/D inactifs (couche masquée) ne sont pas présentés comme actifs ; un axe reste signalé car
+il intervient aussi dans la mise en évidence de la carte. Retirer un axe issu de la recherche respecte
+l’état de la couche des flux antérieur à cette recherche. La puce de liste rétablit le classement habituel.
+
+### Résumé d’axe et fiche de gare
+
+Tout axe sélectionné (recherche, carte ou filtre O/D) possède un résumé repliable dans le panneau.
+Il compte chaque gare du référentiel une seule fois, tous types confondus, et présente le nombre de gares,
+l’activité sur 15 minutes, les passages sur une heure et les occurrences d’anomalies signalées.
+La couverture des données reçues et des états d’anomalies est indiquée séparément ; les données manquantes
+restent inconnues et un total partiel d’anomalies est précédé de « ≥ ». L’heure, la relecture et la péremption
+signalée par le serveur restent explicites. Les passages additionnent entrées et sorties, sans prétendre
+compter des véhicules uniques. Retirer l’axe retire le résumé.
+
+La fiche de gare commence par les entrées et sorties sur une heure et les passages du jour, puis les
+incidents. Le tableau complet (5 min, 15 min, 1 h et journée) est disponible dans « Détail par période »,
+replié à l’ouverture d’une nouvelle gare. L’historique et les principaux flux viennent ensuite.
+L’en-tête et le bouton de fermeture restent accessibles pendant le défilement de la fiche.
+Une gare sans métrique reçue affiche « — » ; un zéro effectivement reçu reste zéro. La comparaison
+historique avec J-7 est proposée en direct uniquement et se recharge pour chaque gare choisie.
+
+### Légende compacte sur la carte
+
+La carte présente une légende flottante, compacte par défaut : types de gares visibles, absence de données
+récentes, anomalies en direct, axes, flux O/D et tronçons estimés selon les couches activées.
+Les symboles reprennent la palette courante. La surface des cercles représente les passages sur une heure ;
+les tirets indiquent le volume des flux avec une vitesse illustrative.
+
+Le bouton « Légende de la carte » déplie les explications complètes, dont l’échelle stable des tronçons,
+les itinéraires estimés et les limites des données. Échap replie cette légende et garde le focus sur son bouton,
+sans retirer un axe sélectionné. Sur écran étroit, elle se place au-dessus des commandes du bas et son contenu
+défile si nécessaire. Elle s’efface temporairement devant une fiche de gare ou le diagnostic.
+La légende détaillée du panneau reste accessible indépendamment.
+
 Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modification de l'API).
 
 | # | Changement | Détail |
