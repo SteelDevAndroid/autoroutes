@@ -230,7 +230,8 @@ describe('StationTooltip', () => {
     render(<StationTooltip stations={stations} store={store} />);
 
     expect(screen.getByRole('tooltip').textContent).toContain('Marseille');
-    expect(screen.getByRole('tooltip').textContent).toContain('15 min');
+    expect(screen.getByRole('tooltip').textContent).toContain('Passages · 1 h');
+    expect(screen.getByRole('tooltip').textContent).toContain('Activité non reçue');
 
     cleanup();
     useUiStore.setState({ hover: null });
