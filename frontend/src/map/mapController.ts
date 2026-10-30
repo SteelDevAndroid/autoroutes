@@ -1,3 +1,4 @@
+import { flowEmphasis } from './flowEmphasis';
 import * as maplibregl from 'maplibre-gl';
 import type { ExpressionSpecification, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
@@ -270,7 +271,7 @@ export class MapController {
       const id = this.stations.features[index]?.properties.id;
       return id === undefined ? [] : [id];
     }));
-    this.whenStyleReady(() => { this.updateMotion(); });
+    this.whenStyleReady(() => { this.applyHighlight(); this.updateMotion(); });
   }
 
   /** Une interruption fige les tirets affichés ; elle ne retire ni géométrie, ni volume, ni date. */
@@ -457,8 +458,7 @@ export class MapController {
     }
     const flow = this.highlighted;
     this.odFeatureKeys.forEach((key, id) => {
-      const active = flow !== null && key.originId === flow.originId && key.destinationId === flow.destinationId;
-      this.map.setFeatureState({ source: SOURCE.od, id }, { active, dim: flow !== null && !active });
+      this.map.setFeatureState({ source: SOURCE.od, id }, flowEmphasis(key, flow, this.selectedId, this.motionStations, this.od.level === 'STATION'));
     });
   }
 
@@ -565,6 +565,10 @@ export class MapController {
       this.renderer.setSelected(index);
       const feature = index === null ? undefined : this.stations.features[index];
       this.selectedId = feature?.properties.id ?? null;
+      this.stations.features.forEach((_, id) => {
+        this.map.setFeatureState({ source: SOURCE.stations, id }, { selectionDim: this.selectedId !== null && id !== index });
+      });
+      this.container.dataset.selectedStation = this.selectedId ?? '';
       this.renderOd();
       if (focus && feature !== undefined) {
         const center = feature.geometry.coordinates as [number, number];

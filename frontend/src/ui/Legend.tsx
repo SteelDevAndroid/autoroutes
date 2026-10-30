@@ -22,8 +22,8 @@ export function LegendContent({ location = 'panel' }: { readonly location?: 'pan
       {rows.includes('echangeur') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationEchangeur }} /> Gare d’échangeur</div>}
       {rows.includes('pleine-voie') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>}
       {rows.includes('stale') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationStale }} /> Gare sans données récentes</div>}
-      {layers.stations && <p className="note">Activité : surface du cercle ∝ passages sur 1 h. Halo bref = nouveaux passages.</p>}
-      {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour extérieur : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
+      {layers.stations && <p className="note">Activité : surface du cercle ∝ passages sur 1 h. Halo bref = nouveaux passages. Anneau large = gare sélectionnée.</p>}
+      {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour d’alerte : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
       {rows.includes('axes') && <div className="legend-row"><span className="axis-label axis-label-sample" aria-hidden="true">A7</span> Nom d’autoroute : survol = ses gares, clic = filtre « Axe » des flux</div>}
       {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), clair → foncé = origine → destination</div>}
       {rows.includes('od') && <p className="note">Flux entre gares de l’axe sélectionné : tirets plus rapprochés = volume plus élevé. Leur vitesse est illustrative et constante.</p>}

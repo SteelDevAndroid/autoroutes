@@ -90,9 +90,12 @@ test.describe('démonstration (flux simulé)', () => {
     expect(box).not.toBeNull();
     await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) / 2, (box?.y ?? 0) + (box?.height ?? 0) / 2);
     await expect(page.getByRole('tooltip')).toContainText('La Boisse');
+    await expect(page.getByRole('tooltip')).toContainText('Passages · 1 h');
+    await expect(map).not.toHaveAttribute('data-selected-station', '');
 
-    await detail.getByRole('button', { name: 'Fermer le détail' }).click();
+    await detail.getByRole('button', { name: 'Effacer la sélection' }).click();
     await expect(detail).toBeHidden();
+    await expect(map).toHaveAttribute('data-selected-station', '');
   });
 
   test('« / » met le focus sur la recherche, qui trouve une autoroute et cadre ses gares', async ({ page }) => {

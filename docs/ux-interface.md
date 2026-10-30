@@ -62,6 +62,20 @@ sans retirer un axe sélectionné. Sur écran étroit, elle se place au-dessus d
 défile si nécessaire. Elle s’efface temporairement devant une fiche de gare ou le diagnostic.
 La légende détaillée du panneau reste accessible indépendamment.
 
+### Lecture des flux et sélection d’une gare
+
+Les liaisons secondaires sont atténuées ; les petits volumes sont plus discrets. Un axe choisi
+met en avant les flux qui touchent ses gares, puis une gare choisie devient le contexte prioritaire.
+Le survol d’un flux dans une liste prime temporairement sur ce contexte. Cette hiérarchie modifie
+uniquement l’apparence : les listes, volumes, seuils de confidentialité et limites de tracé restent identiques.
+Les regroupements par département ne sont pas comparés à des identifiants de gares.
+
+La gare sélectionnée possède un anneau plus large et les autres points sont atténués.
+« Effacer la sélection » dans la fiche restaure l’affichage, sans changer le cadrage ni le filtre d’axe.
+L’infobulle présente le nom, le type et l’axe, les passages sur une heure (entrées + sorties),
+les occurrences d’anomalies et l’état des données. Une absence de métrique reste « — » ; les anomalies
+inconnues, la péremption, le rattrapage et la déconnexion ne sont pas assimilés à un état normal.
+
 Suite aux suggestions UI/UX. Six changements, tous côté frontend (aucune modification de l'API).
 
 | # | Changement | Détail |

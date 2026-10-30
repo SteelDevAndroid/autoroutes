@@ -123,6 +123,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
         </div>
         <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
+      <button type="button" className="icon-button selection-clear" onClick={() => { select(null); }}>Effacer la sélection</button>
       <section className="station-overview" aria-label="Chiffres clés de la gare">
         <div className="anomalies-heading"><h3>Activité de la gare</h3><DataNature /></div>
         <dl className="summary-grid station-key-metrics">
