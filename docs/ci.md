@@ -23,6 +23,24 @@ Workflow : `.github/workflows/ci.yml`, déclenché à chaque pull request, à ch
 
 En cas d'échec, les rapports de tests, les captures et les journaux des services sont déposés en artefacts (7 jours).
 
+## Carte embarquée dans les images Docker
+
+Le job `carte-images` génère la carte complète à chaque exécution de la CI, y compris sur pull request :
+fond France Protomaps z12, autoroutes OSM, graphe avec géométrie, polices et sprites. Il utilise la même
+chaîne que le workflow `tuiles.yml`, puis exécute `cartographie/verify_tiles.py`. Son délai maximal est de
+300 minutes ; les téléchargements externes et l'espace disque rendent ce job plus coûteux que les tests unitaires.
+
+L'artefact `carte-images` (3 jours, sans recompression) est transmis au job Docker puis à la publication.
+Les cibles Docker `with-map` consomment cet artefact via le contexte BuildKit nommé `cartography`.
+Le frontend et le backend publiés partagent ainsi exactement le même jeu de données ; les constructions
+locales par défaut conservent leurs images légères et les montages de `compose.yaml`.
+
+`scripts/verify_bundled_map.py` démarre l'image frontend finale sans volume et vérifie les réponses HTTP 206
+des deux archives PMTiles, les polices, les sprites et le manifeste. Il compare aussi le graphe et le manifeste
+du backend aux sorties générées et contrôle le chemin activé dans l'image. `compose.hub.yaml` doit laisser
+ces fichiers visibles. Le point de contrôle `CI réussie` inclut la génération et ces vérifications ; la publication
+Docker Hub réutilise l'artefact validé, sans nouvelle génération.
+
 ## Reproduire en local
 
 ```bash

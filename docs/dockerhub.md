@@ -68,13 +68,21 @@ L’authentification du serveur MCP se configure séparément avec `MCP_SECURITY
 
 ## Cartographie
 
-Les tuiles et le graphe ne sont pas inclus dans les images frontend. Télécharger les données des [releases de tuiles](https://github.com/SteelDevAndroid/autoroutes/releases), ou les produire avec la tâche ci-dessous (réseau et espace disque nécessaires) :
+À partir des images publiées avec cette modification, la CI génère et vérifie la carte avant de construire les images.
+L'image `frontend` de production inclut le fond France z12, les autoroutes, les polices et les sprites.
+Le backend inclut le graphe routier du même jeu, activé par défaut sur `/app/bundled-graph/graph.json`.
+`compose.hub.yaml` utilise ces fichiers sans montage local : aucun téléchargement séparé n'est nécessaire.
+Le manifeste de provenance est accessible sur `/cartography-manifest.json` dans le frontend.
+Les anciennes versions publiées restent sans données embarquées.
+La démonstration garde son fond neutre hors ligne.
+
+Pour produire un autre jeu local (réseau et espace disque nécessaires) :
 
 ```bash
 docker compose -f compose.hub.yaml --profile tiles run --rm tiles
 ```
 
-L’image cartographique embarque ses scripts et référentiels. Elle écrit dans `cartographie/out` et utilise `cartographie/work` pour les fichiers intermédiaires. Le frontend monte les sorties en lecture seule. Pour activer les tronçons estimés, renseigner dans `.env` le chemin du graphe, par exemple `ASSIGNMENT_GRAPH_FILE=/app/graph/graph-AAAAMMJJ.json`, puis relancer le backend.
+L’image cartographique embarque ses scripts et référentiels. Elle écrit dans `cartographie/out` et utilise `cartographie/work` pour les fichiers intermédiaires. Ces sorties locales s'utilisent avec `compose.yaml`, qui conserve les montages de données. Le fichier Hub utilise toujours les données embarquées ; changer son jeu nécessite une surcharge explicite des volumes. `ASSIGNMENT_GRAPH_FILE=` désactive le graphe embarqué si nécessaire.
 
 ### Fond absent ou génération arrêtée
 
