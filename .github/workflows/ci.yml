@@ -226,12 +226,61 @@ jobs:
       - uses: actions/checkout@v7
       - run: shellcheck cartographie/build.sh scripts/perf_history.sh scripts/fetch_tiles.sh
 
+  carte-images:
+    name: Carte embarquée (fond, autoroutes et graphe)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v7
+      - name: Place disque pour les données OSM et Protomaps
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+      - uses: docker/setup-buildx-action@v4
+      - name: Image de la chaîne cartographique
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: cartographie/Dockerfile
+          load: true
+          tags: autoroutes-cartographie:ci
+          cache-from: type=gha,scope=cartographie
+          cache-to: type=gha,scope=cartographie,mode=max
+      - name: Génération complète de la carte
+        run: |
+          docker run --rm -v "$PWD:/repo" \
+            -e PROTOMAPS_BUILD=latest -e OSM_MODE=single -e BASEMAP_MAXZOOM=12 -e GITHUB_SHA \
+            autoroutes-cartographie:ci
+      - name: Validation et chemin stable du graphe
+        run: |
+          set -euo pipefail
+          python3 cartographie/verify_tiles.py --out cartographie/out --maxzoom 12
+          graph=$(python3 -c 'import json; print(json.load(open("cartographie/out/manifest.json"))["graphe"])')
+          sudo cp "cartographie/out/graph/$graph" cartographie/out/graph.json
+      - name: Jeu cartographique partagé par les images
+        uses: actions/upload-artifact@v7
+        with:
+          name: carte-images
+          path: |
+            cartographie/out/tiles
+            cartographie/out/basemaps-assets
+            cartographie/out/graph.json
+            cartographie/out/manifest.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 3
+
   docker:
     name: Images Docker et Compose
+    needs: [carte-images]
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: carte-images
+          path: cartographie/out
       - uses: docker/setup-buildx-action@v4
       - name: Compose valide
         run: |
@@ -249,6 +298,9 @@ jobs:
           assert all("build" not in service for service in services.values())
           assert services["backend"]["depends_on"]["postgres"]["condition"] == "service_healthy"
           assert services["backend"]["depends_on"]["kafka-init"]["condition"] == "service_completed_successfully"
+          assert not services["frontend-live"].get("volumes")
+          assert not services["backend"].get("volumes")
+          assert services["backend"]["environment"]["ASSIGNMENT_GRAPH_FILE"] == "/app/bundled-graph/graph.json"
           '
           # Le serveur MCP s'appuie sur le Kafka du profil « full ».
           docker compose --profile full --profile mcp config -q
@@ -275,7 +327,10 @@ jobs:
         with:
           context: .
           file: backend/Dockerfile
-          push: false
+          target: with-map
+          build-contexts: cartography=./cartographie/out
+          load: true
+          tags: autoroutes-backend:smoke
           cache-from: type=gha,scope=backend
           cache-to: type=gha,scope=backend,mode=max
       - name: Image simulateur
@@ -302,6 +357,18 @@ jobs:
           push: false
           cache-from: type=gha,scope=frontend-demo
           cache-to: type=gha,scope=frontend-demo,mode=max
+      - name: Image frontend (production avec carte)
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          target: with-map
+          build-contexts: cartography=./cartographie/out
+          load: true
+          tags: autoroutes-frontend:smoke
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - name: Carte servie sans volume et graphe embarqué
+        run: python3 scripts/verify_bundled_map.py --frontend autoroutes-frontend:smoke --backend autoroutes-backend:smoke --out cartographie/out
 
   e2e-live:
     name: E2E chaîne complète (simulateur → Kafka → backend → SSE → navigateur) et supervision
@@ -466,7 +533,7 @@ jobs:
   ci-ok:
     name: CI réussie
     if: always()
-    needs: [backend, simulator, mcp, frontend, visuel, cartographie, observabilite, shell, docker, e2e-live, e2e-auth]
+    needs: [backend, simulator, mcp, frontend, visuel, cartographie, carte-images, observabilite, shell, docker, e2e-live, e2e-auth]
     runs-on: ubuntu-latest
     steps:
       - name: Tous les jobs sont verts
@@ -498,6 +565,8 @@ jobs:
       matrix:
         include:
           - image: backend
+            target: with-map
+            build-contexts: cartography=./cartographie/out
             context: .
             file: backend/Dockerfile
             platforms: linux/amd64,linux/arm64
@@ -514,6 +583,8 @@ jobs:
             build-args: ""
           # Interface de production : tuiles et polices servies par la même origine (valeurs par défaut du Dockerfile).
           - image: frontend
+            target: with-map
+            build-contexts: cartography=./cartographie/out
             context: frontend
             file: frontend/Dockerfile
             platforms: linux/amd64,linux/arm64
@@ -544,6 +615,12 @@ jobs:
           fi
       - uses: actions/checkout@v7
         if: steps.secrets.outputs.enabled == 'true'
+      - name: Carte validée par le job Docker de cette exécution
+        if: steps.secrets.outputs.enabled == 'true' && matrix.target == 'with-map'
+        uses: actions/download-artifact@v8
+        with:
+          name: carte-images
+          path: cartographie/out
       - uses: docker/setup-qemu-action@v4
         if: steps.secrets.outputs.enabled == 'true'
       - uses: docker/setup-buildx-action@v4
@@ -578,6 +655,8 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          build-contexts: ${{ matrix.build-contexts }}
           platforms: ${{ matrix.platforms }}
           build-args: ${{ matrix.build-args }}
           push: true

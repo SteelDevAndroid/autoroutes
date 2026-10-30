@@ -181,6 +181,19 @@ Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extrait
 
 ## Images publiées (Docker Hub)
 
+La CI génère désormais la carte complète avec `cartographie/build.sh` (dernier Protomaps,
+fond France z12 et autoroutes OSM), puis la vérifie avec `verify_tiles.py`. Le job `carte-images`
+transmet un artefact unique aux constructions et à la publication de cette même exécution.
+L'image frontend de production embarque les PMTiles, les polices, les sprites
+et le manifeste `/cartography-manifest.json`. Le backend embarque le graphe correspondant, activé sur
+`/app/bundled-graph/graph.json`. Les contrôles de publication exigent une carte valide : aucun fond vide
+n'est substitué si la génération échoue. La génération complète allonge donc la CI et dépend des sources externes.
+
+`compose.hub.yaml` retire les montages cartographiques locaux pour rendre visibles ces fichiers.
+`compose.yaml` conserve son fonctionnement local avec données montées. Pour désactiver le graphe
+embarqué, définir explicitement `ASSIGNMENT_GRAPH_FILE=` ; une variable absente utilise le graphe embarqué.
+Les tags déjà publiés avant ce changement ne contiennent pas la carte : utiliser un nouveau tag.
+
 Les images sont publiées par la CI dans **un seul dépôt**, `compagnonsdudev/autoroutes`, une famille de tags par image :
 
 | Image | Tags | Plateformes |
@@ -345,5 +358,5 @@ de zoom, le gel pendant les interruptions, la confirmation après reconnexion et
 - Alertmanager (port 9093, `ALERTMANAGER_PORT`) regroupe les alertes (4 h de répétition, 1 h pour `critical`) et inhibe les autres alertes quand `BackendDown` est actif ; **aucun récepteur externe n'est configuré** : renseigner e-mail, webhook ou chat dans `observability/alertmanager/alertmanager.yml` (récepteur `equipe`, secrets via `url_file`/`password_file`).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
-- L’image cartographique est construite et ses scripts et référentiels sont vérifiés sans montage du dépôt en CI. La production complète des données reste une tâche séparée, exécutée par le workflow de tuiles. Derrière un proxy TLS d’entreprise, installer le certificat dans `cartographie/ca/` avant une construction locale ; `OSM_MODE=regions` permet d’utiliser les extraits OpenStreetMap France si Geofabrik est inaccessible.
+- La CI génère la carte complète pour les images ; le workflow de tuiles reste disponible pour les releases de données mensuelles ou manuelles. Derrière un proxy TLS d’entreprise, installer le certificat dans `cartographie/ca/` avant une construction locale ; `OSM_MODE=regions` permet d’utiliser les extraits OpenStreetMap France si Geofabrik est inaccessible.
 - Les images Docker Hub sont préconstruites ; les réglages frontend `VITE_*` nécessitent une construction locale avec `compose.yaml` pour être modifiés.

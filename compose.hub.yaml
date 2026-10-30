@@ -16,6 +16,8 @@ services:
     security_opt: !override
       - no-new-privileges:true
     image: compagnonsdudev/autoroutes:frontend-${AUTOROUTES_TAG:-latest}
+    # La carte est embarquée ; un dossier local vide la masquerait.
+    volumes: !reset []
     build: !reset null
     pull_policy: always
   backend:
@@ -26,6 +28,9 @@ services:
     security_opt: !override
       - no-new-privileges:true
     image: compagnonsdudev/autoroutes:backend-${AUTOROUTES_TAG:-latest}
+    volumes: !reset []
+    environment:
+      ASSIGNMENT_GRAPH_FILE: ${ASSIGNMENT_GRAPH_FILE-/app/bundled-graph/graph.json}
     build: !reset null
     pull_policy: always
   simulator:

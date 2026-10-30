@@ -23,13 +23,15 @@ Le profil `full` inclut Kafka, l’initialisation des topics, PostgreSQL, le bac
 - Prometheus : http://localhost:9090
 - Alertmanager : http://localhost:9093
 
-Les tuiles et le graphe sont à installer séparément : voir le [guide Docker](docs/docker.md). Les données persistent dans des volumes nommés ; `down -v` les supprime.
+Les nouvelles images Docker Hub embarquent la carte et le graphe générés et vérifiés par la CI.
+Les constructions locales avec `compose.yaml` utilisent les fichiers de `cartographie/out` : voir le [guide Docker](docs/docker.md).
+Les données applicatives persistent dans des volumes nommés ; `down -v` les supprime.
 
-Si le fond de carte est absent, installer les [tuiles publiées](docs/dockerhub.md#installer-les-données-publiées-sans-les-régénérer)
+Pour une construction locale avec `compose.yaml`, installer les [tuiles publiées](docs/dockerhub.md#installer-les-données-publiées-sans-les-régénérer)
 ou exécuter la tâche ponctuelle au premier plan :
 
 ```powershell
-docker compose -f compose.hub.yaml --profile tiles run --rm tiles
+docker compose --profile tiles run --rm tiles
 ```
 
 `up -d` masque sa progression. Sous Windows, le [guide de dépannage](docs/dockerhub.md#fond-absent-ou-génération-arrêtée)
