@@ -1,6 +1,53 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useUiStore } from './uiStore';
 
+describe('freshness confirmation after reconnect', () => {
+  beforeEach(() => { useUiStore.setState(useUiStore.getInitialState(), true); });
+
+  it('retains the last freshness and timestamp but requires a new confirmation after an outage', () => {
+    const state = useUiStore.getState();
+    const freshness = { status: 'LIVE' as const, watermarkLagSeconds: 1, consumerLag: 0, staleStations: [] };
+    state.setConnection('open');
+    state.setFreshness(freshness);
+    state.setWatermark('2026-10-30T15:00:00Z');
+    expect(useUiStore.getState().freshnessConfirmed).toBe(true);
+    state.setConnection('reconnecting');
+    expect(useUiStore.getState().freshnessConfirmed).toBe(false);
+    expect(useUiStore.getState().freshness).toBe(freshness);
+    expect(useUiStore.getState().watermark).toBe('2026-10-30T15:00:00Z');
+    state.setConnection('open');
+    expect(useUiStore.getState().freshnessConfirmed).toBe(false);
+    state.setFreshness(freshness);
+    expect(useUiStore.getState().freshnessConfirmed).toBe(true);
+  });
+});
+
+describe('stable segment colour scale', () => {
+  beforeEach(() => { useUiStore.setState(useUiStore.getInitialState(), true); });
+
+  it('keeps the first positive reference when other segments change or disappear', () => {
+    const estimate = (vehicles: number[]) => ({ graphVersion: 'v1', algorithm: 'shortest',
+      loads: vehicles.map((count, i) => ({ segmentId: String(i), vehicles: count })) });
+    useUiStore.getState().setSegments(estimate([0]));
+    expect(useUiStore.getState().segmentReference).toBeNull();
+    useUiStore.getState().setSegments(estimate([100, 100]));
+    expect(useUiStore.getState().segmentReference).toBe(100);
+    useUiStore.getState().setSegments(estimate([100, 1000]));
+    expect(useUiStore.getState().segmentReference).toBe(100);
+    useUiStore.getState().setSegments(estimate([]));
+    expect(useUiStore.getState().segmentReference).toBe(100);
+  });
+
+  it('recalibrates when the graph or estimation algorithm changes', () => {
+    const estimate = { graphVersion: 'v1', algorithm: 'shortest', loads: [{ segmentId: 'a', vehicles: 100 }] };
+    useUiStore.getState().setSegments(estimate);
+    useUiStore.getState().setSegments({ ...estimate, graphVersion: 'v2', loads: [{ segmentId: 'a', vehicles: 200 }] });
+    expect(useUiStore.getState().segmentReference).toBe(200);
+    useUiStore.getState().setSegments({ ...estimate, graphVersion: 'v2', algorithm: 'other', loads: [{ segmentId: 'a', vehicles: 300 }] });
+    expect(useUiStore.getState().segmentReference).toBe(300);
+  });
+});
+
 describe('uiStore sections', () => {
   beforeEach(() => { useUiStore.setState(useUiStore.getInitialState(), true); });
 

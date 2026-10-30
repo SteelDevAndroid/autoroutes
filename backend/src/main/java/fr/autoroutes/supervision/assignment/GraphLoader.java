@@ -9,6 +9,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
+import java.util.List;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -37,8 +38,15 @@ final class GraphLoader {
                 var refs = new HashSet<String>();
                 edge.path("refs").forEach(ref -> refs.add(ref.asString()));
                 var speed = Math.max(1, edge.path("speedKmh").asInt(130));
+                var coordinates = new ArrayList<List<Double>>();
+                for (var point : edge.path("coordinates")) {
+                    if (!point.isArray() || point.size() != 2 || !point.get(0).isNumber() || !point.get(1).isNumber()) {
+                        throw new IllegalArgumentException("Coordonnée de tronçon invalide : " + edge.path("id").asString());
+                    }
+                    coordinates.add(List.of(point.get(0).asDouble(), point.get(1).asDouble()));
+                }
                 edges.add(new RoadGraph.Edge(edge.path("id").asString(), edge.path("from").asInt(), edge.path("to").asInt(),
-                        edge.path("lengthM").asDouble(), speed, refs, edge.path("link").asBoolean(false)));
+                        edge.path("lengthM").asDouble(), speed, refs, edge.path("link").asBoolean(false), coordinates));
             }
             return new RoadGraph("graph-" + fingerprint(bytes), longitude, latitude, edges);
         } catch (IOException e) {

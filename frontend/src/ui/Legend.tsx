@@ -3,15 +3,18 @@ import { useUiStore } from '../state/uiStore';
 import { Section } from './Section';
 import { formatCount } from './format';
 import { legendRows, segmentScale } from './legendModel';
+import { trafficMotionMessage, trafficMotionState } from '../animation/trafficMotion';
 
 /** Légende contextuelle : une ligne par couche affichée, avec la nature (observé ou estimé) de ce qu'elle montre. */
 export function Legend() {
   const mode = useUiStore((s) => s.mode);
+  const motionState = useUiStore(trafficMotionState);
   const layers = useUiStore((s) => s.layers);
   const theme = themeFor(useUiStore((s) => s.palette));
   const kinds = useUiStore((s) => s.kinds);
   const segments = useUiStore((s) => s.segments);
-  const scale = segmentScale(segments?.loads ?? []);
+  const reference = useUiStore((s) => s.segmentReference);
+  const scale = segmentScale(segments?.loads ?? [], reference);
   const rows = legendRows(layers, { echangeur: kinds.has('ECHANGEUR'), pleineVoie: kinds.has('PLEINE_VOIE') });
   return (
     <Section id="legend" title="Légende">
@@ -23,6 +26,10 @@ export function Legend() {
       {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour extérieur : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
       {rows.includes('axes') && <div className="legend-row"><span className="axis-label axis-label-sample" aria-hidden="true">A7</span> Nom d’autoroute : survol = ses gares, clic = filtre « Axe » des flux</div>}
       {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), clair → foncé = origine → destination</div>}
+      {rows.includes('od') && <p className="note">Flux entre gares de l’axe sélectionné : tirets plus rapprochés = volume plus élevé. Leur vitesse est illustrative et constante.</p>}
+      {rows.includes('od') && <p className="note">Vue nationale statique ; zoomez pour voir les flux moyens et forts en mouvement, puis les petits flux en vue locale.</p>}
+      {rows.includes('od') && trafficMotionMessage[motionState] !== null && <p className="note">{trafficMotionMessage[motionState]}</p>}
+      {rows.includes('od') && <p className="note">Tracés routiers : itinéraires estimés. Sans tracé disponible, les arcs courbes représentent des liaisons schématiques.</p>}
       {rows.includes('segments') && (
         <div className="legend-scale" data-testid="segment-scale">
           <div className="legend-row"><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} /> Charge de tronçon <strong>estimée</strong>, sur 1 h</div>
@@ -32,7 +39,7 @@ export function Legend() {
             : (
               <>
                 <div className="scale-ticks" aria-hidden="true">{scale.ticks.map((t, i) => <span key={i}>{i === scale.ticks.length - 1 ? `≥ ${formatCount(t)}` : formatCount(t)}</span>)}</div>
-                <p className="note">Véhicules par tronçon et par heure ; le maximum de l’échelle est atteint par les 5 % de tronçons les plus chargés. Tirets sur la carte : estimation.</p>
+                <p className="note">Véhicules par tronçon et par heure ; échelle de couleur stable pour comparer les mises à jour. Tirets sur la carte : estimation.</p>
               </>
             )}
         </div>

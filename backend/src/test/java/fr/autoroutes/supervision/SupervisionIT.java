@@ -320,6 +320,14 @@ class SupervisionIT {
             });
         });
         assertThat(get("/api/v1/diagnostic").path("graph").path("attachedStations").asInt()).isGreaterThanOrEqualTo(2);
+        var routed = get("/api/v1/od?includeRoutes=true&axis=A0028&role=ORIGIN");
+        assertThat(routed.path("flows")).anySatisfy(flow -> {
+            assertThat(flow.path("originId").asString()).isEqualTo(origin);
+            assertThat(flow.path("destinationId").asString()).isEqualTo(destination);
+            assertThat(flow.path("route").path("nature").asString()).isEqualTo("ESTIMATED");
+            assertThat(flow.path("route").path("coordinates").size()).isEqualTo(3);
+            assertThat(flow.path("route").path("coordinates").get(1).get(0).asDouble()).isEqualTo(2.0);
+        });
     }
 
     @Test

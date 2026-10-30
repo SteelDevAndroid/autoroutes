@@ -9,7 +9,7 @@ import java.util.Set;
 
 /**
  * Plus courts chemins en temps (longueur / vitesse maximale) entre gares, avec un cache LRU des chemins par couple.
- * Un seul thread l'utilise (le planificateur de l'affectation).
+ * Les accès sont sérialisés par AssignmentService (planificateur et lectures REST des itinéraires).
  */
 final class ShortestPaths {
 

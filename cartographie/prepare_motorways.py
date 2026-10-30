@@ -135,12 +135,14 @@ def build(ways, reference_points):
         })
         a = nodes.setdefault(key(coords[0]), len(nodes))
         b = nodes.setdefault(key(coords[-1]), len(nodes))
-        edge = {"id": segment_id, "from": a, "to": b, "lengthM": round(length(coords), 1),
+        reverse = props.get("oneway") == "-1"
+        edge = {"id": segment_id, "from": b if reverse else a, "to": a if reverse else b,
+                "coordinates": list(reversed(coords)) if reverse else coords, "lengthM": round(length(coords), 1),
                 "speedKmh": parse_speed(props.get("maxspeed"), highway), "refs": sorted(refs), "link": highway == "motorway_link"}
         edges.append(edge)
         # Les autoroutes OSM sont tracées par chaussée (oneway implicite) ; une voie explicitement bidirectionnelle crée deux arêtes.
         if props.get("oneway") == "no":
-            edges.append({**edge, "from": b, "to": a})
+            edges.append({**edge, "from": b, "to": a, "coordinates": list(reversed(coords))})
     node_list = [None] * len(nodes)
     for coord, index in nodes.items():
         node_list[index] = list(coord)

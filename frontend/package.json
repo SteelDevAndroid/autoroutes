@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "e2e": "playwright test",
+    "e2e:routes": "playwright test --config playwright.routes.config.ts",
     "e2e:visual": "playwright test e2e/visual.spec.ts",
     "e2e:visual:docker": "node scripts/visual-docker.mjs",
     "e2e:visual:update": "node scripts/visual-docker.mjs --update-snapshots"

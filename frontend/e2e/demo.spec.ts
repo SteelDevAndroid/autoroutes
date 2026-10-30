@@ -134,15 +134,23 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(page.getByLabel('Couleurs adaptées au daltonisme')).toBeChecked();
   });
 
-  test('les flux sont animés dans le sens de la marche, sauf avec « Réduire les animations »', async ({ page }) => {
+  test('seuls les flux de l’axe sélectionné sont animés, sauf avec « Réduire les animations »', async ({ page }) => {
+    // Trafic reproductible : l'axe A7 doit avoir des flux à chaque exécution.
+    await page.addInitScript({ content: 'let trafficSeed = 1234; Math.random = () => ((trafficSeed = (1664525 * trafficSeed + 1013904223) >>> 0) / 4294967296);' });
+    const errors: string[] = [];
+    page.on('pageerror', (error) => { errors.push(error.message); });
     await page.goto('/');
     const map = page.getByRole('region', { name: 'Carte des gares de péage' });
     await map.waitFor();
     await expect(map).toHaveAttribute('data-flow-motion', 'off');
 
     await page.getByLabel('Flux origine → destination').check();
-    // Les flux simulés arrivent quelques secondes après le démarrage : les tirets s'animent dès qu'il y en a.
+    await expect(map).toHaveAttribute('data-flow-motion', 'off');
+    await page.getByLabel('Nom de gare').fill('a7');
+    await page.keyboard.press('Enter');
     await expect(map).toHaveAttribute('data-flow-motion', 'on', { timeout: 30_000 });
+    await expect.poll(async () => Number(await map.getAttribute('data-animated-flows'))).toBeGreaterThan(0);
+    await page.screenshot({ path: 'test-results/traffic-animation-selected.png' });
 
     await page.getByRole('button', { name: 'Couches et gares' }).click();
     await page.getByText('Préférences d’affichage', { exact: true }).click();
@@ -152,6 +160,11 @@ test.describe('démonstration (flux simulé)', () => {
 
     await page.getByLabel('Réduire les animations').uncheck();
     await expect(map).toHaveAttribute('data-flow-motion', 'on');
+
+    await page.getByRole('button', { name: /Revenir à la vue d’ensemble/ }).click();
+    await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
+    await expect(map).toHaveAttribute('data-flow-motion', 'off');
+    expect(errors).toEqual([]);
   });
 
   test('les sections du panneau se replient et se déplient, sans rester atteignables au clavier une fois fermées', async ({ page }) => {

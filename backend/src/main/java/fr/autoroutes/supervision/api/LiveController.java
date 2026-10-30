@@ -10,8 +10,10 @@ import fr.autoroutes.supervision.aggregation.Snapshot;
 import fr.autoroutes.supervision.aggregation.StationMetrics;
 import fr.autoroutes.supervision.referentiel.LogicalStation;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
+import fr.autoroutes.supervision.assignment.AssignmentRunner;
 import java.time.Duration;
 import java.time.Instant;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -35,11 +37,13 @@ class LiveController {
     private final LiveView liveView;
     private final StationCatalog catalog;
     private final OdQueryService odQueries;
+    private final ObjectProvider<AssignmentRunner> assignment;
 
-    LiveController(LiveView liveView, StationCatalog catalog, OdQueryService odQueries) {
+    LiveController(LiveView liveView, StationCatalog catalog, OdQueryService odQueries, ObjectProvider<AssignmentRunner> assignment) {
         this.liveView = liveView;
         this.catalog = catalog;
         this.odQueries = odQueries;
+        this.assignment = assignment;
     }
 
     @GetMapping("/snapshot")
@@ -65,9 +69,16 @@ class LiveController {
                 @RequestParam(required = false) String axis,
                 @RequestParam(defaultValue = "ANY") OdFilter.Role role,
                 @RequestParam(defaultValue = "3") long minVehicles,
-                @RequestParam(defaultValue = "500") int limit) {
-        var filter = new OdFilter(level, OdParams.csv(department), OdParams.csv(axis), role, minVehicles, limit);
-        return odQueries.query(filter).orElseThrow(LiveController::starting);
+                @RequestParam(defaultValue = "500") int limit,
+                @RequestParam(defaultValue = "false") boolean includeRoutes) {
+        // Les coordonnées sont volumineuses : au plus 500 flux par lecture enrichie ; le résultat reste marqué tronqué.
+        var filter = new OdFilter(level, OdParams.csv(department), OdParams.csv(axis), role, minVehicles,
+                includeRoutes ? Math.min(500, limit) : limit);
+        var result = odQueries.query(filter).orElseThrow(LiveController::starting);
+        var runner = includeRoutes && level == OdFilter.Level.STATION ? assignment.getIfAvailable() : null;
+        if (runner == null) return result;
+        return new OdResult(result.reference(), result.window(), result.level(), result.minVehicles(), runner.routedFlows(result.flows()),
+                result.nodes(), result.masked(), result.totalVehicles(), result.truncated(), result.coverage());
     }
 
     @GetMapping("/od/coverage")

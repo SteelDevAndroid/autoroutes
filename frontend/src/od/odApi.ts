@@ -10,7 +10,8 @@ async function getJson<T>(path: string, signal?: AbortSignal): Promise<T> {
 }
 
 export async function liveOd(filters: OdFilters, signal?: AbortSignal): Promise<OdView> {
-  return toOdView(await getJson<OdResultDto>(`/api/v1/od?${odQuery(filters)}`, signal));
+  const geometry = filters.level === 'STATION' ? '&includeRoutes=true' : '';
+  return toOdView(await getJson<OdResultDto>(`/api/v1/od?${odQuery(filters)}${geometry}`, signal));
 }
 
 export interface OdCoverageDto {

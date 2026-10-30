@@ -62,6 +62,19 @@ class PrepareMotorwaysTest(unittest.TestCase):
 
         self.assertEqual([(e["from"], e["to"]) for e in graph["edges"]], [(0, 1), (1, 0)])
 
+    def test_keeps_every_bend_and_orients_geometry_in_the_direction_of_each_edge(self):
+        coords = [[4.80, 45.70], [4.805, 45.715], [4.81, 45.71]]
+        _, graph = build([way(3, coords, oneway="no")], {})
+        self.assertEqual(graph["edges"][0]["coordinates"], coords)
+        self.assertEqual(graph["edges"][1]["coordinates"], list(reversed(coords)))
+
+    def test_reverse_oneway_reverses_both_topology_and_geometry(self):
+        coords = [[4.80, 45.70], [4.805, 45.715], [4.81, 45.71]]
+        _, graph = build([way(3, coords, oneway="-1")], {})
+        self.assertEqual(len(graph["edges"]), 1)
+        self.assertEqual((graph["edges"][0]["from"], graph["edges"][0]["to"]), (1, 0))
+        self.assertEqual(graph["edges"][0]["coordinates"], list(reversed(coords)))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { buildAxisGroups } from '../map/axes';
+import { roadCoordinates } from '../map/odGeometry';
 import type { AxisGroup } from '../map/axes';
 import { visibleFlows } from '../od/odList';
 import { config } from '../config';
@@ -114,7 +115,9 @@ export function OdPanel({ stations, onFocusFlow }: {
               <li key={`${f.originId}>${f.destinationId}`}>
                 <button type="button" className={`od-row${fresh.has(`${f.originId}>${f.destinationId}`) ? ' flash' : ''}`} onMouseEnter={() => { highlight(key); }} onMouseLeave={() => { highlight(null); }}
                   onFocus={() => { highlight(key); }} onBlur={() => { highlight(null); }} onClick={() => { onFocusFlow(key); }}>
-                  <span className="od-route">{f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`}</span>
+                  <span className="od-route">{f.originId === f.destinationId ? `${label(f.originId)} (interne)` : `${label(f.originId)} → ${label(f.destinationId)}`}
+                    {f.originId !== f.destinationId && !departments && <small className="note">{roadCoordinates(f) === null ? 'Liaison schématique' : 'Itinéraire estimé'}</small>}
+                  </span>
                   <span className="od-count">{formatCount(f.vehicles)} véh.</span>
                 </button>
               </li>

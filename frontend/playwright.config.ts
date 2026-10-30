@@ -5,6 +5,7 @@ const externalBaseUrl = process.env.E2E_BASE_URL;
 
 export default defineConfig({
   testDir: './e2e',
+  testIgnore: '**/routes.spec.ts',
   timeout: 60_000,
   reporter: [['list']],
   // Régression visuelle (e2e/visual.spec.ts) : tolérance au bruit d'antialiasing entre machines, pas aux vrais décalages.

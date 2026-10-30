@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { diffSegmentLoads } from './segmentLoads';
 
 describe('diffSegmentLoads', () => {
+  it('keeps an unchanged load at the same intensity with an explicit reference', () => {
+    const first = diffSegmentLoads(new Map(), [{ segmentId: 'a', vehicles: 50 }, { segmentId: 'b', vehicles: 75 }], 100);
+    const second = diffSegmentLoads(first.next, [{ segmentId: 'a', vehicles: 50 }, { segmentId: 'b', vehicles: 1000 }], 100);
+    expect(first.next.get('a')).toBe(0.5);
+    expect(second.next.get('a')).toBe(0.5);
+    expect(second.set.map(([id]) => id)).toEqual(['b']);
+    expect(second.next.get('b')).toBe(1);
+  });
   it('normalises on the 95th percentile and caps at 1', () => {
     const { next } = diffSegmentLoads(new Map(), [
       { segmentId: 'a', vehicles: 10 }, { segmentId: 'b', vehicles: 20 }, { segmentId: 'c', vehicles: 1_000 },
