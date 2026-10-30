@@ -110,7 +110,9 @@ export function StationDetail({ stations, store, onFocusFlow }: {
     ['1 h', store.entries1h[index] ?? 0, store.exits1h[index] ?? 0],
     ['Aujourd’hui', store.entriesToday[index] ?? 0, store.exitsToday[index] ?? 0],
   ];
-  const stale = staleIds?.includes(p.id) ?? false;
+  const stale = mode === 'live' && (staleIds?.includes(p.id) ?? false);
+  const received = store.received[index] === 1;
+  const count = (value: number) => received ? formatCount(value) : '—';
   return (
     <section className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
       <header>
@@ -121,24 +123,42 @@ export function StationDetail({ stations, store, onFocusFlow }: {
         </div>
         <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
+      <section className="station-overview" aria-label="Chiffres clés de la gare">
+        <div className="anomalies-heading"><h3>Activité de la gare</h3><DataNature /></div>
+        <dl className="summary-grid station-key-metrics">
+          <div><dt>Entrées · 1 h</dt><dd>{count(store.entries1h[index] ?? 0)}</dd></div>
+          <div><dt>Sorties · 1 h</dt><dd>{count(store.exits1h[index] ?? 0)}</dd></div>
+          <div><dt>Passages aujourd’hui</dt><dd>{count((store.entriesToday[index] ?? 0) + (store.exitsToday[index] ?? 0))}</dd></div>
+        </dl>
+        {!received && <p className="note">Activité non reçue pour cette gare.</p>}
+        <p className="note">Dernier passage : {formatTime(Number.isNaN(store.lastEventMs[index] ?? Number.NaN) ? null : store.lastEventMs[index] ?? null)}
+          {mode === 'replay' && ' · relecture'}
+          {stale && <strong className="status-warn"> — données périmées</strong>}
+        </p>
+      </section>
       {mode === 'replay' ? <section className="station-anomalies" aria-label="Incidents et anomalies"><h3>Incidents et anomalies</h3><p className="note">État des anomalies indisponible en relecture : aucun historique d’incidents n’est fourni.</p></section>
         : <StationAnomalies anomalies={store.anomalies[index] ?? null} updatedAt={store.anomaliesUpdatedAt[index] ?? null} />}
+      <details className="period-breakdown" key={p.id}>
+        <summary>Détail par période <Icon name="chevron" /></summary>
       <table>
         <caption className="sr-only">Passages par période et solde des entrées et sorties</caption>
         <thead><tr><th scope="col">Période</th><th scope="col">Entrées</th><th scope="col">Sorties</th><th scope="col">Solde</th></tr></thead>
         <tbody>
           {rows.map(([label, entries, exits]) => (
-            <tr key={label}><th scope="row">{label}</th><td>{formatCount(entries)}</td><td>{formatCount(exits)}</td><td>{formatSigned(entries - exits)}</td></tr>
+            <tr key={label}><th scope="row">{label}</th><td>{count(entries)}</td><td>{count(exits)}</td><td>{received ? formatSigned(entries - exits) : '—'}</td></tr>
           ))}
         </tbody>
       </table>
-      <p className="note">
-        Dernier passage : {formatTime(Number.isNaN(store.lastEventMs[index] ?? Number.NaN) ? null : store.lastEventMs[index] ?? null)}
-        {stale && <strong className="status-warn"> — données périmées</strong>}
-      </p>
-      {!config.demo && <HistoryChart stationId={p.id} />}
+      <p className="note">Le solde est la différence entre entrées et sorties, pas un nombre de véhicules présents.</p>
+      </details>
+      <section className="detail-history" aria-label="Historique de la gare">
+        <h3>Historique</h3>
+        {config.demo ? <p className="note">La démonstration ne fournit pas de séries historiques.</p>
+          : mode === 'replay' ? <p className="note">Comparaison avec J-7 disponible au retour au direct.</p>
+          : <HistoryChart key={p.id} stationId={p.id} />}
+      </section>
       <StationFlows stationId={p.id} stations={stations} onFocusFlow={onFocusFlow} />
-      <p className="note">{formatCount(p.lanes)} voies. Le solde n’est pas un nombre de véhicules présents. La répartition par classe de véhicule n’est pas diffusée par le flux.</p>
+      <p className="note">{formatCount(p.lanes)} voies. Les passages additionnent les entrées et sorties ; ce ne sont pas des véhicules uniques. La répartition par classe de véhicule n’est pas diffusée par le flux.</p>
     </section>
   );
 }

@@ -12,6 +12,7 @@ import { useNewKeys } from './flash';
 import { formatCount } from './format';
 import { topStations } from './topStations';
 import { useStoreVersion } from './useStoreVersion';
+import { MetricStations } from './MetricStations';
 
 const TOP = 8;
 const HOURS = 3;
@@ -70,6 +71,7 @@ export function ActivityPanel({ stations, store, onFocus }: {
 }) {
   const version = useStoreVersion(store);
   const mode = useUiStore((s) => s.mode);
+  const metric = useUiStore((s) => s.activityMetric);
   const [rows, setRows] = useState(() => topStations(store, TOP));
   useEffect(() => {
     const refresh = () => { setRows(topStations(store, TOP)); };
@@ -81,6 +83,7 @@ export function ActivityPanel({ stations, store, onFocus }: {
   // La démonstration n'a pas d'historique, et la relecture montre un autre instant que « maintenant ».
   const history = !config.demo && mode === 'live';
   const fresh = useNewKeys(ranked.map((row) => row.id));
+  if (metric !== 'passages1h') return <MetricStations stations={stations} store={store} metric={metric} onFocus={onFocus} />;
   return (
     <Section id="activity" title="Gares les plus actives" badge={<DataNature />}>
       {ranked.length === 0

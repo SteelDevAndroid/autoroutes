@@ -6,7 +6,7 @@ import { legendRows, segmentScale } from './legendModel';
 import { trafficMotionMessage, trafficMotionState } from '../animation/trafficMotion';
 
 /** Légende contextuelle : une ligne par couche affichée, avec la nature (observé ou estimé) de ce qu'elle montre. */
-export function Legend() {
+export function LegendContent({ location = 'panel' }: { readonly location?: 'panel' | 'map' }) {
   const mode = useUiStore((s) => s.mode);
   const motionState = useUiStore(trafficMotionState);
   const layers = useUiStore((s) => s.layers);
@@ -17,7 +17,7 @@ export function Legend() {
   const scale = segmentScale(segments?.loads ?? [], reference);
   const rows = legendRows(layers, { echangeur: kinds.has('ECHANGEUR'), pleineVoie: kinds.has('PLEINE_VOIE') });
   return (
-    <Section id="legend" title="Légende">
+    <>
       {rows.length === 0 && <p className="note">Aucune couche affichée.</p>}
       {rows.includes('echangeur') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationEchangeur }} /> Gare d’échangeur</div>}
       {rows.includes('pleine-voie') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>}
@@ -31,7 +31,7 @@ export function Legend() {
       {rows.includes('od') && trafficMotionMessage[motionState] !== null && <p className="note">{trafficMotionMessage[motionState]}</p>}
       {rows.includes('od') && <p className="note">Tracés routiers : itinéraires estimés. Sans tracé disponible, les arcs courbes représentent des liaisons schématiques.</p>}
       {rows.includes('segments') && (
-        <div className="legend-scale" data-testid="segment-scale">
+        <div className="legend-scale" data-testid={location === 'panel' ? 'segment-scale' : undefined}>
           <div className="legend-row"><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} /> Charge de tronçon <strong>estimée</strong>, sur 1 h</div>
           <div className="scale-bar" aria-hidden="true" style={{ background: `linear-gradient(to right, ${theme.segmentRamp.join(', ')})` }} />
           {scale === null
@@ -45,6 +45,11 @@ export function Legend() {
         </div>
       )}
       {(layers.od || layers.segments) && <p className="note">Données de péage : le trafic gratuit et les trajets entre deux gares ne sont pas mesurés.</p>}
-    </Section>
+    </>
   );
+}
+
+/** Explications complètes accessibles depuis le panneau d’exploration. */
+export function Legend() {
+  return <Section id="legend" title="Légende"><LegendContent /></Section>;
 }

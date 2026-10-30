@@ -29,6 +29,7 @@ export interface Freshness {
 }
 
 export type Mode = 'live' | 'replay';
+export type ActivityMetric = 'passages1h' | 'entries1h' | 'exits1h' | 'today' | 'active15m' | 'anomalies';
 
 export interface ReplayState {
   readonly status: ReplayStatus;
@@ -71,6 +72,8 @@ export interface SegmentsState {
 }
 
 export interface UiState {
+  readonly activityMetric: ActivityMetric;
+  readonly setActivityMetric: (metric: ActivityMetric) => void;
   readonly replayProvenance: Provenance;
   readonly setReplayProvenance: (nature: Provenance) => void;
   readonly capabilities: Capabilities | null;
@@ -153,6 +156,8 @@ export interface UiState {
 
 /** État d'interface uniquement (sélection, filtres, statuts) : les métriques des gares restent hors React, dans StationStore. */
 export const useUiStore = create<UiState>()((set, get) => ({
+  activityMetric: 'passages1h',
+  setActivityMetric: (activityMetric) => { set({ activityMetric }); },
   replayProvenance: 'UNKNOWN',
   setReplayProvenance: (replayProvenance) => { set({ replayProvenance }); },
   capabilities: null,

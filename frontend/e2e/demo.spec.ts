@@ -2,6 +2,55 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from './fixtures';
 
 test.describe('démonstration (flux simulé)', () => {
+  test('la légende compacte se déplie au clavier et reste utilisable sur téléphone', async ({ page }) => {
+    await page.goto('/');
+    const legend = page.getByRole('region', { name: 'Légende de la carte', exact: true });
+    const toggle = legend.getByRole('button', { name: 'Légende de la carte' });
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(legend.getByText('Échangeurs', { exact: true })).toBeVisible();
+    await page.screenshot({ path: 'test-results/legende-compacte.png' });
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(legend.getByText('Gare d’échangeur', { exact: true })).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toBeFocused();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(toggle).toBeInViewport();
+    await toggle.click();
+    await expect(legend.getByText('Gare d’échangeur', { exact: true })).toBeVisible();
+    await page.screenshot({ path: 'test-results/legende-mobile.png' });
+    await page.keyboard.press('Tab');
+    await expect(legend.locator('.map-legend-content')).toBeFocused();
+  });
+
+  test('les indicateurs ouvrent une liste et sa puce rétablit le classement habituel', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /^Entrées 1 h/ }).click();
+    const list = page.getByRole('list', { name: 'Entrées sur 1 h' });
+    await expect(list).toBeVisible();
+    await expect(list.getByRole('button').first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /^Entrées sur 1 h/ })).toBeFocused();
+    await page.screenshot({ path: 'test-results/indicateur-entrees.png' });
+    await page.getByRole('button', { name: 'Retirer : Liste · Entrées sur 1 h' }).click();
+    await expect(page.getByRole('list', { name: 'Gares les plus actives' })).toBeVisible();
+    await expect(page.getByLabel('Nom de gare')).toBeFocused();
+  });
+
+  test('sur téléphone les anomalies ouvrent le tiroir et une puce retire seulement le type masqué', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await page.getByRole('button', { name: /^Anomalies en cours/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Explorer le réseau' })).toBeVisible();
+    await expect(page.getByRole('list', { name: 'Gares avec anomalies' })).toBeVisible();
+    await page.getByRole('button', { name: 'Couches et gares', exact: true }).click();
+    await page.getByLabel('Gares d’échangeur', { exact: true }).uncheck();
+    await page.getByRole('button', { name: 'Retirer : Carte · échangeurs masqués' }).click();
+    await expect(page.getByLabel('Gares d’échangeur', { exact: true })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Retirer : Liste · Gares avec anomalies' })).toBeVisible();
+  });
+
   test('affiche la carte, le bandeau simulé et l’activité des gares', async ({ page }) => {
     const errors: string[] = [];
     page.on('pageerror', (error) => errors.push(error.message));
@@ -29,6 +78,9 @@ test.describe('démonstration (flux simulé)', () => {
     const map = page.getByRole('region', { name: 'Carte des gares de péage' });
     await expect.poll(async () => Number(await map.getAttribute('data-rendered-stations')), { timeout: 10_000 }).toBeLessThan(100);
     await expect(detail).toBeVisible();
+    await expect(detail.getByRole('region', { name: 'Chiffres clés de la gare' })).toBeVisible();
+    await page.screenshot({ path: 'test-results/fiche-synthese.png' });
+    await detail.getByText('Détail par période', { exact: true }).click();
     await expect(detail.getByRole('table')).toContainText('Aujourd’hui');
     await page.waitForTimeout(2_500);
     await page.screenshot({ path: 'test-results/demo-gare.png' });
@@ -56,11 +108,24 @@ test.describe('démonstration (flux simulé)', () => {
     // Choisir une autoroute active la couche des flux et ouvre sa section (le filtre « Axe » n'existe pas en démonstration).
     await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
     await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'true');
+    const summary = page.getByRole('group', { name: 'Résumé de l’axe' });
+    await expect(summary).toBeVisible();
+    await expect(summary).toContainText('Résumé · A7');
+    await expect(summary).toContainText('Activité reçue');
+    await page.screenshot({ path: 'test-results/resume-autoroute.png' });
+    await summary.locator(':scope > summary').click();
+    await expect(summary.locator('.summary-grid')).toBeHidden();
+    const mapLegend = page.getByRole('button', { name: 'Légende de la carte', exact: true });
+    await mapLegend.click();
+    await page.keyboard.press('Escape');
+    await expect(mapLegend).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.getByRole('region', { name: 'Carte des gares de péage' })).toHaveAttribute('data-active-axis', /A0007/);
 
     // Retour à l'affichage d'avant : la puce et Échap défont la recherche (flux éteints, carte recadrée sur la France).
     const back = page.getByRole('button', { name: /Revenir à la vue d’ensemble/ });
     await expect(back).toBeVisible();
     await back.click();
+    await expect(summary).toHaveCount(0);
     await expect(back).toBeHidden();
     await expect(page.getByLabel('Flux origine → destination')).not.toBeChecked();
 
@@ -173,7 +238,7 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(layers).toHaveAttribute('aria-expanded', 'true');
     await expect(page.getByLabel('Gares d’échangeur', { exact: false }).first()).toBeVisible();
 
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
 
     await expect(layers).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByLabel('Noms des gares')).toBeHidden();
@@ -212,14 +277,14 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(page.getByLabel('Flux origine → destination')).toBeChecked();
 
     // Légende contextuelle : la ligne des flux n'apparaît qu'avec la couche, et les sections s'ouvrent une à la fois.
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
     await expect(page.getByText('Flux O/D reçu (≥ 3 véh. sur 1 h)')).toBeVisible();
     await expect(page.getByRole('button', { name: /Flux O\/D/ })).toHaveAttribute('aria-expanded', 'false');
   });
 
   test('la légende ne décrit que les couches affichées', async ({ page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
     await expect(page.getByText('Gare d’échangeur').last()).toBeVisible();
     await expect(page.getByText('Flux O/D reçu')).toHaveCount(0);
     await expect(page.getByText('Charge de tronçon')).toHaveCount(0);
@@ -264,7 +329,7 @@ test.describe('démonstration (flux simulé)', () => {
   test('les noms d’autoroutes se masquent depuis le panneau et apparaissent dans la légende', async ({ page }) => {
     await page.goto('/');
     await expect.poll(async () => page.locator('.axis-label[data-axis]').count(), { timeout: 15_000 }).toBeGreaterThan(10);
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
     await expect(page.getByText('Nom d’autoroute : survol')).toBeVisible();
 
     await page.getByRole('button', { name: 'Couches et gares' }).click();

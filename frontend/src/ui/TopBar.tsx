@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+import type { ActivityMetric } from '../state/uiStore';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { AnimatedCount } from './AnimatedCount';
@@ -53,6 +55,20 @@ function HelpButton() {
   return <button type="button" className="icon-button help-button" data-tour="help" aria-label="Aide et à propos des données" onClick={() => { setAboutOpen(true); }}><Icon name="help" /><span>Aide</span></button>;
 }
 
+function MetricButton({ metric, children, disabled = false }: {
+  readonly metric: ActivityMetric; readonly children: ReactNode; readonly disabled?: boolean;
+}) {
+  const active = useUiStore((s) => s.openSection === 'activity' && s.activityMetric === metric);
+  return <button type="button" className="kpi-link" disabled={disabled} aria-controls="section-activity" aria-expanded={active}
+    onClick={() => {
+      const ui = useUiStore.getState();
+      ui.setActivityMetric(metric);
+      ui.setOpenSection('activity');
+      ui.setDrawerOpen(window.matchMedia('(max-width: 900px)').matches);
+      requestAnimationFrame(() => { document.querySelector<HTMLButtonElement>('.section-toggle[aria-controls="section-activity"]')?.focus(); });
+    }}>{children}</button>;
+}
+
 export function TopBar({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
   const watermark = useUiStore((s) => s.watermark);
@@ -79,18 +95,18 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       <h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
       </div>
       <div className="topbar-metrics">
-      <div className="kpi"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></div>
-      <div className="kpi"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></div>
+      <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></MetricButton></div>
+      <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></MetricButton></div>
       <div className="kpi" role="group" aria-label="Anomalies en cours"
         title={mode === 'replay' ? 'Historique des anomalies indisponible en relecture.'
           : reported === 0 ? 'État des anomalies non communiqué.'
           : `Occurrences signalées sur ${formatCount(reported)} / ${formatCount(store.size)} gares. Les états non communiqués ne sont pas comptés comme zéro.`}>
-        <span className="kpi-label">Anomalies en cours</span>
+        <MetricButton metric="anomalies" disabled={mode === 'replay' || reported === 0}><span className="kpi-label">Anomalies en cours</span>
         <span className="kpi-value">{mode === 'replay' || reported === 0 ? '—'
-          : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</span>
+          : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</span></MetricButton>
       </div>
-      <div className="kpi kpi-secondary"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></div>
-      <div className="kpi kpi-secondary"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></div>
+      <div className="kpi kpi-secondary"><MetricButton metric="today"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></MetricButton></div>
+      <div className="kpi kpi-secondary"><MetricButton metric="active15m"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></MetricButton></div>
       <div className="kpi kpi-time"><span className="kpi-label">Données à · Paris</span><span className="kpi-value">{formatTime(watermark)}</span></div>
       </div>
       <div className="topbar-actions">

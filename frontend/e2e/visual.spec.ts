@@ -36,9 +36,9 @@ test.describe('régression visuelle', () => {
     // Activer une couche ouvre sa section et referme celle des couches : on la rouvre pour la suivante.
     await page.getByRole('button', { name: 'Couches et gares' }).click();
     await page.getByLabel('Charge des tronçons (estimée)').check();
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
 
-    await expect(page.getByRole('region', { name: 'Légende' })).toHaveScreenshot('legende-flux-troncons.png', SHOT);
+    await expect(page.getByRole('region', { name: 'Légende', exact: true })).toHaveScreenshot('legende-flux-troncons.png', SHOT);
     // La légende défile quand plusieurs couches sont actives : vérifier aussi sa partie basse.
     await expect(page.getByTestId('segment-scale')).toHaveScreenshot('legende-echelle-troncons.png', SHOT);
   });
@@ -76,7 +76,7 @@ test.describe('régression visuelle', () => {
     await ready(page);
     await page.getByText('Préférences d’affichage', { exact: true }).click();
     await page.getByLabel('Couleurs adaptées au daltonisme').check();
-    await page.getByRole('button', { name: 'Légende' }).click();
+    await page.getByRole('button', { name: 'Légende', exact: true }).click();
 
     await expect(page.locator('#side-panel')).toHaveScreenshot('panneau-daltonisme.png', SHOT);
   });

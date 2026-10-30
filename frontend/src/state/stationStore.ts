@@ -9,6 +9,8 @@ type Listener = () => void;
  */
 export class StationStore {
   readonly ids: readonly string[];
+  /** Un zéro reçu se distingue d'une gare encore absente des messages. */
+  readonly received: Uint8Array;
   readonly entries1h: Float64Array;
   readonly exits1h: Float64Array;
   readonly entries15m: Float64Array;
@@ -33,6 +35,7 @@ export class StationStore {
     this.ids = ids;
     this.indexById = new Map(ids.map((id, index) => [id, index]));
     const n = ids.length;
+    this.received = new Uint8Array(n);
     this.entries1h = new Float64Array(n);
     this.exits1h = new Float64Array(n);
     this.entries15m = new Float64Array(n);
@@ -65,6 +68,7 @@ export class StationStore {
   }
 
   replaceAll(stations: readonly StationMetrics[]): void {
+    this.received.fill(0);
     for (const array of [this.entries1h, this.exits1h, this.entries15m, this.exits15m, this.entries5m, this.exits5m,
       this.entriesToday, this.exitsToday, this.increment]) {
       array.fill(0);
@@ -106,6 +110,7 @@ export class StationStore {
         continue;
       }
       const previousToday = (this.entriesToday[i] ?? 0) + (this.exitsToday[i] ?? 0);
+      this.received[i] = 1;
       const today = metrics.today.entries + metrics.today.exits;
       // Au passage de minuit le cumul repart de zéro : la baisse n'est pas une activité.
       this.increment[i] = trackIncrement ? Math.max(0, today - previousToday) : 0;

@@ -21,6 +21,7 @@ import { AlertBanner } from './ui/AlertBanner';
 import { AxisFocusChip } from './ui/AxisFocusChip';
 import { DiagnosticPanel } from './ui/DiagnosticPanel';
 import { MapView } from './ui/MapView';
+import { MapLegend } from './ui/MapLegend';
 import { SidePanel } from './ui/SidePanel';
 import { StationDetail } from './ui/StationDetail';
 import { formatTime } from './ui/format';
@@ -328,6 +329,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }} />}
       <main className="map-area" id="main-map" aria-label="Supervision cartographique" data-tour="map" inert={compact && drawerOpen}>
         <MapView stations={stations} store={store} onReady={onReady} />
+        <MapLegend />
         <AxisFocusChip onBack={() => { controller.current?.resetView(); }} />
         <StationTooltip stations={stations} store={store} />
         <StationDetail stations={stations} store={store}
