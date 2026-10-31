@@ -223,3 +223,14 @@ button:active:not(:disabled) { transform: scale(.985); transition-duration: 100m
 .mobile-map-tools { display: flex; gap: 8px; position: absolute; top: 8px; left: 8px; z-index: 5; padding: 6px; border-radius: 16px; background: var(--material-base); box-shadow: var(--depth-1); }
 @media (max-width: 900px) { .map-area > .active-filters { top: 68px; } .map-area:has(> .active-filters) .axis-focus { top: 180px; } }
 .detail { z-index: 6; }
+@media (max-width: 900px) {
+  .detail { max-height: 62%; padding: 12px 16px max(16px, env(safe-area-inset-bottom)); }
+  .detail .selection-clear { display: none; }
+  .detail .station-key-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .detail .station-key-metrics > div { padding: 10px 8px; }
+  .detail .station-key-metrics dt { font-size: 10px; }
+  .detail .station-key-metrics dd { font-size: 22px; }
+  .detail .station-meta { font-size: 11px; }
+  .detail .station-data-status { margin: 8px 0; }
+}
+@media (max-width: 900px) { .detail .station-key-metrics > :last-child { grid-column: auto; } }
