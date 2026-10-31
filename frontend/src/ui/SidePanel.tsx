@@ -11,10 +11,10 @@ import { useCompact } from './useCompact';
 import { ActivityPanel } from './ActivityPanel';
 import { Legend } from './Legend';
 import { OdPanel } from './OdPanel';
+import { ActiveFilters } from './ActiveFilters';
 import { SearchBox } from './SearchBox';
 import { Section } from './Section';
 import { SegmentsPanel } from './SegmentsPanel';
-import { ActiveFilters } from './ActiveFilters';
 import { AxisSummary } from './AxisSummary';
 
 export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, onResetView }: {
@@ -47,7 +47,7 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
       </header>
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
       <div className="side-content">
-      <ActiveFilters stations={stations} />
+      {compact && drawerOpen && <ActiveFilters stations={stations} />}
       <AxisSummary stations={stations} store={store} />
       <Section id="layers" title="Couches et gares">
         <fieldset className="control-group"><legend>Affichage sur la carte</legend>

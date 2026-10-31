@@ -33,6 +33,7 @@ import { Tour } from './ui/Tour';
 import { applyPalette } from './ui/paletteStorage';
 import { hasSeenTour } from './ui/tourStorage';
 import { useCompact } from './ui/useCompact';
+import { ActiveFilters } from './ui/ActiveFilters';
 import { TopBar } from './ui/TopBar';
 import { ProvenanceBanner } from './ui/ProvenanceBanner';
 
@@ -329,6 +330,15 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }} />}
       <main className="map-area" id="main-map" aria-label="Supervision cartographique" data-tour="map" inert={compact && drawerOpen}>
         <MapView stations={stations} store={store} onReady={onReady} />
+        {compact && <nav className="mobile-map-tools" aria-label="Outils de la carte">
+          <button type="button" className="icon-button" aria-controls="side-panel" aria-expanded={drawerOpen} onClick={() => { useUiStore.getState().setDrawerOpen(true); }}>Rechercher</button>
+          <button type="button" className="icon-button" aria-controls="side-panel" aria-expanded={drawerOpen} onClick={() => {
+            useUiStore.getState().setOpenSection('layers');
+            useUiStore.getState().setDrawerOpen(true);
+            requestAnimationFrame(() => { document.querySelector<HTMLButtonElement>('.section-toggle[aria-controls="section-layers"]')?.focus(); });
+          }}>Couches et filtres</button>
+        </nav>}
+        {!(compact && drawerOpen) && <ActiveFilters stations={stations} />}
         <MapLegend />
         <AxisFocusChip onBack={() => { controller.current?.resetView(); }} />
         <StationTooltip stations={stations} store={store} />

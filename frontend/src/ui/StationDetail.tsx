@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { config } from '../config';
 import { DataNature } from './DataNature';
 import type { StationCollection } from '../map/referentiel';
@@ -77,6 +77,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
   readonly onFocusFlow: (flow: FlowKey) => void;
 }) {
   useStoreVersion(store);
+  const [expanded, setExpanded] = useState(false);
   const selected = useUiStore((s) => s.selectedIndex);
   const mode = useUiStore((s) => s.mode);
   const closeButton = useRef<HTMLButtonElement>(null);
@@ -115,7 +116,8 @@ export function StationDetail({ stations, store, onFocusFlow }: {
   const received = store.received[index] === 1;
   const count = (value: number) => received ? formatCount(value) : '—';
   return (
-    <GlassPanel material="thick" depth="floating" className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
+    <GlassPanel material="thick" depth="floating" className={`detail${expanded ? ' detail-expanded' : ''}${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
+      <button type="button" className="sheet-resize" aria-expanded={expanded} onClick={() => { setExpanded(!expanded); }}>{expanded ? 'Réduire la fiche' : 'Agrandir la fiche'}<Icon name="chevron" /></button>
       <header>
         <div>
           <p className="eyebrow">Fiche de gare</p>
@@ -125,6 +127,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
         <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
       <button type="button" className="icon-button selection-clear" onClick={() => { select(null); }}>Effacer la sélection</button>
+      <p className={`station-data-status ${stale ? 'status-warn' : ''}`}>{mode === 'replay' ? 'Données historiques' : !received ? 'En attente de données' : stale ? 'Données anciennes · à interpréter avec prudence' : 'Activité reçue'}</p>
       <section className="station-overview" aria-label="Chiffres clés de la gare">
         <div className="anomalies-heading"><h3>Activité de la gare</h3><DataNature /></div>
         <dl className="summary-grid station-key-metrics">
@@ -153,12 +156,12 @@ export function StationDetail({ stations, store, onFocusFlow }: {
       </table>
       <p className="note">Le solde est la différence entre entrées et sorties, pas un nombre de véhicules présents.</p>
       </details>
-      <section className="detail-history" aria-label="Historique de la gare">
+      <details className="detail-history" key={`history-${p.id}`}><summary>Historique et comparaison <Icon name="chevron" /></summary>
         <h3>Historique</h3>
         {config.demo ? <p className="note">La démonstration ne fournit pas de séries historiques.</p>
           : mode === 'replay' ? <p className="note">Comparaison avec J-7 disponible au retour au direct.</p>
           : <HistoryChart key={p.id} stationId={p.id} />}
-      </section>
+      </details>
       <StationFlows stationId={p.id} stations={stations} onFocusFlow={onFocusFlow} />
       <p className="note">{formatCount(p.lanes)} voies. Les passages additionnent les entrées et sorties ; ce ne sont pas des véhicules uniques. La répartition par classe de véhicule n’est pas diffusée par le flux.</p>
     </GlassPanel>

@@ -77,3 +77,29 @@ it('retire un axe recherché en respectant le retour à l’affichage précéden
   fireEvent.click(screen.getByRole('button', { name: 'Retirer : Axe · A7' }));
   expect(useUiStore.getState()).toMatchObject({ axisFocus: null, odFilters: { axis: '' }, layers: { od: false } });
 });
+
+it('réinitialise les filtres actifs sans modifier la gare ni la palette', () => {
+  useUiStore.setState({ kinds: new Set(['ECHANGEUR']), activityMetric: 'entries1h', selectedIndex: 0, palette: 'cvd' });
+  render(<ActiveFilters stations={stations} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Réinitialiser les filtres actifs' }));
+  expect(useUiStore.getState().kinds.has('PLEINE_VOIE')).toBe(true);
+  expect(useUiStore.getState().activityMetric).toBe('passages1h');
+  expect(useUiStore.getState().selectedIndex).toBe(0);
+  expect(useUiStore.getState().palette).toBe('cvd');
+  expect(screen.queryByRole('region', { name: 'Filtres et vue actifs' })).toBeNull();
+});
+
+it('conserve une seule surface de travail quand le tiroir mobile ouvre', () => {
+  useUiStore.setState({ selectedIndex: 0, diagnosticOpen: true });
+  act(() => { useUiStore.getState().setDrawerOpen(true); });
+  expect(useUiStore.getState().selectedIndex).toBeNull();
+  expect(useUiStore.getState().diagnosticOpen).toBe(false);
+});
+
+it('distingue la connexion initiale et la reconnexion avec données conservées', () => {
+  render(<TopBar store={new StationStore(['A'])} />);
+  expect(screen.getByRole('status').textContent).toBe('Connexion initiale…');
+  act(() => { useUiStore.setState({ watermark: '2026-10-31T12:00:00Z', connection: 'connecting' }); });
+  expect(screen.getByRole('status').textContent).toBe('Reconnexion…');
+  expect(screen.getByText(/dernières données conservées/)).toBeTruthy();
+});
