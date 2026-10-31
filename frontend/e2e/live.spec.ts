@@ -87,6 +87,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     await page.goto('/');
     await page.getByLabel('Nom de gare').fill('Ablis');
     await page.getByRole('button', { name: 'Ablis' }).first().click();
+    await page.getByText('Historique et comparaison', { exact: true }).click();
     const chart = page.getByRole('img', { name: /Passages par quart d’heure/ });
     await expect(chart).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(/J-7 même heure/)).toBeVisible();
