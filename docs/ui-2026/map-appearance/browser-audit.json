@@ -1,0 +1,127 @@
+{
+  "errors": [],
+  "resources": [
+    {
+      "url": "http://localhost:5174/node_modules/.vite/deps/pmtiles.js?v=a27d6cce",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/light.json",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/light.png",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/tiles/france.pmtiles",
+      "status": 206
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Medium/0-255.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/0-255.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Italic/0-255.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/256-511.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/11520-11775.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/65024-65279.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/1024-1279.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/1536-1791.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Medium/256-511.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/fonts/Noto%20Sans%20Regular/768-1023.pbf",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/dark.json",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/dark.png",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/light.json",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/light.png",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/dark.json",
+      "status": 200
+    },
+    {
+      "url": "http://localhost:5174/basemaps-assets/sprites/v4/dark.png",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "protomaps-light.png",
+    "protomaps-dark.png",
+    "protomaps-light-cvd.png",
+    "protomaps-dark-cvd.png"
+  ]
+}

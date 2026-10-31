@@ -1,6 +1,7 @@
 import { flowEmphasis } from './flowEmphasis';
 import * as maplibregl from 'maplibre-gl';
-import type { ExpressionSpecification, GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
+import type { AllPaintProperties } from '@maplibre/maplibre-gl-style-spec';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
 import { Protocol } from 'pmtiles';
 import { FLOW_MOTION_BANDS, FLOW_STEP_MS, flowPattern, flowDetail, motionMinZoom } from '../animation/flowMotion';
@@ -20,7 +21,7 @@ import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
 import { selectedRoadIds } from './motorwaySelection';
-import { MOTORWAYS_SOURCE_LAYER, SOURCE, anomalyColor, flowGradient, segmentColor, stationColor } from './layers';
+import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
 import type { SegmentLoad } from '../realtime/protocol';
@@ -28,8 +29,8 @@ import type { StationCollection, StationKind } from './referentiel';
 import { StationLayerRenderer } from './stationLayerRenderer';
 import { buildStyle } from './style';
 import type { StyleOptions } from './style';
-import { FRANCE_BOUNDS, themeFor } from './theme';
-import type { Palette } from './theme';
+import { FRANCE_BOUNDS } from './theme';
+import type { MapAppearance, Palette } from './theme';
 
 let pmtilesRegistered = false;
 
@@ -61,6 +62,9 @@ interface AxisLabel {
 
 /** Unique point de contact avec MapLibre : React ne manipule jamais la carte directement. */
 export class MapController {
+  private palette: Palette;
+  private appearance: MapAppearance;
+  private sprite: string | null;
   private readonly map: maplibregl.Map;
   private readonly animator: StationAnimator;
   private readonly renderer: StationLayerRenderer;
@@ -123,12 +127,17 @@ export class MapController {
     }
     this.options = options;
     this.container = container;
+    this.palette = options.style.palette ?? 'default';
+    this.appearance = options.style.appearance ?? 'dark';
+    const initialStyle = buildStyle(options.style);
+    this.sprite = typeof initialStyle.sprite === 'string' ? initialStyle.sprite : null;
+    container.dataset.appearance = this.appearance;
     this.axisGroups = buildAxisGroups(stations);
     this.axisPositions = stations.features.map((f) => f.geometry.coordinates as [number, number]);
     this.coordinates = new Map(stations.features.map((f) => [f.properties.id, f.geometry.coordinates as [number, number]]));
     this.map = new maplibregl.Map({
       container,
-      style: buildStyle(options.style),
+      style: initialStyle,
       bounds: FRANCE_BOUNDS,
       fitBoundsOptions: { padding: 24 },
       minZoom: 4,
@@ -585,21 +594,34 @@ export class MapController {
     });
   }
 
-  /** Change les couleurs des couches métier sans recharger le style (gares, flux, tronçons, anneau d'axe). */
+  /** Paint-only changes preserve sources, feature states, camera and animation phases. */
   setPalette(palette: Palette): void {
+    this.palette = palette;
+    this.applyAppearance();
+  }
+
+  setAppearance(appearance: MapAppearance): void {
+    this.appearance = appearance;
+    this.applyAppearance();
+  }
+
+  private applyAppearance(): void {
     this.whenStyleReady(() => {
-      const theme = themeFor(palette);
-      const paint = (layer: string, property: 'circle-color' | 'circle-stroke-color' | 'line-gradient' | 'line-color', value: unknown) => {
-        if (this.map.getLayer(layer) !== undefined) {
-          this.map.setPaintProperty(layer, property, value as ExpressionSpecification | string);
+      const style = buildStyle({ ...this.options.style, palette: this.palette, appearance: this.appearance });
+      for (const layer of style.layers) {
+        if (this.map.getLayer(layer.id) === undefined || layer.paint === undefined) continue;
+        for (const [property, value] of Object.entries(layer.paint)) {
+          // The live dash pattern belongs to the motion clock, not the theme.
+          if (property === 'line-dasharray' && FLOW_MOTION_BANDS.some((band) => band.id === layer.id)) continue;
+          const name = property as keyof AllPaintProperties;
+          this.map.setPaintProperty(layer.id, name, value as AllPaintProperties[typeof name]);
         }
-      };
-      paint('stations', 'circle-color', stationColor(theme));
-      paint('stations-anomalies', 'circle-stroke-color', anomalyColor(theme));
-      paint('stations-axis', 'circle-stroke-color', theme.odFlow);
-      paint('od-flows', 'line-gradient', flowGradient(theme));
-      paint('segments-load', 'line-color', segmentColor(theme));
-      paint('motorways-selected', 'line-color', theme.selection);
+      }
+      if (typeof style.sprite === 'string' && style.sprite !== this.sprite) {
+        this.map.setSprite(style.sprite);
+        this.sprite = style.sprite;
+      }
+      this.container.dataset.appearance = this.appearance;
     });
   }
 

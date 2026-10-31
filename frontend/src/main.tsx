@@ -5,9 +5,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { useUiStore } from './state/uiStore';
-import { loadAppearance } from './ui/appearanceStorage';
+import { startAppearance } from './state/appearanceStore';
 
-document.documentElement.dataset.appearance = loadAppearance();
+startAppearance();
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 useUiStore.getState().setReducedMotion(reducedMotionQuery.matches);

@@ -1,3 +1,4 @@
+import { useAppearanceStore } from '../state/appearanceStore';
 import { themeFor } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
 import { Section } from './Section';
@@ -10,7 +11,8 @@ export function LegendContent({ location = 'panel' }: { readonly location?: 'pan
   const mode = useUiStore((s) => s.mode);
   const motionState = useUiStore(trafficMotionState);
   const layers = useUiStore((s) => s.layers);
-  const theme = themeFor(useUiStore((s) => s.palette));
+  const scheme = useAppearanceStore((state) => state.scheme);
+  const theme = themeFor(useUiStore((s) => s.palette), scheme);
   const kinds = useUiStore((s) => s.kinds);
   const segments = useUiStore((s) => s.segments);
   const reference = useUiStore((s) => s.segmentReference);
@@ -20,12 +22,12 @@ export function LegendContent({ location = 'panel' }: { readonly location?: 'pan
     <>
       {rows.length === 0 && <p className="note">Aucune couche affichée.</p>}
       {rows.includes('echangeur') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationEchangeur }} /> Gare d’échangeur</div>}
-      {rows.includes('pleine-voie') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '2px solid #e6edf3' }} /> Barrière pleine voie</div>}
+      {rows.includes('pleine-voie') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationPleineVoie, outline: `2px solid ${theme.stationStroke}` }} /> Barrière pleine voie</div>}
       {rows.includes('stale') && <div className="legend-row"><span className="swatch" style={{ background: theme.stationStale }} /> Gare sans données récentes</div>}
       {layers.stations && <p className="note">Activité : surface du cercle ∝ passages sur 1 h. Halo bref = nouveaux passages. Anneau large = gare sélectionnée.</p>}
       {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour d’alerte : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
       {rows.includes('axes') && <div className="legend-row"><span className="axis-label axis-label-sample" aria-hidden="true">A7</span> Nom d’autoroute : survol = ses gares, clic = filtre « Axe » des flux</div>}
-      {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), clair → foncé = origine → destination</div>}
+      {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), atténué → soutenu = origine → destination</div>}
       {rows.includes('od') && <p className="note">Flux entre gares de l’axe sélectionné : tirets plus rapprochés = volume plus élevé. Leur vitesse est illustrative et constante.</p>}
       {rows.includes('od') && <p className="note">Vue nationale statique ; zoomez pour voir les flux moyens et forts en mouvement, puis les petits flux en vue locale.</p>}
       {rows.includes('od') && trafficMotionMessage[motionState] !== null && <p className="note">{trafficMotionMessage[motionState]}</p>}
