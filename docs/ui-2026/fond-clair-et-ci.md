@@ -49,6 +49,8 @@ Les neuf tests Python couvrent la réutilisation après changement UI, l'invalid
 
 Les 320 tests frontend couvrent notamment les styles MapLibre complets dans les quatre variantes, les contrastes des couleurs métier sur les terrains et l'eau du fond clair, les libellés, la rampe, les sprites, le suivi du système et la conservation des données/caméra/phase d'animation. Les tests navigateur vérifient aussi que le même canvas et la même sélection survivent au changement d'apparence.
 
+La campagne navigateur complète a validé 50 scénarios et révélé une course dans le test existant du classement en direct : la première ligne pouvait changer entre la lecture du nom et le clic. Le test cible désormais la gare par son nom ; ce scénario corrigé a ensuite réussi cinq fois consécutives. Les onze scénarios ciblés d'apparence et de comparaison visuelle passent également, sans augmentation de la tolérance des images.
+
 ### Aperçus sur des tuiles réelles
 
 Les captures utilisent un extrait Protomaps `20261031` jusqu'au zoom 6 pour la vue nationale, avec polices et sprites auto-hébergés. Il sert à la vérification locale et n'est pas ajouté au dépôt. La production CI conserve son jeu complet au zoom 12.
