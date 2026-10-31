@@ -4,6 +4,7 @@ import { EMPTY_OD_VIEW } from '../od/odTypes';
 import type { StationCollection } from '../map/referentiel';
 import type { StationMetrics } from '../realtime/protocol';
 import { StationStore } from '../state/stationStore';
+import { useAppearanceStore } from '../state/appearanceStore';
 import { useUiStore } from '../state/uiStore';
 import { ActivityPanel } from './ActivityPanel';
 import { AlertBanner } from './AlertBanner';
@@ -304,7 +305,8 @@ describe('AlertBanner', () => {
 });
 
 describe('colorblind palette in the legend', () => {
-  it('draws the station swatches with the chosen palette', () => {
+  it('draws the station swatches with the chosen palette on a dark map', () => {
+    useAppearanceStore.getState().setPreference('dark');
     useUiStore.setState({ openSection: 'legend', palette: 'cvd' });
     const { container, rerender } = render(<Legend />);
     const swatch = () => container.querySelector<HTMLElement>('.swatch')?.style.background ?? '';

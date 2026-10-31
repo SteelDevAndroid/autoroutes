@@ -5,6 +5,7 @@ import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { trafficMotionState } from '../animation/trafficMotion';
+import { useAppearanceStore } from '../state/appearanceStore';
 
 /**
  * Monte la carte une seule fois. Les changements d'interface sont relayés au contrôleur par abonnement
@@ -26,6 +27,7 @@ export function MapView({ stations, store, onReady }: {
       style: {
         basemapUrl: config.basemapUrl,
         palette: ui.palette,
+        appearance: useAppearanceStore.getState().scheme,
         motorwaysUrl: config.motorwaysUrl,
         glyphsUrl: config.glyphsUrl,
         spriteUrl: config.spriteUrl,
@@ -69,9 +71,13 @@ export function MapView({ stations, store, onReady }: {
         controller.setStale(state.freshness?.staleStations ?? []);
       }
     });
+    const unsubscribeAppearance = useAppearanceStore.subscribe((state, previous) => {
+      if (state.scheme !== previous.scheme) controller.setAppearance(state.scheme);
+    });
     onReady(controller);
     return () => {
       unsubscribe();
+      unsubscribeAppearance();
       onReady(null);
       controller.destroy();
     };

@@ -111,7 +111,7 @@ button:active:not(:disabled) { transform: scale(.985); transition-duration: 100m
 .tag { border-radius: 6px; }
 .filter-chip { background: var(--surface-selected); border: 0; box-shadow: var(--depth-1); }
 
-.map-area { border-radius: var(--radius-panel); overflow: hidden; isolation: isolate; background: #0e1116; border: 1px solid var(--panel-border); box-shadow: var(--depth-1); }
+.map-area { border-radius: var(--radius-panel); overflow: hidden; isolation: isolate; background: var(--bg); border: 1px solid var(--panel-border); box-shadow: var(--depth-1); }
 .maplibregl-ctrl-group { border-radius: 14px; background: var(--panel); border: 1px solid var(--glass-border); box-shadow: var(--depth-1); overflow: hidden; }
 .maplibregl-ctrl-group .maplibregl-ctrl-icon { filter: none; }
 @media (prefers-color-scheme: dark) { :root:not([data-appearance='light']) .maplibregl-ctrl-icon { filter: invert(1); } }

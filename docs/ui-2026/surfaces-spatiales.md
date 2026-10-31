@@ -15,7 +15,7 @@ Base : `1e959d3`, interface cartographique React/MapLibre, sans `AGENTS.md` appl
 | Thème uniquement sombre | Habillage clair, sombre ou automatique, choix persistant et appliqué avant le montage. |
 | Dialogues et tiroir fortement assombris | Fond atténué à 16 %, blur de 4 px, matière épaisse au premier plan. |
 
-La carte reste volontairement sombre dans les deux apparences : les palettes cartographiques, halos, anomalies et flux ont déjà été conçus et testés pour ce fond. Un changement de palette du trafic n'est pas une préférence d'apparence. Les chiffres, graphiques, tableaux et listes gardent une matière presque opaque.
+La carte suit désormais les apparences claire et sombre, avec des palettes métier et des sprites adaptés : voir [Fond clair et réutilisation cartographique en CI](fond-clair-et-ci.md). La préférence d'apparence reste indépendante du choix de palette daltonisme. Les chiffres, graphiques, tableaux et listes gardent une matière presque opaque.
 
 ## Tokens
 
@@ -79,7 +79,7 @@ Le bundle de démonstration passe d'environ 16,94 à 19,66 kB gzip de CSS et de 
 ## Seconde itération recommandée
 
 1. Profilage GPU sur iPhone/Safari et Android de milieu de gamme, avec les tuiles réelles et plusieurs overlays ouverts.
-2. Étude d'un fond cartographique clair dédié avec validation des couleurs métier, halos, anomalies et palette daltonisme.
+2. Étendre la validation du fond cartographique clair aux appareils physiques et aux conditions de forte luminosité.
 3. Validation utilisateur des indicateurs prioritaires et de la densité à faible hauteur d'écran.
 4. Optimisation du chargement MapLibre par découpage de bundle, indépendamment de cette refonte.
 
