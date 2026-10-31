@@ -15,17 +15,19 @@ function ConnectionBadge() {
   const connection = useUiStore((s) => s.connection);
   const freshness = useUiStore((s) => s.freshness);
   const mode = useUiStore((s) => s.mode);
+  const watermark = useUiStore((s) => s.watermark);
   const speed = useUiStore((s) => s.replay.speed);
   const [label, tone] = mode === 'replay'
     ? [`Relecture ×${speed}`, 'status-replay']
     : connection !== 'open'
-    ? [connection === 'closed' ? 'Déconnecté' : 'Reconnexion…', 'status-danger']
+    ? [connection === 'closed' ? 'Déconnecté' : watermark === null ? 'Connexion initiale…' : 'Reconnexion…', watermark === null && connection !== 'closed' ? 'status-warn' : 'status-danger']
     : freshness?.status === 'STALE'
       ? ['Données périmées', 'status-danger']
       : freshness?.status === 'CATCHING_UP'
         ? ['Rattrapage', 'status-warn']
         : ['Temps réel', 'status-ok'];
-  return <span className={`status ${tone}`} role="status" aria-live="polite" data-tour="status">{label}</span>;
+  const detail = mode === 'replay' ? 'Lecture de données historiques' : watermark === null ? 'En attente des premières données' : `Dernière mise à jour : ${formatTime(watermark)} · Paris${connection !== 'open' ? ' · dernières données conservées' : ''}`;
+  return <div className="connection-summary"><span className={`status ${tone}`} role="status" aria-live="polite" data-tour="status">{label}</span><span className="connection-detail">{detail}</span></div>;
 }
 
 function Account() {

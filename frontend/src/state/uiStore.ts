@@ -227,7 +227,7 @@ export const useUiStore = create<UiState>()((set, get) => ({
     });
   },
   setOpenSection: (openSection) => { set({ openSection }); },
-  setDrawerOpen: (drawerOpen) => { set({ drawerOpen }); },
+  setDrawerOpen: (drawerOpen) => { set(drawerOpen ? { drawerOpen, selectedIndex: null, diagnosticOpen: false } : { drawerOpen }); },
   setAboutOpen: (aboutOpen) => { set({ aboutOpen }); },
   setTourActive: (tourActive) => { set({ tourActive }); },
   setOdIncludeInternal: (odIncludeInternal) => { set({ odIncludeInternal }); },

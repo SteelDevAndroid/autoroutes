@@ -31,10 +31,10 @@ export function ActiveFilters({ stations }: { readonly stations: StationCollecti
   if (metric !== 'passages1h') chips.push({ key: 'metric', label: `Liste · ${METRIC_LABELS[metric]}`, remove: () => { ui().setActivityMetric('passages1h'); } });
   if (chips.length === 0) return null;
   return <section className="active-filters" aria-label="Filtres et vue actifs">
-    <p className="eyebrow">Filtres et vue</p>
+    <div className="filter-toolbar-heading"><p className="eyebrow">Périmètre affiché · {chips.length} filtre{chips.length > 1 ? 's' : ''}</p><button type="button" className="icon-button" onClick={() => { chips.forEach((chip) => { chip.remove(); }); document.getElementById(ui().drawerOpen || !window.matchMedia('(max-width: 900px)').matches ? 'station-search' : 'drawer-toggle')?.focus(); }}>Réinitialiser les filtres actifs</button></div>
     <ul>{chips.map((chip) => <li key={chip.key}><button type="button" className="filter-chip" aria-label={`Retirer : ${chip.label}`} onClick={() => {
       chip.remove();
-      document.getElementById('station-search')?.focus();
+      document.getElementById(!ui().drawerOpen && window.matchMedia('(max-width: 900px)').matches ? 'drawer-toggle' : 'station-search')?.focus();
     }}><span>{chip.label}</span><Icon name="close" /></button></li>)}</ul>
   </section>;
 }

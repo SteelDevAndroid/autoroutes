@@ -193,3 +193,33 @@ button:active:not(:disabled) { transform: scale(.985); transition-duration: 100m
   .alert-banner { padding: 10px 12px; }
   .axis-focus { border-radius: 16px; }
 }
+
+/* Contextual map controls share one reading surface, without extra blur contexts. */
+.map-area > .active-filters { position: absolute; z-index: 4; top: 12px; left: 12px; right: 12px; max-width: 660px; padding: 12px 16px; border-radius: 18px; background: var(--material-base); box-shadow: var(--depth-1); }
+.filter-toolbar-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.filter-toolbar-heading .eyebrow { margin: 0; }
+.active-filters ul { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.active-filters li { flex-shrink: 0; }
+.map-area:has(> .active-filters) .axis-focus { top: 132px; }
+.connection-summary { display: grid; justify-items: end; gap: 6px; max-width: 240px; }
+.connection-detail { font-size: 11px; color: var(--text-muted); text-align: right; }
+.station-data-status { font-size: 12px; color: var(--text-muted); margin: 12px 0; }
+.detail-history summary { cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 12px 0; font-weight: 600; }
+.sheet-resize { display: none; }
+@media (max-width: 900px) {
+  .map-area > .active-filters { top: 8px; left: 8px; right: 8px; padding: 10px 12px; }
+  .filter-toolbar-heading { align-items: start; }
+  .filter-toolbar-heading .eyebrow { font-size: 10px; }
+  .filter-toolbar-heading .icon-button { font-size: 11px; padding: 4px 8px; }
+  .connection-summary { max-width: 150px; }
+  .connection-detail { font-size: 10px; }
+  .detail { inset: auto 0 0; width: auto; max-width: none; max-height: 48%; border-radius: 24px 24px 0 0; padding-bottom: max(20px, env(safe-area-inset-bottom)); overscroll-behavior: contain; }
+  .detail.detail-expanded { max-height: 88%; }
+  .sheet-resize { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: 12px; }
+  .map-area:has(.detail) > .active-filters { display: none; }
+  .map-legend { max-width: min(320px, calc(100% - 24px)); }
+}
+
+.mobile-map-tools { display: flex; gap: 8px; position: absolute; top: 8px; left: 8px; z-index: 5; padding: 6px; border-radius: 16px; background: var(--material-base); box-shadow: var(--depth-1); }
+@media (max-width: 900px) { .map-area > .active-filters { top: 68px; } .map-area:has(> .active-filters) .axis-focus { top: 180px; } }
+.detail { z-index: 6; }
