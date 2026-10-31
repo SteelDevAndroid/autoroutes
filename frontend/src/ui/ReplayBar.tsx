@@ -1,3 +1,4 @@
+import { FloatingToolbar } from './Spatial';
 import { useState } from 'react';
 import { replayProgress } from '../replay/progress';
 import { useUiStore } from '../state/uiStore';
@@ -35,9 +36,9 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
 
   if (mode === 'live') {
     return (
-      <section className="replay-bar" aria-label="Relecture de l'historique" data-tour="replay">
+      <FloatingToolbar className="replay-bar" aria-label="Relecture de l'historique" data-tour="replay">
         {!open
-          ? <button type="button" className="icon-button" aria-expanded="false" onClick={() => { setOpen(true); }}>⏪ Relecture</button>
+          ? <button type="button" className="icon-button" aria-expanded="false" onClick={() => { setOpen(true); }}><Icon name="rewind" />Relecture</button>
           : (
             <div className="replay-form">
               <label>Début <input type="datetime-local" aria-label="Début de relecture" value={start} onChange={(e) => { setStart(e.target.value); }} /></label>
@@ -59,14 +60,14 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
               <span className="note">7 derniers jours, historique enregistré minute par minute.</span>
             </div>
           )}
-      </section>
+      </FloatingToolbar>
     );
   }
   const progress = replayProgress(replay.time, replay.from, replay.to);
   return (
-    <section className="replay-bar replay-active" aria-label="Relecture de l'historique">
+    <FloatingToolbar className="replay-bar replay-active" aria-label="Relecture de l'historique">
       <button type="button" className="icon-button" onClick={controls.playPause} disabled={replay.status === 'loading'}>
-        {replay.status === 'playing' ? '⏸ Pause' : '▶ Lecture'}
+        <Icon name={replay.status === 'playing' ? 'pause' : 'play'} />{replay.status === 'playing' ? 'Pause' : 'Lecture'}
       </button>
       <select aria-label="Vitesse de relecture" value={replay.speed} onChange={(e) => { controls.setSpeed(Number(e.target.value)); }}>
         {SPEEDS.map((s) => <option key={s} value={s}>×{s}</option>)}
@@ -77,6 +78,6 @@ export function ReplayBar({ controls }: { readonly controls: ReplayControls }) {
       <span className="note" aria-live="polite">
         {replay.status === 'loading' ? 'Chargement de l’historique…' : replay.status === 'ended' ? 'Fin de la période' : null}
       </span>
-    </section>
+    </FloatingToolbar>
   );
 }

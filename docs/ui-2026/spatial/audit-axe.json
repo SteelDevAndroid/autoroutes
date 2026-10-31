@@ -1,0 +1,102 @@
+[
+  {
+    "name": "1440-light",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-light-search",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-light-detail",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-dark",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-dark-search",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-dark-detail",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1440-help",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1024-light",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "1024-dark",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "768-light",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "768-dark",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-light",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-light-drawer",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-light-search",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-light-detail",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-dark",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-dark-drawer",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-dark-search",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-dark-detail",
+    "overflow": false,
+    "violations": []
+  },
+  {
+    "name": "390-help",
+    "overflow": false,
+    "violations": []
+  }
+]

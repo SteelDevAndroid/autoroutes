@@ -69,6 +69,31 @@ beforeEach(async () => {
 afterEach(() => { controller.destroy(); vi.unstubAllGlobals(); });
 
 describe('traffic motion on the selected axis', () => {
+  it('switches appearance and palette without touching data, selection, camera or dash phase', async () => {
+    controller.setActiveAxis('A0001');
+    controller.setSelected(0, false);
+    await Promise.resolve();
+    const selected = container.dataset.selectedStation;
+    map.setData.mockClear();
+    map.setFeatureState.mockClear();
+    map.fitBounds.mockClear();
+    map.setLayoutProperty.mockClear();
+    map.setPaintProperty.mockClear();
+
+    controller.setAppearance('light');
+    controller.setPalette('cvd');
+
+    expect(container.dataset.appearance).toBe('light');
+    expect(container.dataset.selectedStation).toBe(selected);
+    expect(map.setData).not.toHaveBeenCalled();
+    expect(map.setFeatureState).not.toHaveBeenCalled();
+    expect(map.fitBounds).not.toHaveBeenCalled();
+    expect(map.setLayoutProperty).not.toHaveBeenCalled();
+    expect(map.setPaintProperty).toHaveBeenCalledWith('stations-selected', 'circle-stroke-color', '#234D84');
+    expect(map.setPaintProperty.mock.calls.some(([layer, property]) =>
+      typeof layer === 'string' && layer.startsWith('od-flows-motion-') && property === 'line-dasharray')).toBe(false);
+  });
+
   it('keeps country views static, adds regional marks and reveals sparse flows locally', () => {
     controller.setMotionAxis('A0002');
     expect(container.dataset.animatedFlows).toBe('3');

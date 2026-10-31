@@ -1,13 +1,15 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import { useUiStore } from '../state/uiStore';
-import { cvdTheme } from '../map/theme';
+import { useAppearanceStore } from '../state/appearanceStore';
+import { cvdTheme, lightCvdTheme } from '../map/theme';
 import { MapLegend } from './MapLegend';
 
 beforeEach(() => { useUiStore.setState(useUiStore.getInitialState(), true); });
 afterEach(cleanup);
 
-it('ne décrit que les couches et types visibles, avec la palette de la carte', () => {
+it.each([['light', lightCvdTheme], ['dark', cvdTheme]] as const)('ne décrit que les couches et types visibles, avec la palette de la carte (%s)', (scheme, colors) => {
+  useAppearanceStore.getState().setPreference(scheme);
   render(<MapLegend />);
   expect(screen.getByText('Échangeurs')).toBeTruthy();
   expect(screen.queryByText('Tronçons estimés')).toBeNull();
@@ -19,7 +21,7 @@ it('ne décrit que les couches et types visibles, avec la palette de la carte', 
   expect(screen.queryByText('Échangeurs')).toBeNull();
   expect(screen.getByText('Tronçons estimés')).toBeTruthy();
   const expected = document.createElement('span');
-  expected.style.background = cvdTheme.stationPleineVoie;
+  expected.style.background = colors.stationPleineVoie;
   expect(screen.getByText('Barrières').querySelector<HTMLElement>('.swatch')?.style.background).toBe(expected.style.background);
 });
 

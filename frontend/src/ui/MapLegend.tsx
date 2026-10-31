@@ -1,6 +1,8 @@
+import { useAppearanceStore } from '../state/appearanceStore';
 import { useRef, useState } from 'react';
 import { themeFor } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
+import { GlassPanel } from './Spatial';
 import { Icon } from './Icon';
 import { LegendContent } from './Legend';
 import { legendRows } from './legendModel';
@@ -15,11 +17,12 @@ export function MapLegend() {
   const mode = useUiStore((s) => s.mode);
   const selected = useUiStore((s) => s.selectedIndex);
   const diagnostic = useUiStore((s) => s.diagnosticOpen);
-  const theme = themeFor(palette);
+  const scheme = useAppearanceStore((state) => state.scheme);
+  const theme = themeFor(palette, scheme);
   const rows = legendRows(layers, { echangeur: kinds.has('ECHANGEUR'), pleineVoie: kinds.has('PLEINE_VOIE') });
   // La fiche et le diagnostic ont la priorité ; la légende du panneau reste disponible.
   if (selected !== null || diagnostic) return null;
-  return <section className={`map-legend${mode === 'replay' ? ' map-legend-replay' : ''}`} aria-label="Légende de la carte"
+  return <GlassPanel material="regular" className={`map-legend${mode === 'replay' ? ' map-legend-replay' : ''}`} aria-label="Légende de la carte"
     onKeyDown={(event) => {
       if (event.key === 'Escape' && open) {
         event.stopPropagation();
@@ -34,7 +37,7 @@ export function MapLegend() {
       {!open && <>
         {rows.length === 0 ? <p className="note">Aucune couche affichée.</p> : <ul className="compact-legend-items">
           {rows.includes('echangeur') && <li><span className="swatch" style={{ background: theme.stationEchangeur }} aria-hidden="true" />Échangeurs</li>}
-          {rows.includes('pleine-voie') && <li><span className="swatch" style={{ background: theme.stationPleineVoie, outline: '1px solid #e6edf3' }} aria-hidden="true" />Barrières</li>}
+          {rows.includes('pleine-voie') && <li><span className="swatch" style={{ background: theme.stationPleineVoie, outline: `1px solid ${theme.stationStroke}` }} aria-hidden="true" />Barrières</li>}
           {rows.includes('stale') && <li><span className="swatch" style={{ background: theme.stationStale }} aria-hidden="true" />Sans données récentes</li>}
           {layers.stations && mode === 'live' && <li><span className="anomaly-swatch" aria-hidden="true" />Anomalies</li>}
           {rows.includes('axes') && <li><span className="axis-label axis-label-sample" aria-hidden="true">A7</span>Axes</li>}
@@ -45,5 +48,5 @@ export function MapLegend() {
         {layers.od && <p className="note">Tirets : volume des flux, vitesse illustrative.</p>}
       </>}
     </div>
-  </section>;
+  </GlassPanel>;
 }

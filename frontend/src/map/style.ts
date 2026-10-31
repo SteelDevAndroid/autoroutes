@@ -1,13 +1,15 @@
-import { layers as basemapLayers, namedFlavor } from '@protomaps/basemaps';
+import { layers as basemapLayers } from '@protomaps/basemaps';
 import type { LayerSpecification, StyleSpecification } from 'maplibre-gl';
 import { businessLayers, businessSources, motorwayLayers } from './layers';
 import { themeFor } from './theme';
-import type { Palette } from './theme';
+import { basemapTheme } from './basemapTheme';
+import type { MapAppearance, Palette } from './theme';
 
 export interface StyleOptions {
   readonly basemapUrl: string | null;
   /** Palette des couches métier (défaut : `default`). */
   readonly palette?: Palette;
+  readonly appearance?: MapAppearance;
   readonly motorwaysUrl: string | null;
   readonly glyphsUrl: string | null;
   readonly spriteUrl: string | null;
@@ -16,14 +18,15 @@ export interface StyleOptions {
 const BASEMAP_SOURCE = 'basemap';
 
 /**
- * Style complet : fond Protomaps (OSM, PMTiles auto-hébergé) en thème sombre, puis couches métier au-dessus.
+ * Fond Protomaps auto-hébergé et couches métier accordés à la même apparence.
  * Sans fond configuré (démonstration hors ligne), un aplat neutre le remplace : les couches métier restent identiques.
  */
 export function buildStyle(options: StyleOptions): StyleSpecification {
-  const theme = themeFor(options.palette ?? 'default');
+  const appearance = options.appearance ?? 'dark';
+  const theme = themeFor(options.palette ?? 'default', appearance);
   const base: LayerSpecification[] = options.basemapUrl === null
     ? [{ id: 'background', type: 'background', paint: { 'background-color': theme.background } }]
-    : basemapLayers(BASEMAP_SOURCE, namedFlavor('dark'), { lang: 'fr' });
+    : basemapLayers(BASEMAP_SOURCE, basemapTheme(appearance), { lang: 'fr' });
   const style: StyleSpecification = {
     version: 8,
     sources: {
@@ -47,7 +50,8 @@ export function buildStyle(options: StyleOptions): StyleSpecification {
     style.glyphs = options.glyphsUrl;
   }
   if (options.spriteUrl !== null) {
-    style.sprite = options.spriteUrl;
+    // Both canonical sheets are bundled. Custom sprite URLs retain their contract.
+    style.sprite = options.spriteUrl.replace(/\/(?:dark|light)(?=[?#]|$)/, `/${appearance}`);
   }
   return style;
 }

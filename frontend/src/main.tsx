@@ -1,9 +1,13 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './styles.css';
+import './spatial.css';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { useUiStore } from './state/uiStore';
+import { startAppearance } from './state/appearanceStore';
+
+startAppearance();
 
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 useUiStore.getState().setReducedMotion(reducedMotionQuery.matches);

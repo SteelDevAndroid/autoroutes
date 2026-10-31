@@ -149,9 +149,10 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(list.getByRole('listitem').first()).toBeVisible({ timeout: 20_000 });
     const name = (await list.getByRole('listitem').first().locator('.activity-name').textContent()) ?? '';
 
-    await list.getByRole('listitem').first().getByRole('button').click();
+    // The live ranking can reorder between reading the name and clicking.
+    await list.getByRole('button').filter({ has: page.getByText(name, { exact: true }) }).first().click();
 
-    await expect(page.getByRole('region', { name: new RegExp(`Détail de la gare ${name}`) })).toBeVisible();
+    await expect(page.getByRole('region', { name: `Détail de la gare ${name}`, exact: true })).toBeVisible();
   });
 
   test('le lien reflète la gare et l’autoroute, et les rouvrir reproduit l’affichage', async ({ page }) => {

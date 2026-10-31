@@ -56,7 +56,7 @@ export const segmentColor = (theme: Theme): unknown => [
 ];
 
 export const flowGradient = (theme: Theme): unknown =>
-  ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(76,201,240,0.05)', 1, theme.odFlow];
+  ['interpolate', ['linear'], ['line-progress'], 0, theme.odOrigin, 1, theme.odFlow];
 
 export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[] {
   // zoom doit rester l'entrée d'une interpolation de premier niveau : le facteur s'applique aux paliers, pas au résultat.
@@ -160,7 +160,7 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       filter: ['==', ['get', 'density'], density],
       layout: { 'line-cap': 'butt', visibility: 'none' },
       paint: {
-        'line-color': '#FFFFFF',
+        'line-color': theme.flowMark,
         'line-width': FLOW_MARK_WIDTH,
         'line-opacity': ['*', 0.85, ['case', ['boolean', ['feature-state', 'dim'], false], 0.2, 1], ['coalesce', ['feature-state', 'fade'], 1]],
         'line-dasharray': [FLOW_DASH_LENGTH, gap],
