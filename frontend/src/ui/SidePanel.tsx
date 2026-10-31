@@ -4,6 +4,8 @@ import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import type { FlowKey } from '../state/uiStore';
+import { GlassSidebar, SpatialButton } from './Spatial';
+import { Appearance } from './Appearance';
 import { Icon } from './Icon';
 import { useCompact } from './useCompact';
 import { ActivityPanel } from './ActivityPanel';
@@ -38,10 +40,10 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   const segmentCapability = useUiStore((s) => s.capabilities?.segments);
   const segmentsUnavailable = !config.demo && segmentCapability !== 'READY';
   return (
-    <aside id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel"
+    <GlassSidebar id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel"
       role={compact && drawerOpen ? 'dialog' : undefined} aria-modal={compact && drawerOpen ? true : undefined} aria-labelledby="explorer-title">
       <header className="side-heading"><div><p className="eyebrow">Espace de supervision</p><h2 id="explorer-title">Explorer le réseau</h2></div>
-        <button type="button" className="icon-button drawer-close" aria-label="Fermer le panneau" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }}><Icon name="close" /></button>
+        <SpatialButton type="button" className="icon-button drawer-close" aria-label="Fermer le panneau" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }}><Icon name="close" /></SpatialButton>
       </header>
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
       <div className="side-content">
@@ -72,11 +74,11 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
       <details className="preferences"><summary><Icon name="settings" /> Préférences d’affichage<Icon name="chevron" className="preferences-chevron" /></summary><div className="preferences-body">
         <label><input type="checkbox" checked={palette === 'cvd'} onChange={(e) => { setPalette(e.target.checked ? 'cvd' : 'default'); }} /> Couleurs adaptées au daltonisme</label>
         <label><input type="checkbox" checked={reducedMotion} onChange={(e) => { setReducedMotion(e.target.checked); }} /> Réduire les animations</label>
-      </div></details>
+      <Appearance /></div></details>
       <section className="side-actions" aria-label="Outils de la carte">
-        <button type="button" className="icon-button" onClick={() => { onResetView(); if (compact) { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); } }}><Icon name="globe" />Vue France entière</button>{' '}
-        <button id="diagnostic-toggle" type="button" className="icon-button" onClick={() => { toggleDiagnostic(); if (compact) useUiStore.getState().setDrawerOpen(false); }} aria-expanded={diagnosticOpen}><Icon name="activity" />Diagnostic</button>
+        <SpatialButton type="button" className="icon-button" onClick={() => { onResetView(); if (compact) { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); } }}><Icon name="globe" />Vue France entière</SpatialButton>{' '}
+        <SpatialButton id="diagnostic-toggle" type="button" className="icon-button" onClick={() => { toggleDiagnostic(); if (compact) useUiStore.getState().setDrawerOpen(false); }} aria-expanded={diagnosticOpen}><Icon name="activity" />Diagnostic</SpatialButton>
       </section>
-    </aside>
+    </GlassSidebar>
   );
 }

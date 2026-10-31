@@ -1,5 +1,7 @@
 # Modernisation du poste de supervision
 
+Cette première itération est conservée comme historique. La direction actuelle, les matériaux, les deux apparences et les primitives sont décrits dans [Système de surfaces spatiales](surfaces-spatiales.md).
+
 ## Périmètre et parcours
 
 L'application React / TypeScript est un espace cartographique unique, pas un ensemble de pages CRUD. `App.tsx` compose un bandeau de provenance, `TopBar`, les alertes d'exploitation, `SidePanel` et `MapView`. Les vues contextuelles sont `StationDetail`, `DiagnosticPanel`, `ReplayBar`, `AboutDialog` (adressable par `#a-propos`) et `Tour`. Zustand conserve la sélection et les réglages ; `StationStore` et le contrôleur MapLibre gèrent les données et la carte.

@@ -7,14 +7,16 @@ import type { Page } from '@playwright/test';
  * Références : e2e/visual.spec.ts-snapshots/, produites dans l'image Playwright de la CI ; les régénérer avec `npm run e2e:visual:update` (Docker)
  * (ou le workflow CI lancé à la demande avec « update_snapshots ») puis relire les images dans la PR.
  */
-test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+test.use({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce', colorScheme: 'light' });
 
-const SHOT = { stylePath: 'e2e/visual.css', animations: 'disabled', caret: 'hide' } as const;
+const SHOT = { timeout: 15_000, animations: 'disabled', caret: 'hide' } as const;
 
 async function ready(page: Page): Promise<void> {
   await page.goto('/');
   await page.getByRole('region', { name: 'Carte des gares de péage' }).waitFor();
   await expect(page.locator('#side-panel')).toBeVisible();
+  // Garder les polices et le fond figés entre les deux captures de comparaison.
+  await page.addStyleTag({ path: 'e2e/visual.css' });
 }
 
 test.describe('régression visuelle', () => {
@@ -40,6 +42,7 @@ test.describe('régression visuelle', () => {
 
     await expect(page.getByRole('region', { name: 'Légende', exact: true })).toHaveScreenshot('legende-flux-troncons.png', SHOT);
     // La légende défile quand plusieurs couches sont actives : vérifier aussi sa partie basse.
+    await page.getByTestId('segment-scale').scrollIntoViewIfNeeded();
     await expect(page.getByTestId('segment-scale')).toHaveScreenshot('legende-echelle-troncons.png', SHOT);
   });
 
@@ -69,7 +72,7 @@ test.describe('régression visuelle', () => {
     await ready(page);
     await page.getByLabel('Nom de gare').fill('a7');
 
-    await expect(page.getByRole('region', { name: 'Recherche de gare ou d’autoroute' })).toHaveScreenshot('recherche-resultats.png', SHOT);
+    await expect(page.locator('.search-popover')).toHaveScreenshot('recherche-resultats.png', SHOT);
   });
 
   test('palette adaptée au daltonisme : panneau et légende', async ({ page }) => {
@@ -81,9 +84,18 @@ test.describe('régression visuelle', () => {
     await expect(page.locator('#side-panel')).toHaveScreenshot('panneau-daltonisme.png', SHOT);
   });
 
+  test('matières sombres : navigation et dialogue', async ({ page }) => {
+    await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' });
+    await ready(page);
+    await expect(page.locator('#side-panel')).toHaveScreenshot('panneau-sombre.png', SHOT);
+    await page.getByRole('button', { name: 'Aide et à propos des données' }).click();
+    await expect(page.locator('.about')).toHaveScreenshot('dialogue-sombre.png', SHOT);
+  });
+
   test('petit écran : tiroir ouvert', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
+    await page.addStyleTag({ path: 'e2e/visual.css' });
     await page.getByRole('button', { name: 'Panneau des couches et des filtres' }).click();
 
     await expect(page.locator('#side-panel')).toHaveScreenshot('tiroir-petit-ecran.png', SHOT);

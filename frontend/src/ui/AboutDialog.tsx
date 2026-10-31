@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useUiStore } from '../state/uiStore';
+import { GlassModal } from './Spatial';
 import { Icon } from './Icon';
 
 /** Fragment d'adresse qui ouvre l'aide : le lien est partageable (#a-propos). */
@@ -36,7 +37,7 @@ export function AboutDialog() {
   }, [open]);
 
   return (
-    <dialog ref={dialog} className="about" aria-labelledby="about-title" onClose={() => { setOpen(false); }}
+    <GlassModal ref={dialog} className="about" aria-labelledby="about-title" onClose={() => { setOpen(false); }}
       onClick={(event) => { if (event.target === dialog.current) setOpen(false); }}>
       {open && <div className="about-content">
         <header>
@@ -84,6 +85,6 @@ export function AboutDialog() {
           <button type="button" className="icon-button primary" onClick={() => { setOpen(false); }}>Fermer</button>
         </footer>
       </div>}
-    </dialog>
+    </GlassModal>
   );
 }

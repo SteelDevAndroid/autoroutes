@@ -11,6 +11,9 @@ const paths = {
   globe: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M3 12h18M12 3a19 19 0 0 1 0 18 19 19 0 0 1 0-18',
   activity: 'M3 12h4l3-8 4 16 3-8h4',
   settings: 'M4 7h16M4 17h16M8 4v6m8 4v6',
+  rewind: 'M11 5 2 12l9 7V5Zm11 0-9 7 9 7V5Z',
+  pause: 'M8 5v14M16 5v14',
+  play: 'm7 4 14 8-14 8V4Z',
 } as const;
 
 /** Icônes de navigation : un seul langage de traits, toujours accompagnées d'un nom accessible. */

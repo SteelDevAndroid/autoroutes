@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { cvdTheme, theme, themeFor } from '../map/theme';
-import css from '../styles.css?raw';
+import materials from '../design-tokens.css?raw';
 import { PALETTE_KEY, applyPalette, loadPalette, savePalette } from './paletteStorage';
 
 const luminance = (hex: string): number => {
@@ -15,18 +15,20 @@ const contrast = (a: string, b: string): number => {
   return (hi + 0.05) / (lo + 0.05);
 };
 
-/** Variables CSS d'un bloc de `styles.css` (le premier `:root` ou le bloc d'une palette). */
-function tokens(selector: string): Record<string, string> {
+/** Contraste des couleurs sémantiques des matériaux clairs, sombres et daltonisme. */
+function tokens(css: string, selector: string): Record<string, string> {
   const start = css.indexOf(selector);
   const block = css.slice(css.indexOf('{', start) + 1, css.indexOf('}', start));
   return Object.fromEntries([...block.matchAll(/(--[\w-]+):\s*(#[0-9a-fA-F]{6})/g)].map((m) => [m[1] as string, m[2] as string]));
 }
 
 describe('contrast of the interface colors (WCAG AA, 4.5:1)', () => {
-  const base = tokens(':root {');
-  const cvd = { ...base, ...tokens(':root[data-palette="cvd"]') };
+  const base = tokens(materials, ':root {');
+  const dark = { ...base, ...tokens(materials, ':root[data-appearance="dark"]') };
+  const cvd = { ...base, ...tokens(materials, ":root[data-palette='cvd']") };
+  const darkCvd = { ...dark, ...tokens(materials, ":root[data-appearance='dark'][data-palette='cvd']") };
 
-  for (const [name, colors] of [['default', base], ['cvd', cvd]] as const) {
+  for (const [name, colors] of [['light', base], ['dark', dark], ['light cvd', cvd], ['dark cvd', darkCvd]] as const) {
     it(`keeps text and status colors readable on the panels (${name})`, () => {
       for (const token of ['--text', '--text-muted', '--accent', '--ok', '--warn', '--danger']) {
         for (const background of ['--bg', '--panel']) {

@@ -2,3 +2,6 @@
 * { font-family: 'Liberation Sans', Arial, sans-serif !important; caret-color: transparent !important; }
 /* « normal » dépend des métriques de la police système du runner ; fixer la hauteur des petites annotations. */
 .note { line-height: 14px !important; }
+
+/* Neutraliser le fond WebGL derrière les nouvelles surfaces translucides. */
+.map canvas, .topbar-metrics { visibility: hidden !important; }

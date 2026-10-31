@@ -3,6 +3,7 @@ import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import { formatCount, formatPercent } from './format';
 import { useStoreVersion } from './useStoreVersion';
+import { GlassPanel } from './Spatial';
 import { Icon } from './Icon';
 import { COMPACT_QUERY } from './useCompact';
 
@@ -25,7 +26,7 @@ export function DiagnosticPanel({ store }: { readonly store: StationStore }) {
     return null;
   }
   return (
-    <section className="diagnostic" aria-label="Diagnostic du flux">
+    <GlassPanel material="thick" depth="floating" className="diagnostic" aria-label="Diagnostic du flux">
       <header className="panel-heading"><h2>État du flux</h2><button ref={close} type="button" className="icon-button" aria-label="Fermer le diagnostic" onClick={() => { useUiStore.getState().toggleDiagnostic(); }}><Icon name="close" /></button></header>
       <dl>
         <dt>Connexion</dt><dd>{connection}</dd>
@@ -42,6 +43,6 @@ export function DiagnosticPanel({ store }: { readonly store: StationStore }) {
         <dt>Version d’état</dt><dd>{formatCount(store.version)}</dd>
         <dt>Qualité de rendu</dt><dd>{['complète', 'sans halos', 'réduite'][quality]}</dd>
       </dl>
-    </section>
+    </GlassPanel>
   );
 }

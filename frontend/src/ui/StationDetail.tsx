@@ -12,6 +12,7 @@ import { flowsOfStation } from './stationFlows';
 import { useNewKeys } from './flash';
 import { usePresenceValue } from './usePresenceValue';
 import { useStoreVersion } from './useStoreVersion';
+import { GlassPanel } from './Spatial';
 import { Icon } from './Icon';
 import { COMPACT_QUERY } from './useCompact';
 import { StationAnomalies } from './StationAnomalies';
@@ -114,7 +115,7 @@ export function StationDetail({ stations, store, onFocusFlow }: {
   const received = store.received[index] === 1;
   const count = (value: number) => received ? formatCount(value) : '—';
   return (
-    <section className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
+    <GlassPanel material="thick" depth="floating" className={`detail${leaving ? ' leaving' : ''}`} aria-label={`Détail de la gare ${p.name}`}>
       <header>
         <div>
           <p className="eyebrow">Fiche de gare</p>
@@ -160,6 +161,6 @@ export function StationDetail({ stations, store, onFocusFlow }: {
       </section>
       <StationFlows stationId={p.id} stations={stations} onFocusFlow={onFocusFlow} />
       <p className="note">{formatCount(p.lanes)} voies. Les passages additionnent les entrées et sorties ; ce ne sont pas des véhicules uniques. La répartition par classe de véhicule n’est pas diffusée par le flux.</p>
-    </section>
+    </GlassPanel>
   );
 }

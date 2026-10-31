@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { useUiStore } from '../state/uiStore';
 import type { SectionId } from '../state/uiStore';
+import { GlassCard } from './Spatial';
 import { Icon } from './Icon';
 
 /**
@@ -18,7 +19,7 @@ export function Section({ id, title, label, badge, children }: {
   const open = useUiStore((s) => s.openSection === id);
   const setOpen = useUiStore((s) => s.setOpenSection);
   return (
-    <section className="panel-section" aria-label={label ?? title}>
+    <GlassCard className="panel-section" aria-label={label ?? title}>
       <h2>
         <button type="button" className="section-toggle" aria-expanded={open} aria-controls={`section-${id}`}
           onClick={() => { setOpen(open ? null : id); }}>
@@ -31,6 +32,6 @@ export function Section({ id, title, label, badge, children }: {
       <div id={`section-${id}`} className={`section-body${open ? ' section-open' : ''}`} inert={!open}>
         <div className="section-inner">{children}</div>
       </div>
-    </section>
+    </GlassCard>
   );
 }

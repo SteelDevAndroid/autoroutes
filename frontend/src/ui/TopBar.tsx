@@ -1,3 +1,4 @@
+import { GlassHeader, SpatialButton } from './Spatial';
 import type { ReactNode } from 'react';
 import type { ActivityMetric } from '../state/uiStore';
 import type { StationStore } from '../state/stationStore';
@@ -35,7 +36,7 @@ function Account() {
   return (
     <form method="post" action="/logout" className="account">
       <span className="account-name" title={me.roles.join(', ')}>{me.name}</span>
-      <button type="submit" className="icon-button">Déconnexion</button>
+      <SpatialButton type="submit" className="icon-button">Déconnexion</SpatialButton>
     </form>
   );
 }
@@ -45,14 +46,14 @@ function DrawerToggle() {
   const open = useUiStore((s) => s.drawerOpen);
   const setOpen = useUiStore((s) => s.setDrawerOpen);
   return (
-    <button id="drawer-toggle" type="button" className="icon-button drawer-toggle" aria-expanded={open} aria-controls="side-panel"
-      aria-label="Panneau des couches et des filtres" onClick={() => { setOpen(!open); }}><Icon name="menu" /></button>
+    <SpatialButton id="drawer-toggle" type="button" className="icon-button drawer-toggle" aria-expanded={open} aria-controls="side-panel"
+      aria-label="Panneau des couches et des filtres" onClick={() => { setOpen(!open); }}><Icon name="menu" /></SpatialButton>
   );
 }
 
 function HelpButton() {
   const setAboutOpen = useUiStore((s) => s.setAboutOpen);
-  return <button type="button" className="icon-button help-button" data-tour="help" aria-label="Aide et à propos des données" onClick={() => { setAboutOpen(true); }}><Icon name="help" /><span>Aide</span></button>;
+  return <SpatialButton type="button" className="icon-button help-button" data-tour="help" aria-label="Aide et à propos des données" onClick={() => { setAboutOpen(true); }}><Icon name="help" /><span>Aide</span></SpatialButton>;
 }
 
 function MetricButton({ metric, children, disabled = false }: {
@@ -87,7 +88,7 @@ export function TopBar({ store }: { readonly store: StationStore }) {
     }
   }
   return (
-    <header className="topbar">
+    <GlassHeader className="topbar">
       <div className="topbar-title">
       <DrawerToggle />
       <span className="brand-mark"><Icon name="route" /></span>
@@ -114,6 +115,6 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       <HelpButton />
       <Account />
       </div>
-    </header>
+    </GlassHeader>
   );
 }

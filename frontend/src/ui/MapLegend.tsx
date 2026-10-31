@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { themeFor } from '../map/theme';
 import { useUiStore } from '../state/uiStore';
+import { GlassPanel } from './Spatial';
 import { Icon } from './Icon';
 import { LegendContent } from './Legend';
 import { legendRows } from './legendModel';
@@ -19,7 +20,7 @@ export function MapLegend() {
   const rows = legendRows(layers, { echangeur: kinds.has('ECHANGEUR'), pleineVoie: kinds.has('PLEINE_VOIE') });
   // La fiche et le diagnostic ont la priorité ; la légende du panneau reste disponible.
   if (selected !== null || diagnostic) return null;
-  return <section className={`map-legend${mode === 'replay' ? ' map-legend-replay' : ''}`} aria-label="Légende de la carte"
+  return <GlassPanel material="regular" className={`map-legend${mode === 'replay' ? ' map-legend-replay' : ''}`} aria-label="Légende de la carte"
     onKeyDown={(event) => {
       if (event.key === 'Escape' && open) {
         event.stopPropagation();
@@ -45,5 +46,5 @@ export function MapLegend() {
         {layers.od && <p className="note">Tirets : volume des flux, vitesse illustrative.</p>}
       </>}
     </div>
-  </section>;
+  </GlassPanel>;
 }

@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
 import { buildAxisGroups } from '../map/axes';
 import type { AxisGroup } from '../map/axes';
 import type { StationCollection } from '../map/referentiel';
 import { searchTargets } from './search';
 import type { SearchResult } from './search';
+import { GlassPopover, SpatialInput } from './Spatial';
 import { Icon } from './Icon';
 
 /** Recherche de gare (par nom) ou d'autoroute (« A7 »). Raccourci « / » (voir App) ; ↓ descend dans les résultats, Entrée ouvre le premier. */
@@ -14,9 +15,19 @@ export function SearchBox({ stations, onFocusStation, onFocusAxis }: {
   readonly onFocusAxis: (group: AxisGroup) => void;
 }) {
   const [query, setQuery] = useState('');
+  const search = useRef<HTMLElement>(null);
   const list = useRef<HTMLUListElement>(null);
   const axes = useMemo(() => buildAxisGroups(stations), [stations]);
   const results = useMemo(() => searchTargets(stations, axes, query), [stations, axes, query]);
+
+  useEffect(() => {
+    if (results.length === 0) return undefined;
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !search.current?.contains(event.target)) setQuery('');
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => { document.removeEventListener('pointerdown', dismiss); };
+  }, [results.length]);
 
   const pick = (result: SearchResult) => {
     if (result.kind === 'axis') {
@@ -58,15 +69,16 @@ export function SearchBox({ stations, onFocusStation, onFocusAxis }: {
   };
 
   return (
-    <section className="search" aria-label="Recherche de gare ou d’autoroute">
+    <section ref={search} className="search" aria-label="Recherche de gare ou d’autoroute"
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setQuery(''); }}>
       <label className="search-label" htmlFor="station-search">Rechercher sur le réseau</label>
       <div className="search-field"><Icon name="search" />
-      <input id="station-search" type="search" placeholder="Gare ou autoroute…" value={query} autoComplete="off"
+      <SpatialInput id="station-search" type="search" placeholder="Gare ou autoroute…" value={query} autoComplete="off"
         aria-label="Nom de gare ou d’autoroute" aria-keyshortcuts="/" onChange={(e) => { setQuery(e.target.value); }} onKeyDown={onInputKey} />
       <kbd aria-hidden="true">/</kbd></div>
       {query.trim().length >= 2 && results.length === 0 && <div className="empty-state" role="status"><strong>Aucun résultat pour « {query.trim()} ».</strong><p>Essayez un nom de gare ou un numéro d’autoroute, par exemple A7.</p><button className="icon-button" type="button" onClick={() => { setQuery(''); document.getElementById('station-search')?.focus(); }}>Effacer la recherche</button></div>}
       {results.length > 0 && (
-        <ul ref={list} onKeyDown={onListKey} aria-label="Résultats de la recherche">
+        <GlassPopover className="search-popover"><ul ref={list} onKeyDown={onListKey} aria-label="Résultats de la recherche">
           {results.map((r) => (
             <li key={r.kind === 'axis' ? `axis-${r.id}` : `station-${r.index}`}>
               <button type="button" className="search-result" onClick={() => { pick(r); }}>
@@ -75,7 +87,7 @@ export function SearchBox({ stations, onFocusStation, onFocusAxis }: {
               </button>
             </li>
           ))}
-        </ul>
+        </ul></GlassPopover>
       )}
     </section>
   );

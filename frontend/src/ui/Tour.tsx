@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { GlassSurface } from './Spatial';
 import { useUiStore } from '../state/uiStore';
 import { TOUR_STEPS } from './tourSteps';
 import { markTourSeen } from './tourStorage';
@@ -89,7 +90,7 @@ export function Tour() {
         <div className="tour-ring" aria-hidden="true"
           style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8 }} />
       )}
-      <div ref={card} className="tour-card" role="dialog" aria-label="Visite guidée" aria-describedby="tour-body"
+      <GlassSurface material="thick" depth="floating" ref={card} className="tour-card" role="dialog" aria-label="Visite guidée" aria-describedby="tour-body"
         style={{ left: placement?.left ?? 0, top: placement?.top ?? 0, width: Math.min(CARD_WIDTH, window.innerWidth - 24), visibility: placement === null ? 'hidden' : 'visible' }}>
         <p className="tour-step">Étape {index + 1} sur {steps.length}</p>
         <h2>{step.title}</h2>
@@ -102,7 +103,7 @@ export function Tour() {
             {last ? 'Terminer' : 'Suivant'}
           </button>
         </div>
-      </div>
+      </GlassSurface>
     </div>
   );
 }
