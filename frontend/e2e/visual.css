@@ -1,7 +1,7 @@
-/* Appliqué pendant chaque capture : police présente partout (Playwright installe Liberation), curseur et animations figés. */
-* { font-family: 'Liberation Sans', Arial, sans-serif !important; caret-color: transparent !important; }
+/* IBM Plex Sans est servie localement : les captures vérifient la vraie typographie. */
+* { caret-color: transparent !important; }
 /* « normal » dépend des métriques de la police système du runner ; fixer la hauteur des petites annotations. */
 .note { line-height: 14px !important; }
 
-/* Neutraliser le fond WebGL derrière les nouvelles surfaces translucides. */
+/* Le rendu WebGL et les compteurs simulés sont exclus des comparaisons. */
 .map canvas, .topbar-metrics { visibility: hidden !important; }

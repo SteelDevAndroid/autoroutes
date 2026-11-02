@@ -42,7 +42,7 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   return (
     <GlassSidebar id="side-panel" className={`side${drawerOpen ? ' side-open' : ''}`} data-tour="panel"
       role={compact && drawerOpen ? 'dialog' : undefined} aria-modal={compact && drawerOpen ? true : undefined} aria-labelledby="explorer-title">
-      <header className="side-heading"><div><p className="eyebrow">Espace de supervision</p><h2 id="explorer-title">Explorer le réseau</h2></div>
+      <header className="side-heading"><div><h2 id="explorer-title">Explorer le réseau</h2></div>
         <SpatialButton type="button" className="icon-button drawer-close" aria-label="Fermer le panneau" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }}><Icon name="close" /></SpatialButton>
       </header>
       <SearchBox stations={stations} onFocusStation={onFocus} onFocusAxis={onFocusAxis} />
