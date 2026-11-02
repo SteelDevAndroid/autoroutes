@@ -93,10 +93,10 @@ export function TopBar({ store }: { readonly store: StationStore }) {
     <GlassHeader className="topbar">
       <div className="topbar-title">
       <DrawerToggle />
-      <span className="brand-mark"><Icon name="route" /></span>
-      <div className="brand"><span className="brand-name">Autoroutes<span className="brand-dot">.</span></span>
-      <h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
+      <span className="brand-mark" aria-hidden="true"><Icon name="route" /></span>
+      <div className="brand"><span className="brand-name">Autoroutes<span className="brand-dot">.</span></span><span className="brand-scope">Réseau national · France</span></div>
       </div>
+      <div className="screen-heading"><h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
       <div className="topbar-metrics">
       <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></MetricButton></div>
       <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></MetricButton></div>
