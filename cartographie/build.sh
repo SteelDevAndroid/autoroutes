@@ -98,7 +98,7 @@ if [ "${RRN_MANAGERS:-auto}" != "none" ]; then
       | python3 -c 'import json,sys; r=json.load(sys.stdin)["resources"]; eligible=[x for x in r if x.get("format","").lower()=="zip" and "gestionnaires" in x.get("title","").lower() and ("metropole" in x.get("title","").lower() or "2025_shp" in x.get("title","").lower())]; eligible.sort(key=lambda x: ("metropole" in x.get("title","").lower(), x.get("title","")),reverse=True); print(eligible[0].get("url","") if eligible else "")' ) || true
   fi
   if [ -n "$RRN_URL" ] && curl -fsSL --retry 3 "$RRN_URL" -o "$RRN_ZIP"; then
-    if ogr2ogr -f GeoJSON -t_srs EPSG:4326 "$WORK/rrn-managers.geojson" "/vsizip/$RRN_ZIP"; then
+    if ogr2ogr -overwrite -f GeoJSON -t_srs EPSG:4326 "$WORK/rrn-managers.geojson" "/vsizip/$RRN_ZIP"; then
       OFFICIAL_GEOJSON="$WORK/rrn-managers.geojson"
       echo "Sections officielles RRN integrees : $RRN_URL"
     else
