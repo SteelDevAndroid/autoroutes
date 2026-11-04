@@ -46,6 +46,36 @@ def normalize_ref(ref):
     return refs
 
 
+# Le numéro d'autoroute ne détermine pas la concession : une même A peut avoir plusieurs gestionnaires.
+# Ces identifiants proviennent uniquement des tags explicites OSM (operator / concessionaire).
+CONCESSION_ALIASES = {
+    "APRR": "APRR", "AUTOROUTES PARIS RHIN RHONE": "APRR", "AREA": "AREA",
+    "ASF": "ASF", "AUTOROUTES DU SUD DE LA FRANCE": "ASF",
+    "ESCOTA": "ESCOTA", "SANEF": "SANEF", "SAPN": "SAPN",
+    "COFIROUTE": "COFIROUTE", "ATMB": "ATMB", "SFTRF": "SFTRF",
+    "ALIS": "ALIS", "ALIENOR": "ALIENOR", "ATLANDES": "ATLANDES",
+    "ADELAC": "ADELAC", "ALBEA": "ALBEA", "ALICORNE": "ALICORNE",
+    "ARCOUR": "ARCOUR", "ALIAE": "ALIAE", "ARCOS": "ARCOS",
+    "AMEDEA": "AMEDEA", "ATOSCA": "ATOSCA",
+}
+
+
+def concession_from_tags(props):
+    """Concession connue explicitement dans OSM ; jamais déduite du seul numéro A."""
+    import unicodedata
+
+    for tag in ("concessionaire", "concessionnaire", "operator"):
+        raw = props.get(tag)
+        if not isinstance(raw, str):
+            continue
+        name = unicodedata.normalize("NFKD", raw).encode("ascii", "ignore").decode("ascii")
+        name = re.sub(r"[^A-Z0-9]+", " ", name.upper()).strip()
+        for alias, code in CONCESSION_ALIASES.items():
+            if name == alias or name.startswith(alias + " "):
+                return code
+    return ""
+
+
 def parse_speed(value, highway):
     match = re.match(r"^\s*(\d+)", value or "")
     return int(match.group(1)) if match else DEFAULT_SPEED.get(highway, 110)
@@ -131,7 +161,7 @@ def build(ways, reference_points):
             "type": "Feature",
             "geometry": {"type": "LineString", "coordinates": coords},
             "properties": {"segmentId": segment_id, "ref": props.get("ref", ""), "concede": conceded,
-                           "link": highway == "motorway_link"},
+                           "link": highway == "motorway_link", "concession": concession_from_tags(props)},
         })
         a = nodes.setdefault(key(coords[0]), len(nodes))
         b = nodes.setdefault(key(coords[-1]), len(nodes))
