@@ -183,7 +183,7 @@ jobs:
       - run: pip install -r scripts/requirements.txt
       - name: Tests de la préparation des autoroutes
         working-directory: cartographie
-        run: python -m unittest -v test_prepare_motorways test_verify_tiles
+        run: python -m unittest -v test_prepare_motorways test_verify_tiles test_official_concessions
       - name: Réutilisation sûre des artefacts cartographiques
         run: python -m unittest discover -s scripts -p test_ci_map_artifact.py -v
       # Les fichiers de référentiel versionnés doivent correspondre à ce que produisent les scripts : plus de dérive silencieuse.
