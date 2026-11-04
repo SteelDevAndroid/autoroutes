@@ -101,6 +101,20 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
         'line-opacity': ['case', ['boolean', ['feature-state', 'axisSelected'], false], 1, 0] },
     },
     {
+      // Couche indépendante de la sélection d'axe et des charges : respecte les limites de concession par tronçon.
+      id: 'motorways-concession',
+      type: 'line',
+      source: SOURCE.motorways,
+      'source-layer': MOTORWAYS_SOURCE_LAYER,
+      filter: ['==', ['get', 'concession'], '__none__'],
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: {
+        'line-color': theme.selection,
+        'line-width': selectedWidth(1.35),
+        'line-opacity': 0.95,
+      },
+    },
+    {
       id: 'segments-load',
       type: 'line',
       source: SOURCE.motorways,
