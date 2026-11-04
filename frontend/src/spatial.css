@@ -8,7 +8,7 @@ body { background: var(--bg); }
 .simulated-banner, .source-banner, .replay-banner { background: transparent; color: var(--text-muted); text-align: left; padding: 6px 24px; font-size: 12px; font-weight: 400; }
 .simulated-banner { border-bottom: 1px solid var(--panel-border); }
 .source-warning, .replay-banner { color: var(--warn); }
-.topbar { grid-template-columns: 304px minmax(0, 1fr) auto; border: 0; border-radius: 0; background: transparent; overflow: hidden; }
+.topbar { grid-template-columns: clamp(380px, 29vw, 420px) minmax(0, 1fr) auto; border: 0; border-radius: 0; background: transparent; overflow: hidden; }
 .topbar-title { padding: 16px 24px; gap: 10px; }
 .brand-mark { width: 28px; height: 32px; border: 0; border-radius: 0; background: transparent; color: var(--accent); }
 .brand-mark svg { width: 28px; height: 28px; }
@@ -116,8 +116,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .mobile-map-tools { display: flex; gap: 8px; position: absolute; top: 12px; left: 12px; z-index: 5; }
 .detail { z-index: 6; }
 @media (min-width: 901px) and (max-width: 1200px) {
-  .app { grid-template-columns: 280px minmax(0, 1fr); }
-  .topbar { grid-template-columns: 280px minmax(0, 1fr) auto; }
+  .app { grid-template-columns: 340px minmax(0, 1fr); }
+  .topbar { grid-template-columns: 340px minmax(0, 1fr) auto; }
   .topbar h1 { font-size: 20px; }
   .connection-detail { display: none; }
   .topbar-actions { gap: 12px; }
@@ -146,7 +146,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .kpi-value, .kpi-time .kpi-value { font-size: 24px; line-height: 1.2; }
   .kpi-label { font-size: 12px; }
   .kpi-link { gap: 4px; }
-  .side { inset: 8px auto 8px 8px; width: min(88vw, 360px); padding: 20px 16px 16px; border: 1px solid var(--panel-border); border-radius: var(--radius-panel); transform: translateX(calc(-100% - 16px)); background: var(--panel); }
+  .side { inset: 8px auto 8px 8px; width: min(94vw, 420px); padding: 20px 16px 16px; border: 1px solid var(--panel-border); border-radius: var(--radius-panel); transform: translateX(calc(-100% - 16px)); background: var(--panel); }
   .side.side-open { transform: none; }
   .side-heading { min-height: 44px; }
   .side label { min-height: 44px; }
