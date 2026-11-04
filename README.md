@@ -55,6 +55,11 @@ données ne sont plus à jour ; les dernières valeurs et leur heure restent aff
 Voir le [guide des animations et de la fraîcheur du trafic](docs/animation-trafic.md) pour les niveaux de zoom,
 les états de suspension, la configuration du graphe et les vérifications.
 
+
+## Filtrer par société concessionnaire
+
+Dans « Explorer le réseau », le sélecteur « Concession autoroutière » souligne les tronçons dont le gestionnaire est identifié. La génération cartographique exploite les sections officielles du [RRN](https://www.data.gouv.fr/datasets/gestionnaires-du-reseau-routier-national) quand elles sont disponibles ; les sections non identifiées restent neutres. Après mise à jour des sources, régénérer les tuiles vectorielles. Voir [source, fiabilité et configuration](docs/concessions.md).
+
 ## Documentation
 
 - [Docker : lancement, profils, secrets, cartographie et diagnostic](docs/docker.md)
