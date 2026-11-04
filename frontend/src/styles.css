@@ -45,7 +45,6 @@ svg { flex-shrink: 0; }
 .kpi + .kpi { padding-left: 14px; }
 .kpi-label { color: var(--text-muted); font-size: var(--text-caption); }
 .kpi-value { font-size: 23px; line-height: 1.3; letter-spacing: -.6px; font-weight: 650; }
-.kpi-time { flex: .7; }
 .kpi:has(.kpi-link) { padding: 0; }
 .kpi-link { display: flex; flex-direction: column; gap: 4px; width: 100%; height: 100%; padding: 8px 14px; text-align: left; border: 0; border-radius: inherit; background: transparent; }
 .kpi-link:hover:not(:disabled), .kpi-link[aria-expanded='true'] { background: var(--surface-hover); }
@@ -86,7 +85,6 @@ svg { flex-shrink: 0; }
 .period-breakdown table { margin-top: 0; }
 .detail-history { margin-top: 20px; }
 .detail-history .history-chart { margin-top: 12px; }
-.kpi-time .kpi-value { font-size: 18px; line-height: 1.66; }
 .status { display: inline-flex; align-items: center; gap: var(--space-2); padding: 6px 10px; border: 1px solid currentColor; border-radius: 999px; font-size: var(--text-caption); font-weight: 600; white-space: nowrap; background: var(--bg); }
 .status::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
 .status-ok { color: var(--ok); }
@@ -352,8 +350,7 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
   .topbar h1 { font-size: 12px; line-height: 1.4; }
   .topbar-actions { padding: var(--space-3) var(--space-4) var(--space-3) 0; gap: var(--space-3); flex-wrap: wrap; max-width: 44vw; }
   .topbar-metrics { padding: var(--space-3) var(--space-4); gap: var(--space-4); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .kpi-secondary { display: none; }
-  .kpi-value, .kpi-time .kpi-value { font-size: 18px; line-height: 1.4; }
+  .kpi-value { font-size: 18px; line-height: 1.4; }
   .kpi-label { font-size: 12px; }
   .topbar-metrics .kpi { padding: 8px 12px; }
   .topbar-metrics .kpi:has(.kpi-link) { padding: 0; }
@@ -379,7 +376,7 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
   .help-button span { display: none; }
   .topbar-metrics { gap: var(--space-2); }
   .kpi + .kpi { padding-left: 12px; }
-  .kpi-value, .kpi-time .kpi-value { font-size: 17px; }
+  .kpi-value { font-size: 17px; }
   .account-name { display: none; }
   .account { flex-basis: 100%; justify-content: flex-end; }
   .side label { min-height: 44px; }

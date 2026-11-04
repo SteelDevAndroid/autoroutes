@@ -1,5 +1,5 @@
 import { GlassHeader, SpatialButton } from './Spatial';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ActivityMetric } from '../state/uiStore';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
@@ -74,7 +74,7 @@ function MetricButton({ metric, children, disabled = false }: {
 
 export function TopBar({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
-  const watermark = useUiStore((s) => s.watermark);
+  const [moreMetrics, setMoreMetrics] = useState(false);
   const mode = useUiStore((s) => s.mode);
   let active = 0;
   let anomalies = 0;
@@ -108,9 +108,14 @@ export function TopBar({ store }: { readonly store: StationStore }) {
         <span className="kpi-value">{mode === 'replay' || reported === 0 ? '—'
           : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</span></MetricButton>
       </div>
-      <div className="kpi kpi-secondary"><MetricButton metric="today"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></MetricButton></div>
-      <div className="kpi kpi-secondary"><MetricButton metric="active15m"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></MetricButton></div>
-      <div className="kpi kpi-time"><span className="kpi-label">Données à · Paris</span><span className="kpi-value">{formatTime(watermark)}</span></div>
+      <SpatialButton className="metrics-toggle" aria-expanded={moreMetrics} aria-controls="network-secondary-metrics"
+        onClick={() => { setMoreMetrics(!moreMetrics); }}>
+        {moreMetrics ? 'Moins d’indicateurs' : 'Plus d’indicateurs'}<Icon name="chevron" />
+      </SpatialButton>
+      <div id="network-secondary-metrics" className="secondary-metrics" hidden={!moreMetrics}>
+        <div className="kpi"><MetricButton metric="today"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></MetricButton></div>
+        <div className="kpi"><MetricButton metric="active15m"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></MetricButton></div>
+      </div>
       </div>
       <div className="topbar-actions">
       <ConnectionBadge />
