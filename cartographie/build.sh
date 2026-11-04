@@ -90,6 +90,7 @@ fi
 # L'URL est configurable pour un téléchargement reproductible et une mise à jour annuelle.
 # L'absence de source officielle ne doit jamais bloquer la génération de carte.
 OFFICIAL_GEOJSON=""
+RRN_SOURCE=""
 if [ "${RRN_MANAGERS:-auto}" != "none" ]; then
   RRN_ZIP="$WORK/rrn-managers.zip"
   RRN_URL="${RRN_MANAGERS_URL:-}"
@@ -100,6 +101,7 @@ if [ "${RRN_MANAGERS:-auto}" != "none" ]; then
   if [ -n "$RRN_URL" ] && curl -fsSL --retry 3 "$RRN_URL" -o "$RRN_ZIP"; then
     if ogr2ogr -overwrite -f GeoJSON -t_srs EPSG:4326 "$WORK/rrn-managers.geojson" "/vsizip/$RRN_ZIP"; then
       OFFICIAL_GEOJSON="$WORK/rrn-managers.geojson"
+      RRN_SOURCE="$RRN_URL"
       echo "Sections officielles RRN integrees : $RRN_URL"
     else
       echo "AVERTISSEMENT : SHP officiel illisible ; fallback OSM" >&2
@@ -121,14 +123,21 @@ tippecanoe -o "$OUT/tiles/motorways.pmtiles" -l motorways --force \
 # Traçabilité : ce qui a produit ces fichiers (jointe aux releases de tuiles).
 GRAPH_FILE=$(basename "$(find "$OUT/graph" -name 'graph-*.json' | sort | tail -1)")
 MANIFEST_BUILD=$PROTOMAPS_BUILD MANIFEST_MODE=$OSM_MODE MANIFEST_MAXZOOM=$BASEMAP_MAXZOOM MANIFEST_BBOX=$BBOX MANIFEST_GRAPH=$GRAPH_FILE \
-MANIFEST_COMMIT=${GITHUB_SHA:-} python3 -c '
-import datetime, json, os
+MANIFEST_RRN_SOURCE="$RRN_SOURCE" MANIFEST_SEGMENTS="$WORK/segments.geojsonseq" MANIFEST_COMMIT=${GITHUB_SHA:-} python3 -c '
+import collections, datetime, json, os
 e = os.environ
+counts = collections.Counter()
+with open(e["MANIFEST_SEGMENTS"], encoding="utf-8") as rows:
+    for line in rows:
+        code = json.loads(line)["properties"].get("concession", "")
+        if code: counts[code] += 1
 print(json.dumps({
     "genereLe": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "protomapsBuild": e["MANIFEST_BUILD"], "zoomMax": int(e["MANIFEST_MAXZOOM"]), "bbox": e["MANIFEST_BBOX"],
     "sourceOsm": e["MANIFEST_MODE"], "graphe": e["MANIFEST_GRAPH"], "commit": e["MANIFEST_COMMIT"],
-    "licences": "© OpenStreetMap contributors (ODbL) ; fond Protomaps",
+    "licences": "© OpenStreetMap contributors (ODbL) ; fond Protomaps ; gestionnaires RRN : Licence Ouverte",
+    "gestionnairesRRN": e["MANIFEST_RRN_SOURCE"] or None,
+    "tronconsParConcession": dict(sorted(counts.items())),
 }, ensure_ascii=False, indent=2))' > "$OUT/manifest.json"
 
 ls -lh "$OUT/tiles" "$OUT/graph"
