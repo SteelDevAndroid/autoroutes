@@ -26,6 +26,8 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
   readonly onResetView: () => void;
 }) {
   const compact = useCompact();
+  const concession = useUiStore((s) => s.concession);
+  const setConcession = useUiStore((s) => s.setConcession);
   const layers = useUiStore((s) => s.layers);
   const kinds = useUiStore((s) => s.kinds);
   const toggleLayer = useUiStore((s) => s.toggleLayer);
@@ -65,6 +67,20 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
         <label><input type="checkbox" checked={kinds.has('ECHANGEUR')} onChange={() => { toggleKind('ECHANGEUR'); }} /> Gares d’échangeur</label>
         <label><input type="checkbox" checked={kinds.has('PLEINE_VOIE')} onChange={() => { toggleKind('PLEINE_VOIE'); }} /> Barrières pleine voie</label>
         </fieldset>
+      <div className="control-group" style={{ padding: '0 12px 12px' }}>
+        <label htmlFor="concession-filter">Concession autoroutière</label>
+        <select id="concession-filter" value={concession ?? ''} onChange={(event) => { setConcession(event.target.value || null); }}
+          aria-describedby="concession-help" style={{ width: '100%', marginTop: 6 }}>
+          <option value="">Toutes les concessions</option>
+          {['APRR', 'AREA', 'ASF', 'ESCOTA', 'SANEF', 'SAPN', 'COFIROUTE', 'ATMB', 'SFTRF',
+            'ALIS', 'ALIENOR', 'ATLANDES', 'ADELAC', 'ALBEA', 'ALICORNE',
+            'ARCOUR', 'ALIAE', 'ARCOS', 'AMEDEA', 'ATOSCA'].map((code) => (
+            <option key={code} value={code}>{code}</option>
+          ))}
+        </select>
+        <p id="concession-help" className="note">Met en évidence les tronçons dont le gestionnaire est identifié dans les données cartographiques.
+          Les tronçons non renseignés restent neutres.</p>
+      </div>
       </Section>
       <ActivityPanel stations={stations} store={store} onFocus={onFocus} />
       {layers.od && <OdPanel stations={stations} onFocusFlow={onFocusFlow} />}

@@ -2,6 +2,22 @@ import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from './fixtures';
 
 test.describe('démonstration (flux simulé)', () => {
+  test('le filtre de concession met à jour le choix cartographique sans toucher aux autres filtres', async ({ page }) => {
+    await page.goto('/');
+    const map = page.getByRole('region', { name: 'Carte des gares de péage' });
+    const selector = page.getByLabel('Concession autoroutière');
+    await expect(map).toHaveAttribute('data-ready', 'true');
+    await expect(selector).toHaveValue('');
+    await selector.selectOption('APRR');
+    await expect(selector).toHaveValue('APRR');
+    await expect(map).toHaveAttribute('data-concession', 'APRR');
+    await selector.selectOption('SANEF');
+    await expect(map).toHaveAttribute('data-concession', 'SANEF');
+    await selector.selectOption('');
+    await expect(map).toHaveAttribute('data-concession', '');
+    await expect(page.getByLabel('Activité des gares')).toBeChecked();
+  });
+
   test('la légende compacte se déplie au clavier et reste utilisable sur téléphone', async ({ page }) => {
     await page.goto('/');
     const legend = page.getByRole('region', { name: 'Légende de la carte', exact: true });

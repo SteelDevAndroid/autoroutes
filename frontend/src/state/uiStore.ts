@@ -97,6 +97,8 @@ export interface UiState {
   readonly segments: SegmentsState | null;
   /** Référence de couleur commune à la carte et à la légende, conservée jusqu'au changement de graphe ou d'algorithme. */
   readonly segmentReference: number | null;
+  readonly concession: string | null;
+  readonly setConcession: (code: string | null) => void;
   readonly axisFocus: AxisFocus | null;
   readonly openSection: SectionId | null;
   /** Petit écran : le panneau latéral est un tiroir, ouvert ou fermé. Sans effet au-delà de 900 px. */
@@ -186,6 +188,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   resyncCount: 0,
   mode: 'live',
   axisFocus: null,
+  concession: null,
+  setConcession: (concession) => { set({ concession }); },
   openSection: 'layers',
   drawerOpen: false,
   aboutOpen: false,
