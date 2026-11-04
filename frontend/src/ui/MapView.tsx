@@ -39,6 +39,7 @@ export function MapView({ stations, store, onReady }: {
       onAxisClick: (axis) => { useUiStore.getState().chooseAxis(axis); },
     });
     controller.setLayers(ui.layers);
+    controller.setConcession(ui.concession);
     controller.setAnomaliesVisible(ui.mode === 'live');
     controller.setKinds(ui.kinds);
     controller.setReducedMotion(ui.reducedMotion);
@@ -54,6 +55,7 @@ export function MapView({ stations, store, onReady }: {
         controller.setTrafficMotion(trafficMotionState(state));
       }
       if (state.layers !== previous.layers) controller.setLayers(state.layers);
+      if (state.concession !== previous.concession) controller.setConcession(state.concession);
       if (state.mode !== previous.mode) controller.setAnomaliesVisible(state.mode === 'live');
       if (state.layers.axes !== previous.layers.axes) controller.setAxisLabelsVisible(state.layers.axes);
       if (state.hoverAxis !== previous.hoverAxis || state.odFilters.axis !== previous.odFilters.axis) {
