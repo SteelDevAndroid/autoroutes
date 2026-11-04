@@ -13,13 +13,13 @@ RUN go install github.com/protomaps/go-pmtiles@${PMTILES_VERSION}
 
 # tippecanoe 2.49 et osmium-tool 1.16 viennent des paquets Ubuntu 24.04 : plus de compilation depuis GitHub.
 FROM ${UBUNTU_IMAGE}
-RUN apt-get update && apt-get install -y --no-install-recommends tippecanoe osmium-tool python3 python3-pyproj curl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends tippecanoe osmium-tool python3 python3-pyproj gdal-bin curl ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 COPY cartographie/ca/ /usr/local/share/ca-certificates/extra/
 RUN update-ca-certificates
 COPY --from=pmtiles /go/bin/go-pmtiles /usr/local/bin/pmtiles
 # Sources embarquées : le montage des sorties ne doit pas masquer le programme.
-COPY cartographie/build.sh cartographie/prepare_motorways.py /opt/autoroutes/cartographie/
+COPY cartographie/build.sh cartographie/prepare_motorways.py cartographie/official_concessions.py /opt/autoroutes/cartographie/
 COPY referentiel/gares-logiques-proposition.csv /opt/autoroutes/referentiel/
 COPY echangeurs-rrnc-2025.csv /opt/autoroutes/
 RUN sed -i 's/\r$//' /opt/autoroutes/cartographie/build.sh
