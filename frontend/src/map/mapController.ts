@@ -332,6 +332,16 @@ export class MapController {
     this.loop.wake();
   }
 
+  /** Filtre par concession exacte, sans assimiler un numéro d'autoroute à un gestionnaire unique. */
+  setConcession(code: string | null): void {
+    this.container.dataset.concession = code ?? '';
+    this.whenStyleReady(() => {
+      if (this.map.getLayer('motorways-concession') !== undefined) {
+        this.map.setFilter('motorways-concession', ['==', ['get', 'concession'], code ?? '__none__']);
+      }
+    });
+  }
+
   setOd(view: OdView): void {
     this.od = view;
     this.renderOd();
