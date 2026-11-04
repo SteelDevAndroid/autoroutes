@@ -5,6 +5,3 @@
 
 /* Le rendu WebGL et les compteurs simulés sont exclus des comparaisons. */
 .map canvas, .topbar-metrics { visibility: hidden !important; }
-
-/* Les références historiques ne couvrent pas encore le nouveau filtre, contrôlé par le scénario fonctionnel. */
-[data-visual-new-feature="concession"] { display: none !important; }
