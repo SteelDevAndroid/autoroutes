@@ -99,6 +99,10 @@ svg { flex-shrink: 0; }
 /* Navigation d'exploration : recherche stable, groupes métier, préférences séparées. */
 .side { grid-area: side; overflow-y: auto; overscroll-behavior: contain; background: var(--panel); border-right: 1px solid var(--panel-border); padding: 16px 20px var(--space-4); display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .side > * { flex-shrink: 0; }
+.concession-selector { flex-shrink: 0; padding: 10px 12px; border: 1px solid var(--panel-border); border-radius: var(--radius-card); background: var(--panel); }
+.concession-selector label { font-weight: 600; }
+.concession-selector select { display: block; width: 100%; margin-top: 6px; }
+.concession-selector .note { margin-top: 6px; }
 .side-content { flex: 1 1 auto; display: flex; flex-direction: column; overflow-y: auto; overscroll-behavior: contain; min-height: 80px; padding: 0 var(--space-1); margin: 0 -4px; }
 .side-content > .panel-section { display: flex; flex-direction: column; flex-shrink: 0; }
 .side-content > .panel-section:has(.section-open) { flex: 0 0 auto; min-height: 0; }
