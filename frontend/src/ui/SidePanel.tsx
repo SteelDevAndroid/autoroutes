@@ -51,7 +51,7 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
       <div className="side-content">
       {compact && drawerOpen && <ActiveFilters stations={stations} />}
       <AxisSummary stations={stations} store={store} />
-      <div className="control-group" style={{ padding: '0 12px 12px' }}>
+      <div data-visual-new-feature="concession" className="control-group" style={{ padding: '0 12px 12px' }}>
         <label htmlFor="concession-filter">Concession autoroutière</label>
         <select id="concession-filter" value={concession ?? ''} onChange={(event) => { setConcession(event.target.value || null); }}
           aria-describedby="concession-help" style={{ width: '100%', marginTop: 6 }}>
