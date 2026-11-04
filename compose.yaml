@@ -172,7 +172,7 @@ services:
 
   kafka:
     profiles: [infra, full]
-    image: apache/kafka:4.1.0
+    image: apache/kafka:4.4.0
     logging: *logging
     restart: unless-stopped
     ports:
@@ -244,7 +244,7 @@ services:
 
   prometheus:
     profiles: [monitoring]
-    image: prom/prometheus:v3.5.0
+    image: prom/prometheus:v3.15.1
     logging: *logging
     restart: unless-stopped
     command:
@@ -268,7 +268,7 @@ services:
 
   alertmanager:
     profiles: [monitoring]
-    image: prom/alertmanager:v0.28.1
+    image: prom/alertmanager:v0.34.2
     logging: *logging
     restart: unless-stopped
     command:
@@ -291,7 +291,7 @@ services:
   # Grafana est sous licence AGPL-3.0 : usage interne sans modification sans obligation particulière ; voir docs/docker.md.
   grafana:
     profiles: [monitoring]
-    image: grafana/grafana:12.2.0
+    image: grafana/grafana:13.3.0
     logging: *logging
     restart: unless-stopped
     depends_on:
