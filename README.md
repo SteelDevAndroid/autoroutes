@@ -74,6 +74,9 @@ Dans « Explorer le réseau », le sélecteur « Concession autoroutière » sou
 
 ## Documentation
 
+- [Index de la documentation maintenue](docs/README.md)
+- [Architecture et données](docs/architecture.md)
+
 - [Guide utilisateur : carte, compteurs, courbes et relecture](docs/guide-utilisateur.md)
 - [Concessions : sources et couverture](docs/concessions.md)
 - [Performances : protections et protocole de mesure](docs/performance.md)

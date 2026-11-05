@@ -20,7 +20,7 @@ l’initialisation des topics, PostgreSQL, le simulateur, le backend et le front
 Prometheus, Alertmanager et Grafana. Ajouter `--profile mcp` pour le serveur MCP.
 L’application est accessible sur http://localhost:8080 et Grafana sur http://localhost:3000.
 
-Le parcours simulateur → Kafka → backend → navigateur a été [validé sur les images Hub le 29 octobre 2026](validation-dockerhub-simulator.md) : deux tests navigateur réussis, p95 de latence à 2 secondes et événements simulés persistés dans PostgreSQL.
+Le parcours simulateur → Kafka → backend → navigateur est contrôlé par les tests de chaîne complète : voir les [vérifications CI](ci.md) et le [protocole de mesure des performances](performance.md).
 
 `latest` suit les versions stables ; `edge` suit les publications de `main` après CI. Définir
 `AUTOROUTES_TAG=0.3.0` dans `.env` pour figer une version publiée, ou `AUTOROUTES_TAG=edge` pour suivre main.
@@ -164,7 +164,7 @@ fournit les commandes `gh release download`, la vérification SHA-256 et l’ins
 Le fond publié du 23 octobre 2026 a été contrôlé le 29 octobre : archives et graphe valides,
 99,4 % des gares rattachées au graphe, tuiles servies en HTTP 206 et rendu confirmé dans le navigateur.
 
-Lancement à la demande (onglet Actions → « Tuiles et graphe routier » → Run workflow) : `build` (`latest` ou une date), `osm_mode` (`single` ou `regions`), `maxzoom` (12 par défaut : au-delà d'environ 1,9 Go le fichier ne tient plus dans une release, le contrôle le signale), `publish`. Les données dérivées d'OpenStreetMap restent sous ODbL (voir `docs/increment-4.md`).
+Lancement à la demande (onglet Actions → « Tuiles et graphe routier » → Run workflow) : `build` (`latest` ou une date), `osm_mode` (`single` ou `regions`), `maxzoom` (12 par défaut : au-delà d'environ 1,9 Go le fichier ne tient plus dans une release, le contrôle le signale), `publish`. Les données dérivées d'OpenStreetMap restent sous ODbL (voir [architecture et données](architecture.md#observations-et-estimations)).
 
 Le dossier `cartographie/out/` est monté en lecture seule dans nginx : les tuiles sont servies par requêtes HTTP Range, sans serveur de tuiles.
 
@@ -177,7 +177,7 @@ docker compose up -d backend
 
 **Réseau d'entreprise qui intercepte le TLS** : la construction de l'image échoue avec `tls: failed to verify certificate: x509: certificate signed by unknown authority` (modules Go de `pmtiles`). Déposer le certificat racine du proxy, en PEM avec l'extension `.crt`, dans `cartographie/ca/` (jamais versionné, voir son `README.md`) puis `docker compose --profile tiles build tiles` : il est installé dans les deux étapes de l'image avant tout téléchargement. Si le proxy est aussi obligatoire pour sortir (pas d'accès direct), passer ses adresses en `--build-arg HTTPS_PROXY=… --build-arg HTTP_PROXY=…` à la construction.
 
-Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Mesures de la première exécution réelle : `docs/increment-4.md`, section 4.
+Si Geofabrik n'est pas joignable, `OSM_MODE=regions` télécharge les 22 extraits régionaux d'OpenStreetMap France (`REGION_JOBS` en parallèle), les filtre aux autoroutes puis les supprime. Les polices et sprites viennent de GitHub Pages (`ASSETS_BASE_URL`). Le fond est produit jusqu'à **z12** (1,2 Go), niveau retenu ; `TILES_MAXZOOM=14` donne environ 4,9 Go. Ces tailles décrivent un jeu cartographique ; les mesures de performances suivent le [protocole dédié](performance.md).
 
 ## Images publiées (Docker Hub)
 
@@ -354,7 +354,7 @@ de zoom, le gel pendant les interruptions, la confirmation après reconnexion et
 ## Limites connues
 
 - Kafka est un nœud unique (KRaft, facteur de réplication 1) et les liaisons sont en clair : adapté au développement et à la démonstration, pas à la production telle quelle.
-- **Authentification** : sans `SUPERVISION_PROFILE=auth`, le frontend et l'API sont ouverts à qui joint le port 8080 (démonstration, développement). Avec le profil, la connexion OIDC est obligatoire (voir `docs/increment-5.md`). Grafana n'est joignable que depuis la machine par défaut.
+- **Authentification** : sans `SUPERVISION_PROFILE=auth`, le frontend et l'API sont ouverts à qui joint le port 8080 (démonstration, développement). Avec le profil, la connexion OIDC est obligatoire (voir [exploitation et limites](architecture.md#exploitation-et-limites)). Grafana n'est joignable que depuis la machine par défaut.
 - Alertmanager (port 9093, `ALERTMANAGER_PORT`) regroupe les alertes (4 h de répétition, 1 h pour `critical`) et inhibe les autres alertes quand `BackendDown` est actif ; **aucun récepteur externe n'est configuré** : renseigner e-mail, webhook ou chat dans `observability/alertmanager/alertmanager.yml` (récepteur `equipe`, secrets via `url_file`/`password_file`).
 - Les sauvegardes de volumes et la rotation des secrets ne sont pas automatisées.
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.

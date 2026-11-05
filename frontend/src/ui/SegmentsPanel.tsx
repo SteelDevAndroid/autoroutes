@@ -3,7 +3,7 @@ import { EmptyState } from './EmptyState';
 import { Section } from './Section';
 import { formatCount } from './format';
 
-const DOC_URL = 'https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/increment-4.md#4-non-atteint-à-faire-sur-un-poste-avec-accès-réseau';
+const DOC_URL = 'https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/docker.md#flux-suivant-les-routes';
 
 /** La charge des tronçons n'est jamais une mesure : l'estimation, son algorithme et ses limites sont toujours affichés. */
 export function SegmentsPanel() {

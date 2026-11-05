@@ -323,7 +323,7 @@ services:
   # ───────────────────────── Authentification ─────────────────────────
 
   # Keycloak (Apache-2.0) en mode développement avec import du royaume : suffisant pour valider la chaîne OIDC, pas pour la production
-  # (base H2 éphémère : royaume réimporté à chaque démarrage, HTTP). Voir docs/increment-5.md pour le passage en production.
+  # (base H2 éphémère : royaume réimporté à chaque démarrage, HTTP). Voir docs/architecture.md (exploitation et limites) pour le passage en production.
   keycloak:
     profiles: [auth]
     image: quay.io/keycloak/keycloak:26.4

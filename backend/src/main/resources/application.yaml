@@ -65,7 +65,7 @@ supervision:
     stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
     aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
   security:
-    # true : connexion OIDC (Keycloak) obligatoire, rôles VIEWER / ADMIN ; voir docs/increment-5.md
+    # true : connexion OIDC (Keycloak) obligatoire, rôles VIEWER / ADMIN ; voir docs/architecture.md (exploitation et limites)
     enabled: ${SUPERVISION_SECURITY_ENABLED:false}
     roles-claim: ${SUPERVISION_ROLES_CLAIM:roles}
   assignment:
