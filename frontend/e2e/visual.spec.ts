@@ -40,7 +40,9 @@ test.describe('régression visuelle', () => {
     await page.getByLabel('Charge des tronçons (estimée)').check();
     await page.getByRole('button', { name: 'Légende', exact: true }).click();
 
-    await expect(page.getByRole('region', { name: 'Légende', exact: true })).toHaveScreenshot('legende-flux-troncons.png', SHOT);
+    // Photographier la fenêtre réellement visible : la section complète peut dépasser ce conteneur défilant.
+    await page.getByRole('button', { name: 'Légende', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.locator('.side-content')).toHaveScreenshot('legende-flux-troncons.png', SHOT);
     // La légende défile quand plusieurs couches sont actives : vérifier aussi sa partie basse.
     await page.getByTestId('segment-scale').scrollIntoViewIfNeeded();
     await expect(page.getByTestId('segment-scale')).toHaveScreenshot('legende-echelle-troncons.png', SHOT);

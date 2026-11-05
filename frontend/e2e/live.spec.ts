@@ -42,17 +42,19 @@ test.describe('flux réel (backend + simulateur)', () => {
   test('latence de bout en bout ≤ 3 s au 95e centile', async ({ page }) => {
     await page.goto('/');
     await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
+    const updatedAt = page.locator('.connection-detail time');
+    await expect(updatedAt).toHaveAttribute('datetime', /\d{4}-\d{2}-\d{2}T/);
     const samples: number[] = [];
     for (let i = 0; i < 30; i++) {
       await page.waitForTimeout(500);
-      const shown = (await page.getByText('Données à').locator('..').innerText()).match(/(\d{2}):(\d{2}):(\d{2})/);
-      if (shown !== null) {
-        const now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-        const displayed = new Date(now);
-        displayed.setHours(Number(shown[1]), Number(shown[2]), Number(shown[3]), 0);
-        samples.push((now.getTime() - displayed.getTime()) / 1_000);
-      }
+      // Horloge du navigateur et instant ISO complet : ni arrondi à la seconde, ni ambiguïté à minuit/au changement d'heure.
+      const instant = await updatedAt.getAttribute('datetime');
+      const browserNow = await page.evaluate(() => Date.now());
+      const lag = (browserNow - Date.parse(instant ?? '')) / 1_000;
+      expect(Number.isFinite(lag)).toBe(true);
+      samples.push(lag);
     }
+    expect(samples).toHaveLength(30);
     samples.sort((a, b) => a - b);
     const p95 = samples[Math.floor(samples.length * 0.95)] ?? Number.POSITIVE_INFINITY;
     console.log(`latence (now − watermark affiché) : p50=${samples[Math.floor(samples.length / 2)]} s, p95=${p95} s`);

@@ -26,7 +26,8 @@ function ConnectionBadge() {
       : freshness?.status === 'CATCHING_UP'
         ? ['Rattrapage', 'status-warn']
         : ['Temps réel', 'status-ok'];
-  const detail = mode === 'replay' ? 'Lecture de données historiques' : watermark === null ? 'En attente des premières données' : `Dernière mise à jour : ${formatTime(watermark)} · Paris${connection !== 'open' ? ' · dernières données conservées' : ''}`;
+  const detail = mode === 'replay' ? 'Lecture de données historiques' : watermark === null ? 'En attente des premières données'
+    : <>Dernière mise à jour : <time dateTime={watermark}>{formatTime(watermark)}</time> · Paris{connection !== 'open' ? ' · dernières données conservées' : ''}</>;
   return <div className="connection-summary"><span className={`status ${tone}`} role="status" aria-live="polite" data-tour="status">{label}</span><span className="connection-detail">{detail}</span></div>;
 }
 
