@@ -210,3 +210,8 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .kpi-trend { min-width: 28px; height: 27px; }
   .kpi-trend svg { height: 17px; }
 }
+
+/* Les indicateurs horaires présentent la courbe seule sur toute la largeur disponible. */
+.kpi-trend-expanded { flex: 1; max-width: none; width: 100%; align-items: stretch; }
+.kpi-trend-expanded .kpi-trend-period { text-align: right; }
+.kpi-trend-expanded path { vector-effect: non-scaling-stroke; }

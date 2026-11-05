@@ -18,7 +18,9 @@ Avec le profil `auth`, se connecter avec `viewer` pour la consultation ou `admin
 
 « Passages aujourd’hui » additionne les événements d’entrée et de sortie : il ne s’agit pas d’un nombre de véhicules uniques.
 
-Le chiffre et la courbe peuvent donc avoir des unités différentes : `/min` désigne le débit de trafic de la courbe. Survoler celle-ci pour lire sa description et la période couverte, en heure de Paris. Un lecteur d’écran dispose de la même information.
+Dans le bandeau, « Entrées 1 h » et « Sorties 1 h » affichent uniquement une courbe, à la place du nombre. Le total reste accessible aux lecteurs d’écran ; le clic ouvre le classement associé. Les autres indicateurs conservent leur valeur numérique.
+
+Le chiffre et la courbe des autres indicateurs peuvent donc avoir des unités différentes : `/min` désigne le débit de trafic de la courbe. Survoler celle-ci pour lire sa description et la période couverte, en heure de Paris. Un lecteur d’écran dispose de la même information.
 
 Le repère `Suivi` indique une période locale encore partielle. Les anomalies et les gares actives n’ont pas d’historique serveur de leur état : laisser l’application ouverte enrichit progressivement leur suivi. En démonstration, ou si l’historique de trafic manque, les courbes suivent aussi l’évolution locale du compteur ; leur description le précise. Les données absentes ne deviennent pas des zéros. Un indicateur d’anomalies partiellement connu peut afficher `≥` ; une valeur inconnue reste signalée comme indisponible.
 

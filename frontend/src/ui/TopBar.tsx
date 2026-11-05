@@ -77,8 +77,10 @@ function MetricButton({ metric, children, disabled = false }: {
     }}>{children}</button>;
 }
 
-function MetricReading({ children, chart }: { readonly children: ReactNode; readonly chart: ReactNode }) {
-  return <span className="kpi-reading"><span className="kpi-value">{children}</span>{chart}</span>;
+function MetricReading({ children, chart, chartOnly = false }: {
+  readonly children: ReactNode; readonly chart: ReactNode; readonly chartOnly?: boolean;
+}) {
+  return <span className="kpi-reading"><span className={chartOnly ? 'sr-only' : 'kpi-value'}>{children}</span>{chart}</span>;
 }
 
 export function TopBar({ store }: { readonly store: StationStore }) {
@@ -93,7 +95,7 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       value: metric === 'entries1h' ? p.entries : metric === 'exits1h' ? p.exits : p.entries + p.exits }))
       : timelinePoints(trends.samples, metric);
     return <KpiTrend points={points} label={recorded ? `${label} par minute sur la dernière heure` : `Évolution du compteur ${label}`}
-      recorded={recorded} />;
+      recorded={recorded} expanded={metric === 'entries1h' || metric === 'exits1h'} />;
   };
   let active = 0;
   let anomalies = 0;
@@ -117,8 +119,8 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       </div>
       <div className="screen-heading"><h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
       <div className="topbar-metrics">
-      <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><MetricReading chart={chart('entries1h', 'Entrées')}><AnimatedCount value={sum(store.entries1h)} /></MetricReading></MetricButton></div>
-      <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><MetricReading chart={chart('exits1h', 'Sorties')}><AnimatedCount value={sum(store.exits1h)} /></MetricReading></MetricButton></div>
+      <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><MetricReading chartOnly chart={chart('entries1h', 'Entrées')}>{formatCount(sum(store.entries1h))}</MetricReading></MetricButton></div>
+      <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><MetricReading chartOnly chart={chart('exits1h', 'Sorties')}>{formatCount(sum(store.exits1h))}</MetricReading></MetricButton></div>
       <div className="kpi" role="group" aria-label="Anomalies en cours"
         title={mode === 'replay' ? 'Historique des anomalies indisponible en relecture.'
           : reported === 0 ? 'État des anomalies non communiqué.'

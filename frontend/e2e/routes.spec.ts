@@ -49,6 +49,13 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
   await expect(map).toHaveAttribute('data-ready', 'true');
   await expect(page.getByRole('img', { name: /^Entrées par minute sur la dernière heure/ })).toBeVisible();
   await expect(page.getByRole('img', { name: /^Sorties par minute sur la dernière heure/ })).toBeVisible();
+  for (const name of [/^Entrées 1 h/, /^Sorties 1 h/]) {
+    const indicator = page.getByRole('button', { name });
+    await expect(indicator.locator('.kpi-value')).toHaveCount(0);
+    const width = (await indicator.locator('svg').boundingBox())?.width ?? 0;
+    expect(width).toBeGreaterThan(150);
+  }
+  await page.screenshot({ path: 'test-results/hour-trends-desktop.png' });
   await expect(map).toHaveAttribute('data-road-flows', '1');
   await expect(map).toHaveAttribute('data-schematic-flows', '1');
   await expect(map).toHaveAttribute('data-flow-motion', 'on');

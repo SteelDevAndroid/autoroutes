@@ -33,7 +33,7 @@ test.describe('flux réel (backend + simulateur)', () => {
     await expect(page.getByRole('status')).toHaveText('Temps réel', { timeout: 20_000 });
     const map = page.getByRole('region', { name: 'Carte des gares de péage' });
     await expect.poll(async () => Number(await map.getAttribute('data-rendered-stations'))).toBeGreaterThan(600);
-    await expect.poll(async () => Number((await page.getByText('Entrées 1 h').locator('..').innerText()).replace(/\D/g, '')))
+    await expect.poll(async () => Number((await page.getByRole('button', { name: /^Entrées 1 h/ }).locator('.sr-only').textContent() ?? '').replace(/\D/g, '')))
       .toBeGreaterThan(0);
     await page.screenshot({ path: 'test-results/live-france.png' });
     expect(errors).toEqual([]);
