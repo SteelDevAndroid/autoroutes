@@ -29,9 +29,8 @@ Stack imposée (open source uniquement, licences compatibles avec un usage comme
 
 | Fichier | Contenu |
 |---|---|
-| `gares-peage-2025.csv` (+ shapefile `Gares-peage_RRNc_2025.*`) | Gares de péage du RRN concédé, référentiel au 01/01/2025 |
-| `echangeurs-rrnc-2025.csv` (+ shapefile `Echangeurs_RRNc_2025.*`) | Échangeurs, diffuseurs et bifurcations du RRN concédé |
-| `Projet_Carto_R500_3-0_FXX.qgs` / `.mxd` | Projets QGIS et ArcGIS qui référencent des shapefiles IGN ROUTE 500 **absents du dépôt** |
+| `gares-peage-2025.csv` | Gares de péage du RRN concédé, référentiel au 01/01/2025 |
+| `echangeurs-rrnc-2025.csv` | Échangeurs, diffuseurs et bifurcations du RRN concédé |
 
 Constats déjà établis sur ces fichiers, à vérifier puis exploiter :
 - CSV UTF-8, séparateur `;`, fins de ligne CRLF, décimales avec une virgule.

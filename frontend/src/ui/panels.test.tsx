@@ -172,7 +172,7 @@ describe('SegmentsPanel', () => {
     render(<SegmentsPanel />);
 
     expect(screen.getByRole('status').textContent).toContain('Aucune estimation reçue');
-    expect(screen.getByRole('link', { name: /Procédure de mise en service/ }).getAttribute('href')).toContain('increment-4.md');
+    expect(screen.getByRole('link', { name: /Procédure de mise en service/ }).getAttribute('href')).toContain('docs/docker.md#flux-suivant-les-routes');
     expect(screen.getByText(/pas une mesure/)).toBeTruthy();
   });
 });
