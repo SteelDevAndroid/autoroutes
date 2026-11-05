@@ -16,7 +16,7 @@ Les flux suivent des itinéraires **estimés**, pas des positions GPS mesurées.
 
 ### Courbes du bandeau : quelle donnée ?
 
-Les courbes des entrées, sorties et passages représentent le **volume par minute sur la dernière heure** (`/min`). Les valeurs des compteurs gardent leur propre période : une heure glissante ou la journée. Les anomalies et les gares actives sont suivies localement depuis l’ouverture, pendant au plus une heure ; `Suivi` indique une période partielle. Les données absentes ne sont pas remplacées par des zéros.
+Les courbes des entrées, sorties et passages représentent le **volume par minute sur la dernière heure** (`/min`). Les valeurs des compteurs gardent leur propre période : une heure glissante ou la journée. Les passages additionnent les événements d’entrée et de sortie, sans décompter des véhicules uniques. Les anomalies et les gares actives sont suivies localement depuis l’ouverture, pendant au plus une heure ; `Suivi` indique une période partielle. Les données absentes ne sont pas remplacées par des zéros.
 
 En démonstration ou sans historique disponible, la description de la courbe précise qu’il s’agit de l’évolution locale du compteur. En relecture, les courbes de trafic suivent l’horloge virtuelle ; aucun historique d’anomalies n’est inventé. Voir le [guide utilisateur](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/guide-utilisateur.md).
 
