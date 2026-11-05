@@ -57,14 +57,35 @@ export class KpiTimeline {
 }
 
 /** Une absence est une rupture de courbe, jamais un zéro ou une interpolation sur une déconnexion. */
-export function timedTrendPath(points: readonly TrendPoint[], width: number, height: number): string {
+export function timedTrendPath(points: readonly TrendPoint[], width: number, height: number, range?: { readonly start: number; readonly end: number }): string {
   if (points.length === 0) return '';
-  const first = points[0]?.t ?? 0;
-  const span = Math.max(1, (points.at(-1)?.t ?? first) - first);
+  const first = range?.start ?? points[0]?.t ?? 0;
+  const span = Math.max(1, (range?.end ?? points.at(-1)?.t ?? first) - first);
   const max = Math.max(1, ...points.map((p) => p.value));
   return points.map((p, i) => {
     const previous = points[i - 1];
     const command = previous === undefined || p.gap === true || p.t - previous.t > 90_000 ? 'M' : 'L';
     return `${command}${((p.t - first) / span * (width - 4) + 2).toFixed(1)},${(height - 2 - p.value / max * (height - 4)).toFixed(1)}`;
   }).join(' ');
+}
+
+export const MINUTE_MS = 60_000;
+export type HistoryState = 'loading' | 'ready' | 'error' | 'local';
+
+/** Une minute absente reste inconnue. Les pourcentages exigent deux fenêtres complètes. */
+export function minuteWindow(points: readonly TrendPoint[], end: number) {
+  const stop = Math.floor(end / MINUTE_MS) * MINUTE_MS;
+  const start = stop - HOUR_MS;
+  const window = points.filter((p) => p.t >= start && p.t < stop);
+  const complete = window.length === 60 && window.every((p, i) =>
+    p.t === start + i * MINUTE_MS && p.gap !== true && Number.isFinite(p.value) && p.value >= 0);
+  return { start, end: stop, points: window, complete, total: window.reduce((sum, p) => sum + p.value, 0) };
+}
+
+export function hourlyChange(points: readonly TrendPoint[], end: number): number | 'new' | null {
+  const current = minuteWindow(points, end);
+  const previous = minuteWindow(points, end - HOUR_MS);
+  if (!current.complete || !previous.complete) return null;
+  if (previous.total === 0) return current.total === 0 ? 0 : 'new';
+  return (current.total - previous.total) / previous.total;
 }

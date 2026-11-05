@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HOUR_MS, KpiTimeline, sampleKpis, timedTrendPath, timelinePoints } from './kpiTrends';
+import { HOUR_MS, KpiTimeline, sampleKpis, timedTrendPath, timelinePoints, hourlyChange, minuteWindow, MINUTE_MS } from './kpiTrends';
 import type { KpiSample } from './kpiTrends';
 import { StationStore } from '../state/stationStore';
 import { metrics } from '../test-fixtures';
@@ -38,5 +38,28 @@ describe('courbes du bandeau', () => {
     expect(sampleKpis(store, false).anomalies).toBe(0);
     expect(sampleKpis(store, true).anomalies).toBeNull();
     expect(sampleKpis(store, false).active15m).toBe(1);
+  });
+});
+
+describe('comparaison des heures enregistrées', () => {
+  const end = 2 * HOUR_MS;
+  const points = Array.from({ length: 120 }, (_, i) => ({ t: i * MINUTE_MS, value: i < 60 ? 1 : 2 }));
+  it('compare les totaux de deux heures complètes sur des minutes distinctes', () => {
+    expect(minuteWindow(points, end).total).toBe(120);
+    expect(hourlyChange(points, end)).toBe(1);
+    expect(hourlyChange(points.filter((_, i) => i !== 30), end)).toBeNull();
+    expect(hourlyChange([...points.slice(0, 119), { t: 118 * MINUTE_MS, value: 2 }], end)).toBeNull();
+  });
+  it('distingue une référence nulle, un trafic nouveau et une minute absente', () => {
+    const zero = points.map((p) => ({ ...p, value: 0 }));
+    expect(hourlyChange(zero, end)).toBe(0);
+    expect(hourlyChange(zero.map((p) => ({ ...p, value: p.t >= HOUR_MS ? 2 : 0 })), end)).toBe('new');
+    expect(hourlyChange(zero.slice(1), end)).toBeNull();
+    expect(minuteWindow([], end).complete).toBe(false);
+  });
+  it('positionne une période partielle à sa vraie place sur une heure', () => {
+    const path = timedTrendPath([{ t: end - 10 * MINUTE_MS, value: 1 }, { t: end - 5 * MINUTE_MS, value: 2 }], 96, 22,
+      { start: end - HOUR_MS, end });
+    expect(path).toBe('M78.7,11.0 M86.3,2.0');
   });
 });
