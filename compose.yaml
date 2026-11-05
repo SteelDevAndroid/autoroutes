@@ -220,7 +220,7 @@ services:
 
   postgres:
     profiles: [infra, full]
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     logging: *logging
     restart: unless-stopped
     ports:
@@ -326,7 +326,7 @@ services:
   # (base H2 éphémère : royaume réimporté à chaque démarrage, HTTP). Voir docs/architecture.md (exploitation et limites) pour le passage en production.
   keycloak:
     profiles: [auth]
-    image: quay.io/keycloak/keycloak:26.4
+    image: quay.io/keycloak/keycloak:26.8
     logging: *logging
     restart: unless-stopped
     command: ["start-dev", "--import-realm"]
