@@ -13,6 +13,7 @@ import { formatCount } from './format';
 import { topStations } from './topStations';
 import { useStoreVersion } from './useStoreVersion';
 import { MetricStations } from './MetricStations';
+import { usePageVisible } from './usePageVisible';
 
 const TOP = 8;
 const HOURS = 3;
@@ -31,7 +32,7 @@ function useSeries(stationId: string, enabled: boolean): readonly number[] {
     const load = () => {
       const to = new Date();
       stationSeries(stationId, new Date(to.getTime() - HOURS * 3_600_000), to, 'PT15M', abort.signal).then(
-        (points) => { setValues(points.map((p) => p.entries + p.exits)); },
+        (points) => { if (!abort.signal.aborted) setValues(points.map((p) => p.entries + p.exits)); },
         () => { /* tendance facultative : l'absence de courbe suffit */ },
       );
     };
@@ -72,6 +73,8 @@ export function ActivityPanel({ stations, store, onFocus }: {
   const version = useStoreVersion(store);
   const mode = useUiStore((s) => s.mode);
   const metric = useUiStore((s) => s.activityMetric);
+  const open = useUiStore((s) => s.openSection === 'activity');
+  const visible = usePageVisible();
   const [rows, setRows] = useState(() => topStations(store, TOP));
   useEffect(() => {
     const refresh = () => { setRows(topStations(store, TOP)); };
@@ -81,7 +84,7 @@ export function ActivityPanel({ stations, store, onFocus }: {
   // Tant que rien n'est classé, la liste suit le store (premières données) ; ensuite elle est figée entre deux rafraîchissements.
   const ranked = rows.length === 0 && version > 0 ? topStations(store, TOP) : rows;
   // La démonstration n'a pas d'historique, et la relecture montre un autre instant que « maintenant ».
-  const history = !config.demo && mode === 'live';
+  const history = !config.demo && mode === 'live' && open && visible;
   const fresh = useNewKeys(ranked.map((row) => row.id));
   if (metric !== 'passages1h') return <MetricStations stations={stations} store={store} metric={metric} onFocus={onFocus} />;
   return (

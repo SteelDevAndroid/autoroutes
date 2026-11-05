@@ -97,4 +97,22 @@ class AssignmentServiceTest {
         assertThat(RoadGraph.normalizeAxis("A0016")).isEqualTo("A16");
         assertThat(RoadGraph.normalizeAxis("A7")).isEqualTo("A7");
     }
+    @Test
+    void concurrentAssignmentsAndRouteReadsKeepResultsAndTheLruBounded() throws Exception {
+        var graph = graph();
+        var service = new AssignmentService(graph, new ShortestPaths(graph, new StationAttachment(graph, stations, 500), 2), 3);
+        try (var workers = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+            var jobs = new java.util.ArrayList<java.util.concurrent.Future<?>>();
+            for (var i = 0; i < 100; i++) {
+                jobs.add(workers.submit(() -> {
+                    assertThat(service.assign(snapshot(new OdCell("S0", "S3", 5))).routedVehicles()).isEqualTo(5);
+                    assertThat(service.assign(snapshot(new OdCell("S3", "S0", 7))).unroutedVehicles()).isEqualTo(7);
+                    assertThat(service.routedFlows(List.of(new fr.autoroutes.supervision.aggregation.OdFlow("S0", "S1", 4))))
+                            .singleElement().satisfies(flow -> assertThat(flow.vehicles()).isEqualTo(4));
+                }));
+            }
+            for (var job : jobs) job.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        }
+        assertThat(service.cachedPaths()).isLessThanOrEqualTo(2);
+    }
 }

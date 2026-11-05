@@ -25,11 +25,11 @@ final class AssignmentService {
     }
 
     /** Chemins en cache (borné) : indicateur d'exploitation de l'affectation. */
-    synchronized int cachedPaths() {
+    int cachedPaths() {
         return paths.cacheSize();
     }
 
-    synchronized SegmentLoads assign(OdSnapshot snapshot) {
+    SegmentLoads assign(OdSnapshot snapshot) {
         var perEdge = new long[graph.edges().size()];
         long routed = 0;
         long unrouted = 0;
@@ -60,8 +60,8 @@ final class AssignmentService {
         return new SegmentLoads(snapshot.reference(), snapshot.window(), graph.version(), SegmentLoads.ALGORITHM, loads, routed, unrouted);
     }
 
-    /** Partage le cache avec l'affectation ; le verrou protège son LRU des lectures REST concurrentes. */
-    synchronized List<OdFlow> routedFlows(List<OdFlow> flows) {
+    /** Partage le cache thread-safe avec l'affectation, sans verrou sur le calcul ou la géométrie. */
+    List<OdFlow> routedFlows(List<OdFlow> flows) {
         return flows.stream().map(flow -> {
             if (flow.vehicles() < 3 || flow.originId().equals(flow.destinationId()) || !paths.routable(flow.originId(), flow.destinationId())) {
                 return flow;

@@ -8,6 +8,7 @@ import fr.autoroutes.supervision.ingestion.QuarantineStore;
 import fr.autoroutes.supervision.ingestion.RejectionPublisher;
 import fr.autoroutes.supervision.ingestion.ResumeOffsets;
 import fr.autoroutes.supervision.ingestion.TollEventListener;
+import fr.autoroutes.supervision.ingestion.TollEvent;
 import fr.autoroutes.supervision.ingestion.TollEventSink;
 import fr.autoroutes.supervision.referentiel.StationCatalog;
 import fr.autoroutes.supervision.referentiel.LogicalStation;
@@ -23,8 +24,6 @@ import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -48,6 +47,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
 
     private static final Logger LOG = LoggerFactory.getLogger(AggregationWriter.class);
     private static final int DRAIN_BATCH = 4_096;
+    private static final int QUARANTINE_BATCH = 256;
 
     private final SupervisionProperties.Aggregation config;
     private final Clock clock;
@@ -73,7 +73,8 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     private final List<String> stationIds;
     private final BlockingQueue<IncomingEvent> queue;
     // Persistance hors du chemin critique ; un seul thread : les quarantaines précèdent le point de reprise qui les couvre.
-    private final ExecutorService persistence = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("aggregation-persistence").factory());
+    private final PersistenceExecutor persistence = new PersistenceExecutor(16);
+    private final List<TollEvent> pendingQuarantine = new ArrayList<>(QUARANTINE_BATCH);
     private final Map<Integer, Long> nextOffsets = new HashMap<>();
     private final List<QuarantineMark> quarantineMarks = new ArrayList<>();
     // Lot dont l'écriture a échoué : réintégré au point de reprise suivant (dont les offsets le couvrent aussi).
@@ -128,6 +129,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
         this.queue = new ArrayBlockingQueue<>(config.queueCapacity());
         this.meters = meters;
         meters.gauge("toll.writer.queue", queue, BlockingQueue::size);
+        meters.gauge("toll.persistence.queue", persistence.getQueue(), BlockingQueue::size);
         meters.gauge("toll.dedup.entries", deduplicator, EventDeduplicator::size);
     }
 
@@ -169,6 +171,11 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
         try {
             if (thread != null) {
                 thread.join(Duration.ofSeconds(30));
+                if (thread.isAlive()) {
+                    // L'écrivain possède toujours l'état : ne jamais capturer des offsets ou compteurs concurrents.
+                    LOG.error("Écrivain encore occupé ; reprise depuis le dernier checkpoint durable au redémarrage");
+                    return;
+                }
             }
             // Barrière : les quarantaines déjà soumises sont écrites avant le point de reprise final qui les couvre.
             persistence.submit(() -> { }).get(30, TimeUnit.SECONDS);
@@ -238,7 +245,10 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
             case EventProcessor.Outcome.Quarantined quarantined -> {
                 count("quarantined");
                 if (!incoming.replay()) {
-                    persistence.execute(() -> quarantine.save(quarantined.event()));
+                    pendingQuarantine.add(quarantined.event());
+                    if (pendingQuarantine.size() >= QUARANTINE_BATCH) {
+                        flushQuarantine();
+                    }
                 }
             }
             case EventProcessor.Outcome.Duplicate duplicate -> {
@@ -257,6 +267,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
     }
 
     private void tick(Instant now) {
+        flushQuarantine();
         var watermark = watermarks.watermark();
         watermark.flatMap(w -> deltas.tick(state, w)).ifPresent(delta -> {
             var snapshot = deltas.snapshot();
@@ -289,6 +300,32 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
             checkpointInFlight = persistence.submit(() -> writeCheckpoint(data));
             nextCheckpointAt = now.plus(config.checkpointInterval());
         }
+    }
+
+    /** Une tâche conserve son lot jusqu'à écriture complète : aucun checkpoint ne peut le dépasser. */
+    private void flushQuarantine() {
+        if (pendingQuarantine.isEmpty()) {
+            return;
+        }
+        var batch = List.copyOf(pendingQuarantine);
+        persistence.execute(() -> {
+            while (true) {
+                try {
+                    quarantine.saveAll(batch);
+                    return;
+                } catch (RuntimeException e) {
+                    meters.counter("toll.quarantine.write.failed").increment();
+                    LOG.error("Échec du lot de quarantaine ; nouvelle tentative dans 1 s", e);
+                    try {
+                        Thread.sleep(Duration.ofSeconds(1));
+                    } catch (InterruptedException interrupted) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException("Lot de quarantaine non écrit", interrupted);
+                    }
+                }
+            }
+        });
+        pendingQuarantine.clear();
     }
 
     private record PendingCheckpoint(CheckpointData data, HistoryBatch history, List<QuarantineMark> marks) {

@@ -7,6 +7,7 @@ import java.util.List;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -22,14 +23,14 @@ class QuarantineStoreIT {
     void migrationsAndQuarantinePreserveUnknownEmptyAndReportedAnomalies() {
         var dataSource = new DriverManagerDataSource(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
         Flyway.configure().dataSource(dataSource).load().migrate();
-        var store = new QuarantineStore(JdbcClient.create(dataSource), JsonMapper.builder().build());
+        var store = new QuarantineStore(JdbcClient.create(dataSource), JsonMapper.builder().build(), new JdbcTemplate(dataSource));
         var at = Instant.parse("2026-10-22T08:00:00Z");
         var report = List.of(new StationAnomaly("Paiement", 4, "Critique"));
-        store.save(new TollEvent("unknown", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false));
-        store.save(new TollEvent("empty", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()));
-        store.save(new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, report));
-        store.save(new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()));
-        store.save(new TollEvent("agent", "Gare inconnue", EventType.ANOMALY_REPORT, at, null, null, 0, null, false, report, "mcp:agent-1"));
+        store.saveAll(List.of(new TollEvent("unknown", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false),
+                new TollEvent("empty", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()),
+                new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, report),
+                new TollEvent("reported", "Gare inconnue", EventType.ENTRY, at, null, null, 1, null, false, List.of()),
+                new TollEvent("agent", "Gare inconnue", EventType.ANOMALY_REPORT, at, null, null, 0, null, false, report, "mcp:agent-1")));
         var events = store.pending(10);
         assertThat(events).hasSize(4);
         assertThat(events).filteredOn(e -> e.eventId().equals("agent")).singleElement().satisfies(e -> {

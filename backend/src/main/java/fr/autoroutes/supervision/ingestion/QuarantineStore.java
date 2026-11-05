@@ -3,6 +3,7 @@ package fr.autoroutes.supervision.ingestion;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 import tools.jackson.databind.json.JsonMapper;
@@ -23,33 +24,33 @@ public class QuarantineStore {
 
     private final JdbcClient jdbc;
     private final JsonMapper json;
+    private final JdbcTemplate batches;
 
-    QuarantineStore(JdbcClient jdbc, JsonMapper json) {
+    QuarantineStore(JdbcClient jdbc, JsonMapper json, JdbcTemplate batches) {
         this.jdbc = jdbc;
         this.json = json;
+        this.batches = batches;
     }
 
     /** Idempotent : un même eventId n'est stocké qu'une fois. */
     public void save(TollEvent event) {
-        jdbc.sql("""
-                        insert into quarantined_event (event_id, station_name, type, event_time, entry_station_name,
-                                                       entry_time, vehicle_count, vehicle_class, simulated, anomalies,
-                                                       anomaly_source)
-                        values (:id, :station, :type, :eventTime, :entry, :entryTime, :count, :class, :simulated, cast(:anomalies as jsonb),
-                                :source)
-                        on conflict (event_id) do nothing""")
-                .param("id", event.eventId())
-                .param("station", event.stationName())
-                .param("type", event.type().name())
-                .param("eventTime", Timestamp.from(event.eventTime()))
-                .param("entry", event.entryStationName())
-                .param("entryTime", event.entryTime() == null ? null : Timestamp.from(event.entryTime()))
-                .param("count", event.vehicleCount())
-                .param("class", event.vehicleClass())
-                .param("simulated", event.simulated())
-                .param("anomalies", event.anomalies() == null ? null : json.writeValueAsString(event.anomalies()))
-                .param("source", event.anomalySource())
-                .update();
+        saveAll(List.of(event));
+    }
+
+    /** Lot idempotent : une reprise après une écriture partielle ne duplique pas les événements. */
+    public void saveAll(List<TollEvent> events) {
+        if (events.isEmpty()) return;
+        var rows = events.stream().map(event -> new Object[] {
+                event.eventId(), event.stationName(), event.type().name(), Timestamp.from(event.eventTime()),
+                event.entryStationName(), event.entryTime() == null ? null : Timestamp.from(event.entryTime()),
+                event.vehicleCount(), event.vehicleClass(), event.simulated(),
+                event.anomalies() == null ? null : json.writeValueAsString(event.anomalies()), event.anomalySource()
+        }).toList();
+        batches.batchUpdate("""
+                insert into quarantined_event (event_id, station_name, type, event_time, entry_station_name,
+                                               entry_time, vehicle_count, vehicle_class, simulated, anomalies, anomaly_source)
+                values (?, ?, ?, ?, ?, ?, ?, ?, ?, cast(? as jsonb), ?)
+                on conflict (event_id) do nothing""", rows);
     }
 
     public List<TollEvent> pending(int limit) {
