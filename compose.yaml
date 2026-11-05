@@ -86,11 +86,11 @@ services:
       # « auth » : connexion OIDC obligatoire (profil Compose « auth » pour Keycloak) ; vide : sans authentification.
       SPRING_PROFILES_ACTIVE: ${SUPERVISION_PROFILE:-}
       OIDC_CLIENT_SECRET: ${SUPERVISION_CLIENT_SECRET:-}
-      OIDC_AUTHORIZATION_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision/protocol/openid-connect/auth
+      OIDC_AUTHORIZATION_URI: ${KEYCLOAK_PUBLIC_URL:-http://localhost:80}/realms/supervision/protocol/openid-connect/auth
       OIDC_TOKEN_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/token
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
       # Jetons porteurs des agents (serveur MCP) : émetteur tel que le voient les clients (nom d'hôte public de Keycloak).
-      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:80}/realms/supervision
     volumes:
       - ./cartographie/out/graph:/app/graph:ro
     depends_on:
@@ -139,7 +139,7 @@ services:
       BACKEND_URL: http://backend:8080
       MCP_SECURITY_ENABLED: ${MCP_SECURITY_ENABLED:-false}
       OIDC_JWK_SET_URI: http://keycloak:8080/realms/supervision/protocol/openid-connect/certs
-      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:8180}/realms/supervision
+      OIDC_ISSUER: ${KEYCLOAK_PUBLIC_URL:-http://localhost:80}/realms/supervision
     depends_on:
       kafka-init:
         condition: service_completed_successfully
@@ -220,7 +220,7 @@ services:
 
   postgres:
     profiles: [infra, full]
-    image: postgres:18-alpine
+    image: postgres:17-alpine
     logging: *logging
     restart: unless-stopped
     ports:
