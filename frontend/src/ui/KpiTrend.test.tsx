@@ -19,6 +19,10 @@ it('affiche les trois repères, le pourcentage et les valeurs de la minute survo
   const tooltip = screen.getByRole('tooltip');
   expect(tooltip.textContent).toContain('10:30:00 (Paris) · 2 /min');
   expect(tooltip.textContent).toContain('Total sur 1 h : 120');
+  fireEvent.pointerMove(svg, { clientX: 2 / 96 * 100 });
+  expect(screen.getByRole('tooltip').textContent).toContain('10:00:00 (Paris)');
+  fireEvent.pointerMove(svg, { clientX: (2 + 92 * 59 / 60) / 96 * 100 });
+  expect(screen.getByRole('tooltip').textContent).toContain('10:59:00 (Paris)');
   fireEvent.pointerLeave(svg);
   expect(screen.queryByRole('tooltip')).toBeNull();
 });

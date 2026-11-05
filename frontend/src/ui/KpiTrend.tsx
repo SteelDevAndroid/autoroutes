@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { HistoryState, TrendPoint } from './kpiTrends';
 import { HOUR_MS, MINUTE_MS, hourlyChange, minuteWindow, timedTrendPath } from './kpiTrends';
@@ -12,8 +12,10 @@ export function KpiTrend({ points, label, recorded = false, expanded = false, re
 }) {
   const anchor = reference ?? points.at(-1)?.t ?? 0;
   const end = Number.isFinite(anchor) ? anchor : 0;
-  const window = minuteWindow(points, end);
-  const shown = recorded ? window.points : points.filter((p) => p.t >= end - HOUR_MS && p.t <= end);
+  const window = useMemo(() => minuteWindow(points, end), [points, end]);
+  const shown = useMemo(() => recorded ? window.points : points.filter((p) => p.t >= end - HOUR_MS && p.t <= end),
+    [recorded, window, points, end]);
+  const path = useMemo(() => timedTrendPath(shown, 96, 22, { start: end - HOUR_MS, end }), [shown, end]);
   const range = { start: end - HOUR_MS, end };
   const change = recorded && historyState === 'ready' && !stale ? hourlyChange(points, end) : null;
   const status = historyState === 'loading' ? 'Chargement…'
@@ -38,8 +40,11 @@ export function KpiTrend({ points, label, recorded = false, expanded = false, re
       : shown.find((p) => Math.abs(p.t - selectedTime) <= 2500);
   const place = () => {
     const box = ref.current?.getBoundingClientRect();
-    if (box !== undefined) setPosition({ left: Math.max(8, Math.min(box.left, globalThis.innerWidth - 256)),
-      top: Math.max(8, Math.min(box.bottom + 6, globalThis.innerHeight - 132)) });
+    if (box !== undefined) {
+      const left = Math.max(8, Math.min(box.left, globalThis.innerWidth - 256));
+      const top = Math.max(8, Math.min(box.bottom + 6, globalThis.innerHeight - 132));
+      setPosition((previous) => previous.left === left && previous.top === top ? previous : { left, top });
+    }
   };
   useEffect(() => {
     const button = ref.current?.closest('button');
@@ -84,15 +89,15 @@ export function KpiTrend({ points, label, recorded = false, expanded = false, re
       aria-label={detail} aria-describedby={open ? tooltipId : undefined}
       onPointerMove={(event) => {
         const box = event.currentTarget.getBoundingClientRect();
-        const ratio = Math.max(0, Math.min(1, (event.clientX - box.left) / Math.max(1, box.width)));
+        const ratio = Math.max(0, Math.min(1, ((event.clientX - box.left) / Math.max(1, box.width) * 96 - 2) / 92));
         const time = range.start + ratio * HOUR_MS;
-        setSelectedTime(recorded ? Math.min(end - MINUTE_MS, Math.floor(time / MINUTE_MS) * MINUTE_MS)
+        setSelectedTime(recorded ? Math.min(end - MINUTE_MS, Math.round(time / MINUTE_MS) * MINUTE_MS)
           : shown.reduce<number | null>((nearest, p) => nearest === null || Math.abs(p.t - time) < Math.abs(nearest - time) ? p.t : nearest, null));
         setOpen(true); place();
       }} onPointerLeave={() => { setOpen(focused); setSelectedTime(null); }}>
       <path className="kpi-trend-baseline" d="M2,20 H94" />
-      {shown.length > 1 && <path d={timedTrendPath(shown, 96, 22, range)} />}
-      {shown.length === 1 && <path d={timedTrendPath(shown, 96, 22, range) + ' l0,0'} className="kpi-trend-dot" />}
+      {shown.length > 1 && <path d={path} />}
+      {shown.length === 1 && <path d={path + ' l0,0'} className="kpi-trend-dot" />}
     </svg>
     {expanded && <span className="kpi-trend-axis" aria-hidden="true"><span>−60 min</span><span>−30 min</span><span>{stale ? 'Dernière donnée' : 'Maintenant'}</span></span>}
     <span className="kpi-trend-period" title={detail}>{expanded ? `${recorded ? '/min · ' : ''}${status}` : historyState === 'loading' ? '…' : historyState === 'error' ? 'Indispo' : recorded ? '/min' : shown.length > 0 ? 'Suivi' : '—'}</span>
