@@ -8,6 +8,10 @@ import { formatCount, formatTime } from './format';
 import { useStoreVersion } from './useStoreVersion';
 import { Icon } from './Icon';
 import { anomalySummary } from '../realtime/anomalies';
+import { KpiTrend } from './KpiTrend';
+import { timelinePoints } from './kpiTrends';
+import type { KpiMetric } from './kpiTrends';
+import { useKpiTrends } from './useKpiTrends';
 
 const sum = (array: Float64Array): number => array.reduce((total, value) => total + value, 0);
 
@@ -73,10 +77,24 @@ function MetricButton({ metric, children, disabled = false }: {
     }}>{children}</button>;
 }
 
+function MetricReading({ children, chart }: { readonly children: ReactNode; readonly chart: ReactNode }) {
+  return <span className="kpi-reading"><span className="kpi-value">{children}</span>{chart}</span>;
+}
+
 export function TopBar({ store }: { readonly store: StationStore }) {
   useStoreVersion(store);
   const [moreMetrics, setMoreMetrics] = useState(false);
   const mode = useUiStore((s) => s.mode);
+  const trends = useKpiTrends(store);
+  const chart = (metric: KpiMetric, label: string) => {
+    const traffic = metric === 'entries1h' || metric === 'exits1h' || metric === 'today';
+    const recorded = traffic && trends.points.length > 0;
+    const points = recorded ? trends.points.map((p) => ({ t: p.t * 1000,
+      value: metric === 'entries1h' ? p.entries : metric === 'exits1h' ? p.exits : p.entries + p.exits }))
+      : timelinePoints(trends.samples, metric);
+    return <KpiTrend points={points} label={recorded ? `${label} par minute sur la dernière heure` : `Évolution du compteur ${label}`}
+      recorded={recorded} />;
+  };
   let active = 0;
   let anomalies = 0;
   let reported = 0;
@@ -99,23 +117,23 @@ export function TopBar({ store }: { readonly store: StationStore }) {
       </div>
       <div className="screen-heading"><h1 aria-label="Supervision des gares de péage"><span className="title-full">Supervision des gares de péage</span><span className="title-compact" aria-hidden="true">Supervision du réseau</span></h1></div>
       <div className="topbar-metrics">
-      <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.entries1h)} /></span></MetricButton></div>
-      <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><span className="kpi-value"><AnimatedCount value={sum(store.exits1h)} /></span></MetricButton></div>
+      <div className="kpi"><MetricButton metric="entries1h"><span className="kpi-label">Entrées 1 h</span><MetricReading chart={chart('entries1h', 'Entrées')}><AnimatedCount value={sum(store.entries1h)} /></MetricReading></MetricButton></div>
+      <div className="kpi"><MetricButton metric="exits1h"><span className="kpi-label">Sorties 1 h</span><MetricReading chart={chart('exits1h', 'Sorties')}><AnimatedCount value={sum(store.exits1h)} /></MetricReading></MetricButton></div>
       <div className="kpi" role="group" aria-label="Anomalies en cours"
         title={mode === 'replay' ? 'Historique des anomalies indisponible en relecture.'
           : reported === 0 ? 'État des anomalies non communiqué.'
           : `Occurrences signalées sur ${formatCount(reported)} / ${formatCount(store.size)} gares. Les états non communiqués ne sont pas comptés comme zéro.`}>
         <MetricButton metric="anomalies" disabled={mode === 'replay' || reported === 0}><span className="kpi-label">Anomalies en cours</span>
-        <span className="kpi-value">{mode === 'replay' || reported === 0 ? '—'
-          : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</span></MetricButton>
+        <MetricReading chart={chart('anomalies', 'Anomalies en cours')}>{mode === 'replay' || reported === 0 ? '—'
+          : <>{reported < store.size && <span aria-label="au moins">≥ </span>}<AnimatedCount value={anomalies} /></>}</MetricReading></MetricButton>
       </div>
       <SpatialButton className="metrics-toggle" aria-expanded={moreMetrics} aria-controls="network-secondary-metrics"
         onClick={() => { setMoreMetrics(!moreMetrics); }}>
         {moreMetrics ? 'Moins d’indicateurs' : 'Plus d’indicateurs'}<Icon name="chevron" />
       </SpatialButton>
       <div id="network-secondary-metrics" className="secondary-metrics" hidden={!moreMetrics}>
-        <div className="kpi"><MetricButton metric="today"><span className="kpi-label">Passages aujourd’hui</span><span className="kpi-value"><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></span></MetricButton></div>
-        <div className="kpi"><MetricButton metric="active15m"><span className="kpi-label">Gares actives (15 min)</span><span className="kpi-value">{formatCount(active)} / {formatCount(store.size)}</span></MetricButton></div>
+        <div className="kpi"><MetricButton metric="today"><span className="kpi-label">Passages aujourd’hui</span><MetricReading chart={chart('today', 'Passages')}><AnimatedCount value={sum(store.entriesToday) + sum(store.exitsToday)} /></MetricReading></MetricButton></div>
+        <div className="kpi"><MetricButton metric="active15m"><span className="kpi-label">Gares actives (15 min)</span><MetricReading chart={chart('active15m', 'Gares actives sur 15 min')}>{formatCount(active)} / {formatCount(store.size)}</MetricReading></MetricButton></div>
       </div>
       </div>
       <div className="topbar-actions">

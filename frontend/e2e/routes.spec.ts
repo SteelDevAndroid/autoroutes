@@ -17,6 +17,10 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
     points: [], nature: 'SIMULATED', coverage: { status: 'AVAILABLE' },
   } }));
   const sentAt = new Date().toISOString();
+  await page.route('**/api/v1/history/network?*', (route) => route.fulfill({ json: { points:
+    Array.from({ length: 60 }, (_, i) => ({ t: Math.floor(Date.parse(sentAt) / 1000) - (60 - i) * 60,
+      entries: 10 + i % 7, exits: 5 + i % 3 })),
+  } }));
   const metrics = ids.map((stationId) => ({ stationId, last5m: { entries: 1, exits: 1 }, last15m: { entries: 1, exits: 1 },
     last1h: { entries: 10, exits: 10 }, today: { entries: 10, exits: 10 }, lastEventTime: sentAt }));
   const snapshot = { type: 'snapshot', epoch: 'route-test', seq: 0, sentAt, watermark: sentAt, payload: { stations: metrics, referentielVersion: 'test' } };
@@ -43,6 +47,8 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
   await page.goto('/?axe=A0007&flux=1');
   const map = page.getByRole('region', { name: 'Carte des gares de péage' });
   await expect(map).toHaveAttribute('data-ready', 'true');
+  await expect(page.getByRole('img', { name: /^Entrées par minute sur la dernière heure/ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Sorties par minute sur la dernière heure/ })).toBeVisible();
   await expect(map).toHaveAttribute('data-road-flows', '1');
   await expect(map).toHaveAttribute('data-schematic-flows', '1');
   await expect(map).toHaveAttribute('data-flow-motion', 'on');
@@ -92,4 +98,9 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
   await expect(map).toHaveAttribute('data-flow-motion', 'off');
   await expect(page.getByText('Itinéraire estimé', { exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: /Plus d’indicateurs/ }).click();
+  await expect(page.getByRole('img', { name: /^Passages par minute sur la dernière heure/ })).toBeVisible();
+  expect(await page.evaluate('document.documentElement.scrollWidth - innerWidth')).toBe(0);
+  await page.screenshot({ path: 'test-results/hour-trends-mobile.png' });
 });
