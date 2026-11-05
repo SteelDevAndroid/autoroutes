@@ -8,7 +8,7 @@ Avec le profil `auth`, se connecter avec `viewer` pour la consultation ou `admin
 
 ## Lire les compteurs et leurs courbes
 
-| Indicateur | Chiffre affiché | Mini-courbe |
+| Indicateur | Mesure du compteur | Courbe |
 |---|---|---|
 | Entrées 1 h | Entrées observées sur l’heure glissante | Volume d’entrées par minute sur la dernière heure |
 | Sorties 1 h | Sorties observées sur l’heure glissante | Volume de sorties par minute sur la dernière heure |
