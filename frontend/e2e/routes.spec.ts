@@ -64,13 +64,16 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
   await expect(map).toHaveAttribute('data-flow-detail', 'local');
   await expect(map).toHaveAttribute('data-animated-flows', '2');
 
-  const time = await page.locator('.kpi-time .kpi-value').innerText();
+  const updatedAt = page.locator('.connection-detail time');
+  await expect(updatedAt).toHaveAttribute('datetime', sentAt);
+  const time = await updatedAt.innerText();
   for (const [status, reason] of [['STALE', 'stale'], ['CATCHING_UP', 'catching-up']] as const) {
     stream.send(freshness(status));
     await expect(map).toHaveAttribute('data-flow-motion', 'off');
     await expect(map).toHaveAttribute('data-flow-motion-reason', reason);
     await expect(map).toHaveAttribute('data-road-flows', '1');
-    await expect(page.locator('.kpi-time .kpi-value')).toHaveText(time);
+    await expect(updatedAt).toHaveText(time);
+    await expect(updatedAt).toHaveAttribute('datetime', sentAt);
     stream.send(freshness('LIVE'));
     await expect(map).toHaveAttribute('data-flow-motion', 'on');
   }

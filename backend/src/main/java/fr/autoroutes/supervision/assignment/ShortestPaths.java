@@ -6,10 +6,12 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Plus courts chemins en temps (longueur / vitesse maximale) entre gares, avec un cache LRU des chemins par couple.
- * Les accès sont sérialisés par AssignmentService (planificateur et lectures REST des itinéraires).
+ * Seuls les accès LRU sont verrouillés ; les recherches indépendantes restent concurrentes.
  */
 final class ShortestPaths {
 
@@ -25,6 +27,7 @@ final class ShortestPaths {
     private final RoadGraph graph;
     private final StationAttachment attachment;
     private final Map<Pair, int[]> cache;
+    private final Map<Pair, CompletableFuture<int[]>> inFlight = new ConcurrentHashMap<>();
 
     ShortestPaths(RoadGraph graph, StationAttachment attachment, int cacheSize) {
         this.graph = graph;
@@ -39,11 +42,41 @@ final class ShortestPaths {
 
     /** Indices des arêtes du chemin le plus rapide (tableau vide si origine et destination se touchent) ; {@link #UNREACHABLE} (comparer par identité) sans chemin. */
     int[] path(String origin, String destination) {
-        return cache.computeIfAbsent(new Pair(origin, destination), pair -> search(pair.origin(), pair.destination()));
+        var key = new Pair(origin, destination);
+        synchronized (cache) {
+            var found = cache.get(key);
+            if (found != null) return found;
+        }
+        var result = new CompletableFuture<int[]>();
+        var existing = inFlight.putIfAbsent(key, result);
+        if (existing != null) return existing.join();
+        try {
+            // Un autre calcul peut s'être terminé entre la lecture du cache et notre inscription.
+            synchronized (cache) {
+                var found = cache.get(key);
+                if (found != null) {
+                    result.complete(found);
+                    return found;
+                }
+            }
+            var computed = search(origin, destination);
+            synchronized (cache) {
+                cache.put(key, computed);
+            }
+            result.complete(computed);
+            return computed;
+        } catch (RuntimeException | Error e) {
+            result.completeExceptionally(e);
+            throw e;
+        } finally {
+            inFlight.remove(key, result);
+        }
     }
 
     int cacheSize() {
-        return cache.size();
+        synchronized (cache) {
+            return cache.size();
+        }
     }
 
     /** Vrai si les deux gares sont rattachées au graphe (sinon aucun chemin n'est cherché). */

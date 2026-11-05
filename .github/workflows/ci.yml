@@ -184,8 +184,8 @@ jobs:
       - name: Tests de la préparation des autoroutes
         working-directory: cartographie
         run: python -m unittest -v test_prepare_motorways test_verify_tiles test_official_concessions
-      - name: Réutilisation sûre des artefacts cartographiques
-        run: python -m unittest discover -s scripts -p test_ci_map_artifact.py -v
+      - name: Scripts Python (artefacts cartographiques et banc SSE)
+        run: python -m unittest discover -s scripts -p 'test_*.py' -v
       # Les fichiers de référentiel versionnés doivent correspondre à ce que produisent les scripts : plus de dérive silencieuse.
       # Seules les colonnes d'identifiants sont comparées pour les coordonnées reprojetées (les derniers chiffres dépendent de la version de PROJ).
       - name: Référentiel à jour

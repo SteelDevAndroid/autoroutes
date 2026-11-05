@@ -18,6 +18,7 @@ final class ClientChannel {
     private final BlockingQueue<StreamFrame> queue;
     private final StreamFrame resyncFrame;
     private final Consumer<ClientChannel> onClose;
+    private final Thread worker;
     private volatile boolean closing;
     private volatile boolean closed;
 
@@ -26,13 +27,15 @@ final class ClientChannel {
         this.queue = new ArrayBlockingQueue<>(capacity);
         this.resyncFrame = resyncFrame;
         this.onClose = onClose;
+        this.worker = Thread.ofVirtual().name("sse-client").unstarted(this::drain);
         emitter.onCompletion(this::close);
         emitter.onTimeout(this::close);
         emitter.onError(error -> close());
     }
 
-    void start() {
-        Thread.ofVirtual().name("sse-client").start(this::drain);
+    synchronized Thread start() {
+        if (!closed) worker.start();
+        return worker;
     }
 
     /** @return faux si le client a été déclaré saturé */
@@ -76,9 +79,11 @@ final class ClientChannel {
     }
 
     private void close() {
-        if (!closed) {
+        synchronized (this) {
+            if (closed) return;
             closed = true;
-            onClose.accept(this);
         }
+        worker.interrupt();
+        onClose.accept(this);
     }
 }
