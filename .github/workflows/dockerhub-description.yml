@@ -1,0 +1,70 @@
+name: Présentation Docker Hub
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - docs/dockerhub.md
+      - .github/workflows/dockerhub-description.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dockerhub-description
+  cancel-in-progress: false
+
+jobs:
+  description:
+    name: Synchroniser la présentation Docker Hub
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SHORT_DESCRIPTION: 'Carte autoroutière temps réel, courbes 1 h, concessions, historique, Kafka, MCP et Grafana.'
+    steps:
+      - uses: actions/checkout@v7
+      - name: Vérifier les accès et les limites de contenu
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          for name in ('DOCKERHUB_USERNAME', 'DOCKERHUB_TOKEN'):
+              if not os.environ.get(name):
+                  raise SystemExit(f'Secret requis absent : {name}')
+          size = len(Path('docs/dockerhub.md').read_bytes())
+          if not 0 < size <= 25000:
+              raise SystemExit(f'Présentation hors limite : {size} octets (maximum 25000)')
+          if not 0 < len(os.environ['SHORT_DESCRIPTION'].encode()) <= 100:
+              raise SystemExit('Description courte hors limite (maximum 100 octets)')
+          print(f'Présentation prête : {size} octets')
+          PY
+      - name: Publier la présentation versionnée
+        uses: peter-evans/dockerhub-description@432a30c9e07499fd01da9f8a49f0faf9e0ca5b77 # v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: compagnonsdudev/autoroutes
+          short-description: ${{ env.SHORT_DESCRIPTION }}
+          readme-filepath: docs/dockerhub.md
+      - name: Vérifier le contenu public publié
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          from urllib.request import urlopen
+          url = 'https://hub.docker.com/v2/repositories/compagnonsdudev/autoroutes/'
+          with urlopen(url, timeout=30) as response:
+              repository = json.load(response)
+          expected = Path('docs/dockerhub.md').read_text(encoding='utf-8')
+          if repository.get('full_description') != expected:
+              raise SystemExit('La présentation publique ne correspond pas au fichier versionné')
+          if repository.get('description') != os.environ['SHORT_DESCRIPTION']:
+              raise SystemExit('La description courte publique ne correspond pas au texte attendu')
+          print('Présentation et description courte synchronisées sur Docker Hub')
+          PY

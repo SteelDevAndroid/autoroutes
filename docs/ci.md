@@ -6,9 +6,9 @@ Workflow : `.github/workflows/ci.yml`, déclenché à chaque pull request, à ch
 
 | Job | Ce qu'il vérifie | Durée indicative |
 |---|---|---|
-| **Backend** | `mvn verify` sous **Java 25** : 85 tests unitaires (dont la vérification Spring Modulith des frontières entre modules) puis 7 tests d'intégration avec **Kafka et PostgreSQL réels** (Testcontainers) : déduplication, quarantaine, rejets, SSE avec reprise, historique identique au temps réel, flux O/D filtrés et rapprochés des sorties, charge estimée des tronçons sur un graphe de test, redémarrage sans double comptage | 5 à 8 min |
+| **Backend** | `mvn verify` sous **Java 25** : tests unitaires (dont la vérification Spring Modulith des frontières entre modules) puis les tests d'intégration avec **Kafka et PostgreSQL réels** (Testcontainers) : déduplication, quarantaine, rejets, SSE avec reprise, historique identique au temps réel, flux O/D filtrés et rapprochés des sorties, charge estimée des tronçons sur un graphe de test, redémarrage sans double comptage | 5 à 8 min |
 | **Simulateur** | `mvn verify` : 4 tests (contrat, système ouvert ou fermé, anomalies, modèle gravitaire) | 2 min |
-| **Serveur MCP des anomalies** | `mvn verify` : 25 tests (client MCP réel contre le serveur avec Kafka embarqué et backend factice : lecture par source, garde de version, relais du jeton, refus sans publication, jeton et rôle exigés en mode sécurisé, catalogue des gares). Voir `docs/mcp-anomalies.md` | 2 min |
+| **Serveur MCP des anomalies** | `mvn verify` : tests (client MCP réel contre le serveur avec Kafka embarqué et backend factice : lecture par source, garde de version, relais du jeton, refus sans publication, jeton et rôle exigés en mode sécurisé, catalogue des gares). Voir `docs/mcp-anomalies.md` | 2 min |
 | **Frontend** | Typage strict, lint `typescript-eslint` en mode `strictTypeChecked`, tests Vitest (dont validité du style MapLibre, niveaux de zoom, fraîcheur, reprise sans saut et référence de couleur stable), builds de production et de démonstration. **E2E Playwright** démonstration/anomalies : WebGL, plus de 600 gares, erreurs console, axe-core. Puis `npm run e2e:routes` : frontend de production avec API contrôlée et vrai flux HTTP SSE de test, itinéraires, zoom, péremption et confirmation après reconnexion | 4 à 6 min |
 | **Tuiles et graphe routier** (workflow `tuiles.yml`, hors pull request) | Mensuel (le 3) et à la demande : image `cartographie/Dockerfile` construite puis **exécutée** (fond Protomaps `latest`, OSM, tronçons, graphe, polices), `verify_tiles.py` (zooms, taille, graphe, ≥ 90 % des gares rattachées), release `tuiles-AAAAMMJJ` avec `SHA256SUMS`. Installation : `scripts/fetch_tiles.sh` | 1 à 3 h |
 | **Publication Docker Hub** | Après « CI réussie », sur `main` et sur les tags `v*` seulement : construit et pousse les 6 images (backend, simulateur, serveur MCP, interface de production et de démonstration, chaîne cartographique) dans `compagnonsdudev/autoroutes`, tags `<image>-edge`, `<image>-sha-…` ou `<image>-1.2.3` / `-1.2` / `-latest`. Secrets `DOCKERHUB_USERNAME` et `DOCKERHUB_TOKEN` ; sans eux, avertissement et rien de publié. Détails : `docs/docker.md` | 10 à 15 min |
@@ -25,10 +25,9 @@ En cas d'échec, les rapports de tests, les captures et les journaux des service
 
 ## Carte embarquée dans les images Docker
 
-Le job `carte-images` génère la carte complète à chaque exécution de la CI, y compris sur pull request :
-fond France Protomaps z12, autoroutes OSM, graphe avec géométrie, polices et sprites. Il utilise la même
-chaîne que le workflow `tuiles.yml`, puis exécute `cartographie/verify_tiles.py`. Son délai maximal est de
-300 minutes ; les téléchargements externes et l'espace disque rendent ce job plus coûteux que les tests unitaires.
+Sur pull request, le job `carte-images` recherche un artefact issu d’une exécution réussie de `main`, âgé de moins de trois jours et dont les entrées cartographiques sont identiques (`scripts/ci_map_artifact.py`). Il le télécharge et le vérifie à nouveau. Si cet artefact manque, est incompatible ou invalide, le job régénère le jeu complet. Les poussées sur `main`, tags et lancements manuels régénèrent les données.
+
+Le jeu comprend le fond France Protomaps z12, les autoroutes OSM, le graphe avec géométrie, les polices et les sprites. La chaîne exécute `cartographie/verify_tiles.py`. Le délai maximal du job est de 300 minutes ; les téléchargements externes et l’espace disque rendent la génération plus coûteuse que les tests unitaires.
 
 L'artefact `carte-images` (3 jours, sans recompression) est transmis au job Docker puis à la publication.
 Les cibles Docker `with-map` consomment cet artefact via le contexte BuildKit nommé `cartography`.
@@ -79,17 +78,18 @@ Dans *Settings → Branches → Branch protection rules* pour `main` :
 
 `.github/dependabot.yml` : mises à jour hebdomadaires pour Maven (backend et simulateur, avec regroupement Spring), npm (outillage de développement regroupé), les trois Dockerfiles et les actions GitHub.
 
-## Vérifié avant la mise en place, hors GitHub
+## État de référence et preuves
 
-- Les workflows passent `actionlint` (avec `shellcheck` sur les scripts embarqués) ; les scripts shell passent `shellcheck`.
-- Backend (unitaires **et** intégration) et simulateur : exécutés **sous un vrai JDK 25** (image Temurin 25), avec le Docker de l'hôte pour Testcontainers : 63 + 6 + 4 tests verts (incrément 2). Incrément 5 : 85 + 7 tests backend verts sous JDK 21 (`-Djava.version=21`, JDK 25 non rejoué), 224 tests frontend, 5 scénarios navigateur réels en CI et 4 d'authentification (Keycloak réel) (+ 1 sur les tronçons, local : `E2E_SEGMENTS=1`, graphe requis) et la vérification de supervision (Alertmanager joint, 14 règles, 16 panneaux alimentés).
-- La procédure du job « E2E chaîne complète et supervision » rejouée de bout en bout en local (volumes neufs, `.env` généré comme dans le job) : 4 scénarios navigateur et la vérification de supervision au vert.
-- L'étape « référentiel à jour » rejouée : aucune différence ; la logique du job « CI réussie » simulée (vert et rouge).
-- Les commandes `package` et d'extraction des couches des Dockerfiles du backend et du simulateur rejouées sans réseau.
+La [CI de la PR #54](https://github.com/SteelDevAndroid/autoroutes/actions/runs/41988187857), vérifiée le 5 novembre 2026, a validé les nouvelles courbes du bandeau ainsi que tous les contrôles requis. Elle constitue une preuve datée, pas le statut garanti d’une modification ultérieure. Pour une livraison, consulter le contrôle « CI réussie » du commit exact.
 
-## Non vérifié ici (à regarder à la première exécution)
+Les quantités de tests évoluent : les rapports Maven, Vitest et Playwright de l’exécution concernée font foi. Les tests de routes vérifient aussi la visibilité des courbes et le bandeau sur mobile. Les captures visuelles ciblent l’interface HTML et excluent le rendu variable de la carte WebGL. Un scénario conditionnel marqué ignoré ne constitue pas une preuve de la fonctionnalité correspondante.
 
-- Les actions elles-mêmes (versions `checkout@v4`, `setup-java@v4`, `setup-node@v4`, `setup-python@v5`, `upload-artifact@v4`, `docker/setup-buildx-action@v3`, `docker/build-push-action@v6`) : GitHub Actions n'est pas exécutable depuis l'environnement de développement.
-- `mvn dependency:go-offline` des Dockerfiles (plugin non présent dans le cache local) et le téléchargement des dépendances dans `docker build` (bloqué ici par le proxy TLS).
-- Le démarrage du profil `full` sur un runner (déjà validé en local avec la même procédure).
-- Image `cartographie/Dockerfile` : workflow manuel séparé (`cartographie-image.yml`), car il compile tippecanoe depuis les sources et les versions figées de tippecanoe et go-pmtiles n'ont pas pu être vérifiées (GitHub injoignable).
+Le seuil p95 ≤ 3 s concerne le scénario SSE exécuté dans les conditions du banc ; il ne démontre pas une capacité universelle à 500 clients ni une fréquence d’images garantie. Voir le [protocole de performances](performance.md).
+
+## Présentation Docker Hub
+
+Le workflow `.github/workflows/dockerhub-description.yml` publie `docs/dockerhub.md` lors de sa modification sur `main`, ainsi que lors d’une modification du workflow lui-même. Un lancement manuel est accepté uniquement sur `main`. Il ne s’exécute pas sur pull request et ne publie aucune image.
+
+Il utilise les secrets existants `DOCKERHUB_USERNAME` et `DOCKERHUB_TOKEN`, exige leur présence et met à jour uniquement `compagnonsdudev/autoroutes`. L’action de publication est figée sur un commit. Le texte doit rester sous 25 000 octets et utiliser des liens absolus ; la description courte est limitée à 100 octets. Une lecture publique après publication compare le texte distant au fichier et fait échouer le job si la synchronisation n’est pas effective.
+
+Si Docker Hub refuse la modification avec 401/403, vérifier les droits de modification de la description du dépôt : un jeton capable de pousser une image ne garantit pas cette autorisation. Le workflow ne crée aucun jeton et n’élargit aucun droit automatiquement.

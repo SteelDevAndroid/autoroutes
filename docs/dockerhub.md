@@ -4,6 +4,22 @@ Carte de supervision avec flux Kafka, historique PostgreSQL, API/SSE, simulation
 
 Ce dépôt Docker Hub contient six familles d’images. Pour démarrer l’application complète avec Kafka et PostgreSQL, utiliser Docker Compose depuis le [dépôt GitHub](https://github.com/SteelDevAndroid/autoroutes).
 
+## Fonctionnalités
+
+- Carte de France avec gares, recherche, sélection d’axe et mise en évidence des concessions autoroutières identifiées.
+- Compteurs nationaux et mini-courbes sur la dernière heure, fiches de gares et classement d’activité.
+- Historique persistant, relecture temporelle, flux origine/destination et itinéraires estimés sur le graphe routier.
+- Déclaration et consultation d’anomalies par serveur MCP ; authentification OIDC facultative avec Keycloak.
+- Prometheus, Alertmanager et tableaux de bord Grafana pour superviser la chaîne.
+
+Les flux suivent des itinéraires **estimés**, pas des positions GPS mesurées. Les tirets représentent le volume de trafic ; leur vitesse à l’écran n’est pas la vitesse réelle des véhicules. Une section sans concession identifiée reste neutre.
+
+### Courbes du bandeau : quelle donnée ?
+
+Les courbes des entrées, sorties et passages représentent le **volume par minute sur la dernière heure** (`/min`). Les valeurs des compteurs gardent leur propre période : une heure glissante ou la journée. Les anomalies et les gares actives sont suivies localement depuis l’ouverture, pendant au plus une heure ; `Suivi` indique une période partielle. Les données absentes ne sont pas remplacées par des zéros.
+
+En démonstration ou sans historique disponible, la description de la courbe précise qu’il s’agit de l’évolution locale du compteur. En relecture, les courbes de trafic suivent l’horloge virtuelle ; aucun historique d’anomalies n’est inventé. Voir le [guide utilisateur](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/guide-utilisateur.md).
+
 ## Démarrage rapide avec les images publiées
 
 Prérequis : Docker Engine ou Docker Desktop démarré, Docker Compose **2.24.4 ou supérieur**, Git et les ports locaux disponibles. Conserver le dépôt entier : `compose.hub.yaml` réutilise `compose.yaml` et monte des configurations de `observability/` et `auth/`.
@@ -66,15 +82,28 @@ docker compose -f compose.hub.yaml --profile full --profile monitoring --profile
 
 L’authentification du serveur MCP se configure séparément avec `MCP_SECURITY_ENABLED=true` et le profil `auth` : voir la [documentation MCP](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/mcp-anomalies.md).
 
+## Comptes et authentification
+
+Le profil `full` seul sert l’application locale sans écran de connexion. Pour activer OIDC, définir `SUPERVISION_PROFILE=auth` dans `.env` puis ajouter `--profile auth` aux commandes de lancement.
+
+| Compte | Usage | Variable du mot de passe |
+|---|---|---|
+| Application `viewer` | Consultation | `KEYCLOAK_VIEWER_PASSWORD` |
+| Application `admin` | Administration applicative | `KEYCLOAK_ADMIN_USER_PASSWORD` |
+| Console Keycloak `admin` | Administration de l’identité | `KEYCLOAK_ADMIN_PASSWORD` |
+| Grafana `admin` | Tableaux de bord | `GRAFANA_PASSWORD` |
+
+Les valeurs initiales de développement sont `changez-moi`. Les adapter avant l’initialisation. Les comptes Keycloak déjà persistés conservent leurs mots de passe après modification de `.env` : voir les [secrets persistés](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/docker.md#secrets-déjà-persistés). L’ajout de `auth` ne sécurise pas automatiquement MCP : son paramétrage est séparé.
+
 ## Cartographie
 
-À partir des images publiées avec cette modification, la CI génère et vérifie la carte avant de construire les images.
+Les images de production récentes embarquent une carte générée et vérifiée par la CI avant leur construction.
 L'image `frontend` de production inclut le fond France z12, les autoroutes, les polices et les sprites.
 Le backend inclut le graphe routier du même jeu, activé par défaut sur `/app/bundled-graph/graph.json`.
 `compose.hub.yaml` utilise ces fichiers sans montage local : aucun téléchargement séparé n'est nécessaire.
 Le manifeste de provenance est accessible sur `/cartography-manifest.json` dans le frontend.
 Les anciennes versions publiées restent sans données embarquées.
-La démonstration garde son fond neutre hors ligne.
+La démonstration garde son fond neutre hors ligne. Le jeu embarqué représente environ 1,2 Go pour le fond France ; prévoir le téléchargement des images et de l’espace pour les volumes persistants. Ce volume cartographique n’est pas une mesure de RAM requise.
 
 Pour produire un autre jeu local (réseau et espace disque nécessaires) :
 
@@ -149,7 +178,7 @@ Les paramètres `VITE_*` sont intégrés au frontend à la construction : les mo
 | Frontend de démonstration | `compagnonsdudev/autoroutes:frontend-demo-latest` | amd64, arm64 |
 | Outils cartographiques | `compagnonsdudev/autoroutes:cartographie-latest` | amd64 |
 
-`latest` suit les versions stables ; `edge` suit les publications de `main` après validation CI. Pour figer toutes les images applicatives sur une version, ajouter par exemple `AUTOROUTES_TAG=0.3.0` dans `.env`. Les versions des images d’infrastructure sont définies dans `compose.yaml`.
+`latest` suit les versions stables ; `edge` suit les publications de `main` après validation CI. Pour utiliser les dernières évolutions validées de `main`, définir `AUTOROUTES_TAG=edge` dans `.env`, puis exécuter `pull` et `up`. Pour figer la pile, utiliser dans `AUTOROUTES_TAG` une version effectivement publiée pour les six familles, vérifiée dans les tags du dépôt. Ne pas mélanger manuellement les versions du frontend et du backend. Les versions des images d’infrastructure sont définies dans `compose.yaml`.
 
 ## Mise à jour et diagnostic
 
@@ -165,3 +194,13 @@ Répéter les profils facultatifs utilisés, par exemple `--profile mcp`. `docke
 Sous Windows, `start.ps1` diagnostique aussi les secrets persistés, mais lance actuellement les images locales de `compose.yaml` : utiliser les commandes ci-dessus pour Docker Hub.
 
 [Code source](https://github.com/SteelDevAndroid/autoroutes) · [Guide Docker complet](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/docker.md) · [Releases](https://github.com/SteelDevAndroid/autoroutes/releases)
+
+## Documentation et assistance
+
+- [Guide utilisateur](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/guide-utilisateur.md) : lecture des indicateurs, carte et relecture.
+- [Concessions](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/concessions.md) : source et couverture des attributions.
+- [Performances](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/performance.md) : bornes de concurrence, SSE et protocole de mesure ; aucune capacité matérielle universelle n’est annoncée.
+- [CI](https://github.com/SteelDevAndroid/autoroutes/blob/main/docs/ci.md) : validations et publication des images.
+- [Signaler un problème](https://github.com/SteelDevAndroid/autoroutes/issues) : préciser le tag ou digest, les profils, l’architecture et les journaux utiles, sans secrets.
+
+Cette présentation est versionnée dans `docs/dockerhub.md`. Le workflow `dockerhub-description.yml` la synchronise après une modification sur `main` et peut être relancé manuellement sur `main`. Les images et la description ont des publications distinctes : consulter leurs tags et dates respectives.
