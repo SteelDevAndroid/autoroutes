@@ -230,3 +230,11 @@ Rien ne bougeait hors des cercles des gares (changement de taille en 800 ms, hal
 - Le mouvement des tirets est une animation du navigateur, non rejouable dans les captures ; le contrôle automatique porte sur l'état (`data-flow-motion`) et la séquence de motifs, pas sur l'aspect image par image.
 - Les motifs des couches visibles sont mis à jour au plus 25 fois par seconde, uniquement lorsque le mouvement est autorisé. Les tirets s'éteignent d'abord quand la qualité de rendu se dégrade.
 - Les tronçons du fond OSM ne font pas l'objet d'un fondu à l'apparition des tuiles (comportement de MapLibre).
+
+### Courbes des compteurs du bandeau
+
+Chaque compteur dispose d’une mini-courbe SVG. Pour les entrées, sorties et passages, elle représente le volume par minute sur la dernière heure (repère `/min`), à partir de l’historique réseau enregistré. Une seule requête partagée est actualisée chaque minute ; elle s’arrête et s’annule lorsque l’onglet est masqué. Le survol et le nom accessible précisent la mesure et les horaires couverts, en heure de Paris.
+
+Les anomalies et les gares actives n’ont pas d’historique serveur : leur compteur est suivi depuis l’ouverture, pendant au plus une heure, avec le repère `Suivi` tant que la période est partielle. La démonstration et l’indisponibilité de l’historique utilisent également ce suivi local, explicitement nommé « évolution du compteur ». Les trous de données ne deviennent ni des zéros ni des raccords de courbe. Aucun état d’anomalie historique n’est inventé en relecture.
+
+En relecture, l’historique de trafic est chargé une seule fois sur la période et son heure de recul, puis la fenêtre suit l’horloge virtuelle. Les courbes du direct et de la relecture restent séparées. Le bandeau conserve ses actions de clic vers les listes de gares et son affichage compact sur mobile.

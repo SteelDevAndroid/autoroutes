@@ -49,6 +49,11 @@ export function stationHistory(stationId: string, from: Date, to: Date, step: St
   return getJson<StationHistory>(`/api/v1/stations/${encodeURIComponent(stationId)}/history?${range(from, to)}&step=${step}`, signal);
 }
 
+/** Une lecture réseau partagée par les trois courbes de trafic du bandeau. */
+export async function networkSeries(from: Date, to: Date, signal?: AbortSignal): Promise<readonly SeriesPoint[]> {
+  return (await getJson<{ points: SeriesPoint[] }>(`/api/v1/history/network?${range(from, to)}&step=PT1M`, signal)).points;
+}
+
 export function minutes(from: Date, to: Date, signal?: AbortSignal): Promise<MinuteRow[]> {
   return getJson<MinuteRow[]>(`/api/v1/history/minutes?${range(from, to)}`, signal);
 }
