@@ -360,3 +360,11 @@ de zoom, le gel pendant les interruptions, la confirmation après reconnexion et
 - **Grafana est sous licence AGPL-3.0** (Prometheus : Apache-2.0). L'usage interne sans modification n'impose rien de particulier ; distribuer une version modifiée ou l'offrir en service à des tiers déclenche des obligations : à valider avec le service juridique avant tout autre usage. Le profil `monitoring` est optionnel.
 - La CI génère la carte complète pour les images ; le workflow de tuiles reste disponible pour les releases de données mensuelles ou manuelles. Derrière un proxy TLS d’entreprise, installer le certificat dans `cartographie/ca/` avant une construction locale ; `OSM_MODE=regions` permet d’utiliser les extraits OpenStreetMap France si Geofabrik est inaccessible.
 - Les images Docker Hub sont préconstruites ; les réglages frontend `VITE_*` nécessitent une construction locale avec `compose.yaml` pour être modifiés.
+
+## Lire les nouvelles courbes et choisir une version
+
+Le [guide utilisateur](guide-utilisateur.md) décrit les compteurs du bandeau : débit par minute pour les entrées, sorties et passages, suivi local explicitement partiel pour les anomalies et les gares actives. L’historique de trafic est lu une fois par minute et suspendu quand l’onglet est masqué. Les protections de persistance, de concurrence et de fermeture SSE sont décrites dans [Performances](performance.md).
+
+Les fonctionnalités présentes sur `main` arrivent dans les tags `*-edge` après publication CI. Pour les essayer avec les images Hub, définir `AUTOROUTES_TAG=edge` dans `.env`, puis relancer `pull` et `up -d --wait` avec les profils déjà utilisés. `latest` correspond au canal stable et ne garantit pas la présence d’une modification venant d’être fusionnée. Une construction locale depuis les sources utilise `compose.yaml`.
+
+Le contenu de la page Docker Hub est versionné dans [sa présentation](dockerhub.md) et publié séparément des images. Son workflow de synchronisation et ses conditions d’accès sont documentés dans [CI](ci.md#présentation-docker-hub).

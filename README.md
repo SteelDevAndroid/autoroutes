@@ -2,6 +2,18 @@
 
 Supervision des gares de péage sur une carte : flux Kafka, historique PostgreSQL, API/SSE, simulation de trafic, anomalies via MCP et tableaux de bord Grafana. Le simulateur fourni génère des **données simulées**, identifiées dans l’interface.
 
+## Ce que permet l’application
+
+| Besoin | Fonction disponible |
+|---|---|
+| Situer le trafic | Carte de France, recherche des gares, exploration par axe et mise en évidence d’une concession |
+| Suivre les variations | Compteurs du bandeau avec mini-courbes sur la dernière heure, activité des gares et état de fraîcheur |
+| Comprendre un événement | Fiche de gare, entrées/sorties observées, anomalies et provenance des données |
+| Revenir sur une période | Historique PostgreSQL, relecture et comparaison temporelle |
+| Exploiter le système | Serveur MCP des anomalies, authentification OIDC facultative, Prometheus et Grafana |
+
+Les images de production embarquent le fond de carte et le graphe routier. Le mode démonstration fonctionne avec des données générées dans le navigateur. Le [guide utilisateur](docs/guide-utilisateur.md) explique les compteurs, leurs unités et les limites de l’estimation des itinéraires.
+
 ## Lancer avec Docker Hub
 
 Avec Docker Desktop ou Docker Engine démarré et Docker Compose ≥ 2.24.4, depuis la racine du dépôt :
@@ -62,6 +74,9 @@ Dans « Explorer le réseau », le sélecteur « Concession autoroutière » sou
 
 ## Documentation
 
+- [Guide utilisateur : carte, compteurs, courbes et relecture](docs/guide-utilisateur.md)
+- [Concessions : sources et couverture](docs/concessions.md)
+- [Performances : protections et protocole de mesure](docs/performance.md)
 - [Docker : lancement, profils, secrets, cartographie et diagnostic](docs/docker.md)
 - [Carte du trafic : itinéraires, animation, zoom et fraîcheur](docs/animation-trafic.md)
 - [Intégration continue et vérifications locales](docs/ci.md)
