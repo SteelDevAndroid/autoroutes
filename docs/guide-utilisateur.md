@@ -22,9 +22,17 @@ Dans le bandeau, « Entrées 1 h » et « Sorties 1 h » affichent uniquement un
 
 Le chiffre et la courbe des autres indicateurs peuvent donc avoir des unités différentes : `/min` désigne le débit de trafic de la courbe. Survoler celle-ci pour lire sa description et la période couverte, en heure de Paris. Un lecteur d’écran dispose de la même information.
 
-Le repère `Suivi` indique une période locale encore partielle. Les anomalies et les gares actives n’ont pas d’historique serveur de leur état : laisser l’application ouverte enrichit progressivement leur suivi. En démonstration, ou si l’historique de trafic manque, les courbes suivent aussi l’évolution locale du compteur ; leur description le précise. Les données absentes ne deviennent pas des zéros. Un indicateur d’anomalies partiellement connu peut afficher `≥` ; une valeur inconnue reste signalée comme indisponible.
+Les deux courbes horaires portent les repères « −60 min », « −30 min » et « Maintenant » (repères allégés sur mobile). Les points restent à leur position temporelle réelle : une période partielle n’est pas étirée sur toute la largeur.
 
-Les mini-courbes s’actualisent pendant la consultation ; leurs lectures sont suspendues lorsque l’onglet est masqué. Les compteurs restent cliquables pour accéder aux listes associées. Le bouton « Plus d’indicateurs » déplie les passages du jour et les gares actives ; le bandeau conserve une présentation compacte sur petit écran.
+Survoler une minute affiche son heure de Paris, son volume par minute et le total disponible sur l’heure. Une minute absente reste signalée comme telle. Au clavier, placer le focus sur l’indicateur, puis utiliser les flèches gauche/droite pour parcourir les points et Échap pour fermer les détails. Le clic conserve l’accès au classement des gares.
+
+La variation compare les totaux de deux heures consécutives de 60 minutes, sur la même référence temporelle. Elle apparaît uniquement si les 120 minutes sont connues et les données disponibles et à jour. Une référence nulle suivie de trafic affiche « Nouveau trafic » ; deux heures explicitement nulles donnent 0 %. Un manque de données ne produit aucun pourcentage.
+
+Les états distinguent « Chargement… », « Historique partiel », « Aucune donnée », « Aucun trafic » (60 minutes explicitement nulles), « Historique indisponible » et « Données anciennes ». Le total d’une période partielle est nommé « Total disponible », avec sa couverture en minutes. Un échec de récupération ne transforme pas le dernier historique en données fraîches.
+
+Les anomalies et les gares actives n’ont pas d’historique serveur de leur état : leur courbe reste un suivi local depuis l’ouverture. En démonstration, ou sans points de trafic enregistrés, la description précise aussi qu’il s’agit de l’évolution locale du compteur. Ce suivi ne sert jamais à calculer une variation du trafic entre deux heures. Les données absentes ne deviennent pas des zéros ; les anomalies partiellement connues peuvent afficher `≥`.
+
+Une seule requête partagée couvre les deux heures nécessaires, chaque minute en direct. Elle est annulée lorsque l’onglet est masqué. En relecture, la période et ses deux heures de recul sont chargées une fois ; la comparaison suit l’horloge virtuelle. Le bouton « Plus d’indicateurs » déplie les passages du jour et les gares actives.
 
 ## Explorer une autoroute ou une concession
 

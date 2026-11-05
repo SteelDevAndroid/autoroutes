@@ -11,7 +11,7 @@ vi.mock('../history/historyApi', () => ({ networkSeries: vi.fn().mockResolvedVal
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime('2026-11-05T10:00:00Z');
-  vi.mocked(networkSeries).mockClear();
+  vi.mocked(networkSeries).mockReset().mockResolvedValue([]);
   vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
   useUiStore.setState(useUiStore.getInitialState(), true);
   useUiStore.setState({ watermark: '2026-11-05T10:00:00Z' });
@@ -23,7 +23,7 @@ it('partage une requête minute réseau, la renouvelle sans chevauchement et l�
   renderHook(() => useKpiTrends(store));
   await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   expect(networkSeries).toHaveBeenCalledTimes(1);
-  expect(networkSeries).toHaveBeenLastCalledWith(new Date('2026-11-05T09:00:00Z'), new Date('2026-11-05T10:00:00Z'), expect.any(AbortSignal));
+  expect(networkSeries).toHaveBeenLastCalledWith(new Date('2026-11-05T08:00:00Z'), new Date('2026-11-05T10:00:00Z'), expect.any(AbortSignal));
   await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
   expect(networkSeries).toHaveBeenCalledTimes(2);
   const signal = vi.mocked(networkSeries).mock.calls[1]?.[2];
@@ -54,4 +54,17 @@ it('charge la plage de relecture une seule fois, sans utiliser l’historique du
   expect(result.current.points.map((p) => p.entries)).toEqual([2]);
   await act(async () => { await vi.advanceTimersByTimeAsync(120_000); });
   expect(networkSeries).toHaveBeenCalledTimes(2);
+});
+
+it('signale une panne au lieu de présenter l’ancien historique comme disponible', async () => {
+  vi.mocked(networkSeries).mockResolvedValueOnce([{ t: Date.parse('2026-11-05T09:59:00Z') / 1000, entries: 8, exits: 4 }])
+    .mockRejectedValueOnce(new Error('indisponible'));
+  const store = new StationStore(['A']);
+  const { result } = renderHook(() => useKpiTrends(store));
+  expect(result.current.state).toBe('loading');
+  await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+  expect(result.current.state).toBe('ready');
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(result.current.state).toBe('error');
+  expect(result.current.points[0]?.entries).toBe(8);
 });

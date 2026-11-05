@@ -90,12 +90,13 @@ export function TopBar({ store }: { readonly store: StationStore }) {
   const trends = useKpiTrends(store);
   const chart = (metric: KpiMetric, label: string) => {
     const traffic = metric === 'entries1h' || metric === 'exits1h' || metric === 'today';
-    const recorded = traffic && trends.points.length > 0;
-    const points = recorded ? trends.points.map((p) => ({ t: p.t * 1000,
+    const recorded = traffic && trends.allPoints.length > 0;
+    const points = recorded ? trends.allPoints.map((p) => ({ t: p.t * 1000,
       value: metric === 'entries1h' ? p.entries : metric === 'exits1h' ? p.exits : p.entries + p.exits }))
       : timelinePoints(trends.samples, metric);
     return <KpiTrend points={points} label={recorded ? `${label} par minute sur la dernière heure` : `Évolution du compteur ${label}`}
-      recorded={recorded} expanded={metric === 'entries1h' || metric === 'exits1h'} />;
+      recorded={recorded} expanded={metric === 'entries1h' || metric === 'exits1h'}
+      reference={recorded ? trends.end : trends.reference} historyState={traffic ? trends.state : 'local'} stale={trends.stale} />;
   };
   let active = 0;
   let anomalies = 0;

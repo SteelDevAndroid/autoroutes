@@ -18,8 +18,8 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
   } }));
   const sentAt = new Date().toISOString();
   await page.route('**/api/v1/history/network?*', (route) => route.fulfill({ json: { points:
-    Array.from({ length: 60 }, (_, i) => ({ t: Math.floor(Date.parse(sentAt) / 1000) - (60 - i) * 60,
-      entries: 10 + i % 7, exits: 5 + i % 3 })),
+    Array.from({ length: 120 }, (_, i) => ({ t: Math.floor(Date.parse(sentAt) / 60_000) * 60 - (120 - i) * 60,
+      entries: i < 60 ? 10 : 20, exits: i < 60 ? 5 : 10 })),
   } }));
   const metrics = ids.map((stationId) => ({ stationId, last5m: { entries: 1, exits: 1 }, last15m: { entries: 1, exits: 1 },
     last1h: { entries: 10, exits: 10 }, today: { entries: 10, exits: 10 }, lastEventTime: sentAt }));
@@ -55,6 +55,12 @@ test('adapte les flux au zoom, les fige si périmés et reprend après confirmat
     const width = (await indicator.locator('svg').boundingBox())?.width ?? 0;
     expect(width).toBeGreaterThan(150);
   }
+  await expect(page.getByText('+100 % vs heure précédente', { exact: true })).toHaveCount(2);
+  await expect(page.getByText('−30 min', { exact: true })).toHaveCount(2);
+  await page.getByRole('img', { name: /^Entrées par minute/ }).hover();
+  await expect(page.getByRole('tooltip')).toContainText('20 /min');
+  await expect(page.getByRole('tooltip')).toContainText(/Total sur 1 h : 1.200/);
+  await page.mouse.move(0, 0);
   await page.screenshot({ path: 'test-results/hour-trends-desktop.png' });
   await expect(map).toHaveAttribute('data-road-flows', '1');
   await expect(map).toHaveAttribute('data-schematic-flows', '1');

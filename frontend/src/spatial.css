@@ -215,3 +215,16 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .kpi-trend-expanded { flex: 1; max-width: none; width: 100%; align-items: stretch; }
 .kpi-trend-expanded .kpi-trend-period { text-align: right; }
 .kpi-trend-expanded path { vector-effect: non-scaling-stroke; }
+
+.kpi-trend-expanded { height: auto; min-height: 54px; gap: 3px; }
+.kpi-trend-axis { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; line-height: 12px; color: var(--text-muted); }
+.kpi-trend-period { max-width: 100%; overflow-wrap: anywhere; height: auto; }
+.kpi-trend-expanded .kpi-trend-period { text-align: left; line-height: 12px; }
+.kpi-trend-change { font-size: 10px; line-height: 13px; color: var(--text); }
+.kpi-trend .kpi-trend-dot { stroke-width: 4px; }
+.kpi-tooltip { position: fixed; z-index: 1000; display: flex; flex-direction: column; gap: 4px; width: 240px; max-width: calc(100vw - 16px); padding: 10px 12px; border: 1px solid var(--panel-border); border-radius: 8px; background: var(--panel); color: var(--text); box-shadow: 0 4px 20px #0003; font-size: 11px; line-height: 15px; text-align: left; pointer-events: none; }
+@media (max-width: 600px) {
+  .kpi-trend-axis { font-size: 8px; }
+  .kpi-trend-axis span:nth-child(2) { display: none; }
+  .kpi-trend-expanded .kpi-trend-period, .kpi-trend-change { font-size: 9px; }
+}
