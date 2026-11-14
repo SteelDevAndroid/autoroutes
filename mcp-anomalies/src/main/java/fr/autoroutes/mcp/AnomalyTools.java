@@ -1,10 +1,11 @@
 package fr.autoroutes.mcp;
 
 import fr.autoroutes.mcp.AnomalyReporter.Anomaly;
-import fr.autoroutes.mcp.AnomalyReporter.Published;
 import java.time.Instant;
 import java.time.format.DateTimeParseException;
+import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.ai.mcp.annotation.McpTool;
 import org.springframework.ai.mcp.annotation.McpTool.McpAnnotations;
@@ -12,6 +13,8 @@ import org.springframework.ai.mcp.annotation.McpToolParam;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Outils MCP exposés aux agents. Les descriptions sont lues par le modèle : elles portent les règles du contrat. */
 @Component
@@ -50,8 +53,11 @@ public class AnomalyTools {
     private final AnomalyReporter reporter;
     private final BackendClient backend;
     private final java.time.Duration staleAfter;
+    private final JsonMapper json;
 
-    AnomalyTools(StationCatalog catalog, AnomalyReporter reporter, BackendClient backend, McpAnomaliesProperties properties) {
+    AnomalyTools(StationCatalog catalog, AnomalyReporter reporter, BackendClient backend, McpAnomaliesProperties properties,
+                 JsonMapper json) {
+        this.json = json;
         this.catalog = catalog;
         this.reporter = reporter;
         this.backend = backend;
@@ -77,12 +83,12 @@ public class AnomalyTools {
                     repasser à declarer_anomalies pour ne pas écraser une mise à jour concurrente. Sources vides : rien n'a été déclaré.""",
             annotations = @McpAnnotations(title = "Consulter les anomalies d'une gare", readOnlyHint = true, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
-    public StationAnomalies readAnomalies(@McpToolParam(description = STATION_PARAM) String gare) {
+    public CallToolResult readAnomalies(@McpToolParam(description = STATION_PARAM) String gare) {
         var station = station(gare);
         var source = AnomalyReporter.sourceFor(currentReporter());
         var state = backend.read(station.id());
         var version = state.updatedAtOf(source);
-        return new StationAnomalies(station.id(), station.label(), source, version == null ? NO_VERSION : version.toString(), state.sources());
+        return structured(new StationAnomalies(station.id(), station.label(), source, version == null ? NO_VERSION : version.toString(), state.sources()));
     }
 
     @McpTool(name = "etat_gare",
@@ -93,7 +99,7 @@ public class AnomalyTools {
                     déclaration. N'agit sur rien.""",
             annotations = @McpAnnotations(title = "État et fraîcheur d'une gare", readOnlyHint = true, destructiveHint = false,
                     idempotentHint = true, openWorldHint = false))
-    public StationStatus stationStatus(@McpToolParam(description = STATION_PARAM) String gare) {
+    public CallToolResult stationStatus(@McpToolParam(description = STATION_PARAM) String gare) {
         var station = station(gare);
         var source = AnomalyReporter.sourceFor(currentReporter());
         var read = Instant.now();
@@ -104,8 +110,8 @@ public class AnomalyTools {
         var threshold = staleAfter.toSeconds();
         var status = gap == null ? "UNKNOWN" : gap > threshold ? "STALE" : "ACTIVE";
         var version = state.updatedAtOf(source);
-        return new StationStatus(station.id(), station.label(), read, status, last, gap, threshold, source,
-                version == null ? NO_VERSION : version.toString(), activity, state.sources().size());
+        return structured(new StationStatus(station.id(), station.label(), read, status, last, gap, threshold, source,
+                version == null ? NO_VERSION : version.toString(), activity, state.sources().size()));
     }
 
     @McpTool(name = "declarer_anomalies",
@@ -117,7 +123,7 @@ public class AnomalyTools {
                     criticite ∈ Faible, Moyenne, Haute, Critique. Le rapport est daté de maintenant et n'ajoute aucun passage de véhicule.""",
             annotations = @McpAnnotations(title = "Déclarer les anomalies d'une gare", readOnlyHint = false, destructiveHint = true,
                     idempotentHint = true, openWorldHint = false))
-    public Published reportAnomalies(
+    public CallToolResult reportAnomalies(
             @McpToolParam(description = STATION_PARAM) String gare,
             @McpToolParam(description = "État complet de votre source : liste des anomalies {type_ano, cardinalite, criticite}, au plus 100") List<Anomaly> anomalies,
             @McpToolParam(description = VERSION_PARAM, required = false) String version_attendue) {
@@ -125,7 +131,7 @@ public class AnomalyTools {
         var author = currentReporter();
         AnomalyReporter.validate(anomalies);
         checkVersion(station, author, version_attendue);
-        return reporter.publish(station, anomalies, author);
+        return structured(reporter.publish(station, anomalies, author));
     }
 
     @McpTool(name = "lever_anomalies",
@@ -134,13 +140,13 @@ public class AnomalyTools {
                     déclarés par votre source, sans toucher à ceux des autres sources (péage, autres agents).""",
             annotations = @McpAnnotations(title = "Lever les anomalies de votre source", readOnlyHint = false, destructiveHint = true,
                     idempotentHint = true, openWorldHint = false))
-    public Published clearAnomalies(
+    public CallToolResult clearAnomalies(
             @McpToolParam(description = STATION_PARAM) String gare,
             @McpToolParam(description = VERSION_PARAM, required = false) String version_attendue) {
         var station = station(gare);
         var author = currentReporter();
         checkVersion(station, author, version_attendue);
-        return reporter.publish(station, List.of(), author);
+        return structured(reporter.publish(station, List.of(), author));
     }
 
     /**
@@ -184,5 +190,19 @@ public class AnomalyTools {
             return token.getToken().getClaimAsString("preferred_username");
         }
         return authentication == null ? "anonyme" : authentication.getName();
+    }
+
+    /**
+     * Résultat porté deux fois : en {@code structuredContent}, que lit un client qui vérifie un effet (Kex-anHarness relit
+     * etat_gare après declarer_anomalies et compare maVersion à l'eventTime rendu), et en texte JSON pour les autres. Sans
+     * schéma de sortie déclaré : celui que génère {@code generateOutputSchema} refuse {@code null}, or une mesure absente vaut
+     * {@code null} ici, jamais zéro, et le serveur rejetait alors la réponse.
+     */
+    private CallToolResult structured(Object value) {
+        return CallToolResult.builder()
+                .structuredContent(json.convertValue(value, new TypeReference<Map<String, Object>>() { }))
+                .addTextContent(json.writeValueAsString(value))
+                .isError(false)
+                .build();
     }
 }
