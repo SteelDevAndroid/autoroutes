@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -22,7 +23,7 @@ class SimulatorProvenanceTest {
         var factory = mock(EventFactory.class);
         org.mockito.Mockito.when(factory.next()).thenReturn(new EventFactory.SimulatedRecord("gare", "{}"));
         var properties = new SimulatorProperties("toll-events", 1000, "s", "a", 0, 0, Duration.ofMinutes(30), 0, 0, 0, 0, 0,
-                "simulated", 1L);
+                "simulated", 1L, List.of(), Duration.ZERO);
         var runner = new SimulatorRunner(factory, kafka, properties, mock(StationPool.class), Clock.systemUTC());
 
         runner.emit();

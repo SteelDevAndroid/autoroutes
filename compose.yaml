@@ -114,6 +114,8 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       SIMULATOR_RATE: ${SIMULATOR_RATE:-80}
+      SIMULATOR_SILENT_STATIONS: ${SIMULATOR_SILENT_STATIONS:-}
+      SIMULATOR_SILENT_AFTER: ${SIMULATOR_SILENT_AFTER:-0s}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
     depends_on:
       kafka-init:

@@ -2,6 +2,7 @@ package fr.autoroutes.simulator;
 
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
@@ -14,6 +15,10 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param anomalyResolveRate probabilité, à chaque rapport, que chaque type d'incident actif perde une occurrence
  * @param provenance         valeur de l'en-tête {@code x-provenance} posé sur chaque message ; vide = pas d'en-tête
  * @param seed               graine fixe pour un rejeu déterministe ; absente = aléatoire
+ * @param silentStations     gares logiques (identifiants {@code GL-…}) qui cessent d'émettre : scénario de panne de gare,
+ *                           pour éprouver la détection de silence de bout en bout ; vide = aucune
+ * @param silentAfter        délai, depuis le démarrage, avant que ces gares se taisent : elles ont d'abord un dernier passage,
+ *                           sans quoi la lecture rendrait « jamais mesuré » plutôt que « muette »
  */
 @ConfigurationProperties("simulator")
 public record SimulatorProperties(
@@ -30,7 +35,16 @@ public record SimulatorProperties(
         @DefaultValue("0.05") double anomalyOpenRate,
         @DefaultValue("0.25") double anomalyResolveRate,
         @DefaultValue("simulated") String provenance,
-        Long seed) {
+        Long seed,
+        @DefaultValue({}) List<String> silentStations,
+        @DefaultValue("0s") Duration silentAfter) {
+
+    public SimulatorProperties {
+        // Une variable d'environnement vide (SIMULATOR_SILENT_STATIONS=) doit valoir « aucune », pas une gare au nom vide.
+        silentStations = silentStations == null ? List.of()
+                : silentStations.stream().map(String::strip).filter(id -> !id.isEmpty()).toList();
+        silentAfter = silentAfter == null ? Duration.ZERO : silentAfter;
+    }
 
     public Path stationsPath() {
         return Path.of(stationsFile);

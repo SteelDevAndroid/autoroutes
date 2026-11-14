@@ -21,6 +21,8 @@ agent (client MCP) ──HTTP /mcp + jeton──▶ mcp-anomalies ──Kafka to
 | `declarer_anomalies(gare, anomalies, version_attendue?)` | Publie l'**état complet de votre source**, qui **remplace** ce qu'elle avait déclaré | destructif, idempotent |
 | `lever_anomalies(gare, version_attendue?)` | Publie un rapport vide pour votre source et efface ses incidents | destructif, idempotent |
 
+Sauf `rechercher_gares`, chaque outil rend son résultat deux fois : en `structuredContent` (objet JSON) et en texte JSON identique. Un client qui vérifie un effet lit le premier : Kex-anHarness relit `etat_gare` après `declarer_anomalies` et compare `maVersion` à l'`eventTime` rendu. Aucun schéma de sortie n'est déclaré : celui que génère Spring AI refuse `null`, alors qu'une mesure absente vaut `null` ici.
+
 `gare` accepte un identifiant de gare logique ou un nom d'alias. Le nom publié est toujours un alias reconnu par le backend.
 
 Chaque élément de `anomalies` est `{type_ano, cardinalite, criticite}` :

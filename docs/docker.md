@@ -119,6 +119,7 @@ et configurer les URL publiques pour l'adresse réellement utilisée. Le défaut
 | `GRAFANA_PASSWORD` | Mot de passe de `admin` dans Grafana | `changez-moi` |
 | `FRONTEND_BIND` | Adresse d'écoute du frontend ; `0.0.0.0` pour un partage réseau explicite | `127.0.0.1` |
 | `SIMULATOR_RATE` | Événements simulés par seconde | `80` |
+| `SIMULATOR_SILENT_STATIONS`, `SIMULATOR_SILENT_AFTER` | Scénario de panne : gares logiques (`GL-…`, séparées par des virgules) qui cessent d'émettre après le délai donné (`90s`), y compris comme entrée d'un trajet. Elles passent ensuite `STALE` dans `etat_gare`. Une gare inconnue du référentiel fait refuser le démarrage | vide, `0s` |
 | `VITE_BASEMAP_URL`, `VITE_MOTORWAYS_URL`, `VITE_GLYPHS_URL`, `VITE_SPRITE_URL` | Ressources cartographiques, **intégrées au frontend à la construction**. Vides = fond neutre sans libellés | tuiles locales (`/tiles/…`) |
 | `SUPERVISION_PROFILE` | `auth` : connexion OIDC obligatoire (profil Spring `auth`). Vide : sans authentification | vide |
 | `KEYCLOAK_ADMIN_PASSWORD`, `SUPERVISION_CLIENT_SECRET`, `KEYCLOAK_VIEWER_PASSWORD`, `KEYCLOAK_ADMIN_USER_PASSWORD` | Secrets de Keycloak et des utilisateurs de développement `viewer` et `admin` | `changez-moi` |

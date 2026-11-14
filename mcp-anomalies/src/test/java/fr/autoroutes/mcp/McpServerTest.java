@@ -104,6 +104,26 @@ class McpServerTest {
                 .contains("type_ano", "cardinalite", "criticite");
     }
 
+    /**
+     * Un client qui vérifie un effet (Kex-anHarness relit etat_gare après declarer_anomalies) lit structuredContent, pas
+     * le texte : sans sortie structurée, la vérification restait indéterminée faute de preuve. Pas de schéma de sortie
+     * déclaré : le schéma généré refuse null, et une mesure absente vaut null ici (voir aStationWithoutMeasure…).
+     */
+    @Test
+    @SuppressWarnings("unchecked")
+    void objectToolsAnswerWithStructuredContent() {
+        BACKEND.respondWithActivity(java.time.Instant.now().toString(), "[]");
+
+        var status = call("etat_gare", Map.of("gare", "La Boisse"));
+        var reported = call("declarer_anomalies", Map.of("gare", "GL-BPV-0054", "anomalies", List.of()));
+
+        assertThat(status.structuredContent()).isInstanceOf(Map.class);
+        assertThat((Map<String, Object>) status.structuredContent()).containsKeys("etat", "lectureA", "maVersion");
+        assertThat((Map<String, Object>) reported.structuredContent()).containsKeys("eventId", "stationId", "eventTime");
+        assertThat(((Map<?, ?>) reported.structuredContent()).get("eventTime")).isInstanceOf(String.class)
+                .isEqualTo(nextEvent().path("eventTime").asString());
+    }
+
     @Test
     void searchesStationsBeforeReporting() {
         var result = call("rechercher_gares", Map.of("texte", "la boisse"));
