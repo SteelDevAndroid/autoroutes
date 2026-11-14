@@ -31,7 +31,7 @@ class EventFactoryTest {
 
     private static SimulatorProperties properties(double duplicate, double late, double invalid, double unknown, double anomalyReport) {
         return new SimulatorProperties("toll-events", 80, "s", "a", duplicate, late, Duration.ofMinutes(30), invalid, unknown,
-                anomalyReport, 0.3, 0.2, "simulated", 42L);
+                anomalyReport, 0.3, 0.2, "simulated", 42L, List.of(), Duration.ZERO);
     }
 
     private EventFactory factory(SimulatorProperties properties) {
@@ -124,5 +124,64 @@ class EventFactoryTest {
 
         assertThat(IntStream.range(0, 200).mapToObj(i -> pool.pickEntryFor(exit).id()).distinct()).containsExactly("GL-ECH-1");
         assertThat(StationPool.distanceKm(exit, exit)).isZero();
+    }
+
+    private static SimulatorProperties silent(Duration after, String... stations) {
+        return new SimulatorProperties("toll-events", 80, "s", "a", 0, 0, Duration.ofMinutes(30), 0, 0, 0, 0.3, 0.2,
+                "simulated", 42L, List.of(stations), after);
+    }
+
+    /** Horloge qu'un test avance : la gare doit d'abord émettre, puis se taire. */
+    private static final class SteppedClock extends Clock {
+        private Instant now = NOW;
+
+        @Override
+        public java.time.ZoneId getZone() {
+            return ZoneOffset.UTC;
+        }
+
+        @Override
+        public Clock withZone(java.time.ZoneId zone) {
+            return this;
+        }
+
+        @Override
+        public Instant instant() {
+            return now;
+        }
+    }
+
+    @Test
+    void aSilentStationEmitsUntilItsDelayThenNeverAgainNeitherAsExitNorAsEntry() {
+        var random = new Random(42);
+        var clock = new SteppedClock();
+        var factory = new EventFactory(pool(random), random, clock, json, silent(Duration.ofMinutes(1), "GL-ECH-1"));
+
+        var before = generate(factory, 500);
+        clock.now = NOW.plus(Duration.ofMinutes(1));
+        var after = generate(factory, 2_000);
+
+        assertThat(before).anySatisfy(e -> assertThat(e.path("stationName").asString()).isEqualTo("Lyon Nord"));
+        assertThat(after).isNotEmpty().allSatisfy(e -> {
+            assertThat(e.path("stationName").asString()).isNotEqualTo("Lyon Nord");
+            assertThat(e.path("entryStationName").asString("")).isNotEqualTo("Lyon Nord");
+        });
+    }
+
+    @Test
+    void anUnknownSilentStationIsRefusedAtStartupRatherThanNeverSilenced() {
+        var random = new Random(42);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new EventFactory(pool(random), random,
+                        Clock.fixed(NOW, ZoneOffset.UTC), json, silent(Duration.ZERO, "GL-INCONNUE")))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("GL-INCONNUE");
+    }
+
+    @Test
+    void anEmptyEnvironmentVariableMeansNoSilentStation() {
+        var properties = new SimulatorProperties("toll-events", 80, "s", "a", 0, 0, Duration.ofMinutes(30), 0, 0, 0, 0, 0,
+                "simulated", 42L, List.of(" ", ""), null);
+
+        assertThat(properties.silentStations()).isEmpty();
+        assertThat(properties.silentAfter()).isZero();
     }
 }

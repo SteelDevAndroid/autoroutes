@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.Random;
 
 /**
@@ -23,6 +24,7 @@ public final class StationPool {
     }
 
     private static final double DECAY_KM = 50;
+    private static final int MAX_DRAWS = 1_000;
 
     private final List<Station> stations;
     private final double[] cumulativeLanes;
@@ -68,9 +70,46 @@ public final class StationPool {
         return stations.get(sample(cumulativeLanes));
     }
 
+    /**
+     * Tirage par voies parmi les gares non exclues. Par rejet plutôt qu'en recalculant les poids : l'exclusion
+     * dépend de l'heure (une gare se tait en cours de route) et ne concerne que quelques gares.
+     */
+    public Station pickByLanes(Predicate<Station> excluded) {
+        return retry(this::pickByLanes, excluded);
+    }
+
     /** Gare d'entrée d'un trajet sortant en {@code exit} (système fermé). */
     public Station pickEntryFor(Station exit) {
         return closed.get(sample(entryCumulative.get(exit.id())));
+    }
+
+    /**
+     * Une gare muette ne se montre pas non plus comme entrée d'un trajet : ce serait un passage chez elle. Vide quand
+     * aucune entrée émettrice n'est plausible pour cette sortie.
+     */
+    public java.util.Optional<Station> pickEntryFor(Station exit, Predicate<Station> excluded) {
+        for (var attempt = 0; attempt < MAX_DRAWS; attempt++) {
+            var station = pickEntryFor(exit);
+            if (!excluded.test(station)) {
+                return java.util.Optional.of(station);
+            }
+        }
+        return java.util.Optional.empty();
+    }
+
+    /** Gare connue par son identifiant logique ({@code GL-…}). */
+    public boolean contains(String id) {
+        return stations.stream().anyMatch(s -> s.id().equals(id));
+    }
+
+    private static Station retry(java.util.function.Supplier<Station> draw, Predicate<Station> excluded) {
+        for (var attempt = 0; attempt < MAX_DRAWS; attempt++) {
+            var station = draw.get();
+            if (!excluded.test(station)) {
+                return station;
+            }
+        }
+        throw new IllegalStateException("Aucune gare émettrice après " + MAX_DRAWS + " tirages : trop de gares muettes");
     }
 
     /** Un des noms d'alias de la gare : exerce le rapprochement par nom du backend. */
