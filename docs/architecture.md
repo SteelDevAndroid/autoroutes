@@ -68,3 +68,14 @@ Le graphe dérivé d’OSM et ses attributions relèvent de l’ODbL ; conserver
 La pile utilise actuellement une instance active du backend. Les sessions et budgets par instance nécessiteraient une adaptation pour plusieurs répliques. Le profil Keycloak fourni vise le développement : HTTPS, base externe et gestion des secrets relèvent d’un déploiement de production. La déconnexion applicative n’implique pas nécessairement la fermeture de la session Keycloak.
 
 Pour les procédures actuelles : [Docker](docker.md), [installation des itinéraires](docker.md#flux-suivant-les-routes), [mesure des performances](performance.md) et [vérifications CI](ci.md). Aucune ancienne mesure de développement ne garantit une capacité matérielle ou un nombre d’images par seconde en production.
+
+## Topic de rejet : valeur, provenance et diagnostic
+
+Le topic de rejet (`supervision.kafka.rejected-topic`, `toll-events.rejected` par défaut) ne reçoit **jamais le message brut**. Chaque
+enregistrement porte en en-têtes le motif (`x-reason`), le champ, l'`eventId` et la position d'origine, et reprend ces métadonnées en
+JSON dans sa valeur (`failure_reason`, `field`, `eventId`, `provenance`, `sourcePartition`, `sourceOffset`).
+
+- **Provenance.** Le simulateur pose `x-provenance: simulated` (`SIMULATOR_PROVENANCE`) sur chaque message ; le backend la recopie dans
+  l'en-tête et la valeur du rejet. Un rejet de donnée simulée se lit comme tel.
+- **Diagnostic de file morte.** `kex_dlq_diagnosis` de Kafka SQL Explorer n'accepte qu'un topic terminé par `.dlq` ou `.dlt`, et lit le
+  motif dans la valeur. Pour l'utiliser, nommer le topic ainsi (`SUPERVISION_KAFKA_REJECTED_TOPIC=toll-events.dlq`) et le créer.

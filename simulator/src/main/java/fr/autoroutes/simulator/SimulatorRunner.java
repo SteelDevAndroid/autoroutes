@@ -38,7 +38,11 @@ class SimulatorRunner {
         carry -= count;
         for (var i = 0; i < count; i++) {
             var record = factory.next();
-            kafka.send(properties.topic(), record.key(), record.payload());
+            var message = new org.apache.kafka.clients.producer.ProducerRecord<>(properties.topic(), record.key(), record.payload());
+            if (!properties.provenance().isBlank()) {
+                message.headers().add("x-provenance", properties.provenance().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            }
+            kafka.send(message);
         }
         sent += count;
         var now = clock.millis();

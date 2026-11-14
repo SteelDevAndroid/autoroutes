@@ -406,7 +406,7 @@ class SupervisionIT {
                 if (!records.isEmpty()) {
                     var reasons = new java.util.ArrayList<String>();
                     records.forEach(r -> {
-                        assertThat(r.value()).as("jamais de message brut dans le topic de rejet").isNull();
+                        assertThat(r.value()).as("métadonnées du rejet, jamais le message brut").contains("failure_reason").doesNotContain("\"type\":");
                         reasons.add(new String(r.headers().lastHeader("x-reason").value(), StandardCharsets.UTF_8));
                     });
                     return reasons;
