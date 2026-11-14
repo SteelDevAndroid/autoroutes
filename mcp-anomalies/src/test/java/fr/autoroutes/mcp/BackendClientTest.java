@@ -19,7 +19,7 @@ class BackendClientTest {
     private final FakeBackend backend = new FakeBackend();
 
     private BackendClient client() {
-        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofSeconds(1), backend.url(), Duration.ofSeconds(2),
+        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofSeconds(1), backend.url(), Duration.ofSeconds(2), Duration.ofMinutes(5),
                 new McpAnomaliesProperties.Security(false, null, null, "roles", "ANOMALY_REPORTER"));
         return new BackendClient(JsonMapper.builder().build(), properties);
     }

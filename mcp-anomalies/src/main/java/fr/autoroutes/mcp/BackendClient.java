@@ -26,8 +26,22 @@ public class BackendClient {
     public record SourceState(String source, Instant updatedAt, List<Anomaly> anomalies) {
     }
 
+    public record Window(long entrees, long sorties) {
+    }
+
+    /**
+     * Activité d'une gare telle que publiée par le backend. {@code metrics} absent côté backend : tout est {@code null},
+     * jamais zéro, car « aucune mesure » n'est pas « aucun passage ».
+     */
+    public record Activity(Instant lastEventTime, Window last5m, Window last15m, Window last1h, Window today) {
+    }
+
     /** @param sources vide : aucune source n'a rendu compte pour cette gare (état non communiqué) */
-    public record StationState(List<SourceState> sources) {
+    public record StationState(List<SourceState> sources, Activity activity) {
+
+        public StationState(List<SourceState> sources) {
+            this(sources, new Activity(null, null, null, null, null));
+        }
 
         public Instant updatedAtOf(String source) {
             return sources.stream().filter(s -> s.source().equals(source)).map(SourceState::updatedAt).findFirst().orElse(null);
@@ -69,7 +83,18 @@ public class BackendClient {
             }
             sources.add(new SourceState(source.path("source").asString(), Instant.parse(source.path("updatedAt").asString()), List.copyOf(anomalies)));
         }
-        return new StationState(List.copyOf(sources));
+        var metrics = detail.path("metrics");
+        var activity = new Activity(instant(metrics.path("lastEventTime")), window(metrics.path("last5m")),
+                window(metrics.path("last15m")), window(metrics.path("last1h")), window(metrics.path("today")));
+        return new StationState(List.copyOf(sources), activity);
+    }
+
+    private static Instant instant(JsonNode node) {
+        return node.isString() ? Instant.parse(node.asString()) : null;
+    }
+
+    private static Window window(JsonNode node) {
+        return node.isObject() ? new Window(node.path("entries").asLong(), node.path("exits").asLong()) : null;
     }
 
     private static void relayToken(HttpHeaders headers) {

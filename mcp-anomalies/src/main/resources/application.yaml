@@ -29,6 +29,7 @@ management:
 mcp-anomalies:
   topic: ${KAFKA_TOPIC:toll-events}
   backend-url: ${BACKEND_URL:http://localhost:8081}
+  stale-after: ${MCP_STALE_AFTER:5m}
   aliases-file: ${REFERENTIEL_ALIASES_FILE:../referentiel/alias-gares.csv}
   stations-file: ${REFERENTIEL_STATIONS_FILE:../referentiel/gares-logiques-proposition.csv}
   security:

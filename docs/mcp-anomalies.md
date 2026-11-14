@@ -17,6 +17,7 @@ agent (client MCP) ──HTTP /mcp + jeton──▶ mcp-anomalies ──Kafka to
 |---|---|---|
 | `rechercher_gares(texte)` | Au plus 20 gares du référentiel par identifiant (`GL-…`), libellé, alias ou autoroute (`A0007`). Accents, casse et ponctuation sont ignorés, et la correspondance exacte vient en premier | lecture seule |
 | `consulter_anomalies(gare)` | État courant publié par le backend, détaillé par source. Renvoie aussi `maSource` et `versionAttendue` (date du dernier rapport de `maSource`, ou `aucune`) | lecture seule |
+| `etat_gare(gare)` | Fraîcheur : dernier passage, écart mesuré à l'instant de lecture (`lectureA`), état `ACTIVE`, `STALE` ou `UNKNOWN` (seuil `MCP_STALE_AFTER`, 5 min), passages par fenêtre (`null` si non mesurés, jamais 0) et `maVersion` | lecture seule |
 | `declarer_anomalies(gare, anomalies, version_attendue?)` | Publie l'**état complet de votre source**, qui **remplace** ce qu'elle avait déclaré | destructif, idempotent |
 | `lever_anomalies(gare, version_attendue?)` | Publie un rapport vide pour votre source et efface ses incidents | destructif, idempotent |
 
@@ -93,12 +94,14 @@ Chaque publication est journalisée pour l'audit : identifiant du rapport, gare,
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:29092` | Kafka |
 | `KAFKA_TOPIC` | `toll-events` | Topic lu par le backend |
 | `BACKEND_URL` | `http://localhost:8081` (Compose : `http://backend:8080`) | Backend lu par `consulter_anomalies` et la garde |
+| `MCP_STALE_AFTER` | `5m` | Écart sans passage au-delà duquel `etat_gare` rend `STALE` |
 | `MCP_SECURITY_ENABLED` | `false` | Jeton et rôle exigés |
 | `OIDC_JWK_SET_URI`, `OIDC_ISSUER` | (vide) | Clés et émetteur du royaume (obligatoires si sécurité active) |
 | `REFERENTIEL_ALIASES_FILE`, `REFERENTIEL_STATIONS_FILE` | `../referentiel/…` | Gares et alias reconnus |
 
 ## Limites
 
+- **Lecture limitée à la fiche d'une gare.** La chaîne Bearer du backend n'ouvre que `GET /api/v1/stations/{id}` : le flux O/D et la fraîcheur de diffusion (retard du consommateur, `/snapshot`, `/od`) ne sont pas exposés en MCP tant que cette chaîne n'est pas étendue, décision de sécurité à prendre séparément.
 - **Même compte, même source.** Deux agents qui partagent un compte Keycloak partagent une source et peuvent s'écraser. La garde de version les protège ; un compte par agent les sépare.
 - **Pas de levée croisée.** Un agent ne lève que les incidents de sa propre source. Effacer ceux d'une autre source demande un rapport de cette source.
 - **Référentiel embarqué.** Le serveur valide les noms avec la table d'alias de son image. Après un import d'alias à chaud dans le backend (`/api/v1/admin/aliases`), il faut reconstruire ou redémarrer le serveur avec la nouvelle table.
