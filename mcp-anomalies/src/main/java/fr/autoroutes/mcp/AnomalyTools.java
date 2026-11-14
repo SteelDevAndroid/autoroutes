@@ -28,6 +28,17 @@ public class AnomalyTools {
                                    List<BackendClient.SourceState> sources) {
     }
 
+    /**
+     * @param lectureA         instant de la lecture : preuve qu'elle est postérieure à une action
+     * @param etat             {@code ACTIVE}, {@code STALE} (aucun passage depuis plus que le seuil) ou {@code UNKNOWN} (rien mesuré)
+     * @param ecartSecondes    écart mesuré entre la lecture et le dernier passage ; {@code null} si aucun passage connu
+     * @param maVersion        version de votre source, comme versionAttendue ; permet de retrouver votre dernière déclaration
+     */
+    public record StationStatus(String gare, String libelle, Instant lectureA, String etat, Instant dernierPassage,
+                                Long ecartSecondes, long seuilSecondes, String maSource, String maVersion,
+                                BackendClient.Activity fenetres, int sourcesAnomalies) {
+    }
+
     static final String NO_VERSION = "aucune";
     private static final int SEARCH_LIMIT = 20;
     private static final String STATION_PARAM = "Identifiant de gare logique (GL-…) ou nom exact d'un alias, voir rechercher_gares";
@@ -38,11 +49,13 @@ public class AnomalyTools {
     private final StationCatalog catalog;
     private final AnomalyReporter reporter;
     private final BackendClient backend;
+    private final java.time.Duration staleAfter;
 
-    AnomalyTools(StationCatalog catalog, AnomalyReporter reporter, BackendClient backend) {
+    AnomalyTools(StationCatalog catalog, AnomalyReporter reporter, BackendClient backend, McpAnomaliesProperties properties) {
         this.catalog = catalog;
         this.reporter = reporter;
         this.backend = backend;
+        this.staleAfter = properties.staleAfter();
     }
 
     @McpTool(name = "rechercher_gares",
@@ -70,6 +83,29 @@ public class AnomalyTools {
         var state = backend.read(station.id());
         var version = state.updatedAtOf(source);
         return new StationAnomalies(station.id(), station.label(), source, version == null ? NO_VERSION : version.toString(), state.sources());
+    }
+
+    @McpTool(name = "etat_gare",
+            description = """
+                    Lit l'état de fraîcheur d'une gare : dernier passage, écart mesuré avec l'instant de lecture (lectureA), état
+                    ACTIVE, STALE (aucun passage depuis plus que seuilSecondes) ou UNKNOWN (rien mesuré : ce n'est ni zéro ni une panne),
+                    passages par fenêtre (null si non mesurés) et maVersion, la version de votre source pour retrouver votre dernière
+                    déclaration. N'agit sur rien.""",
+            annotations = @McpAnnotations(title = "État et fraîcheur d'une gare", readOnlyHint = true, destructiveHint = false,
+                    idempotentHint = true, openWorldHint = false))
+    public StationStatus stationStatus(@McpToolParam(description = STATION_PARAM) String gare) {
+        var station = station(gare);
+        var source = AnomalyReporter.sourceFor(currentReporter());
+        var read = Instant.now();
+        var state = backend.read(station.id());
+        var activity = state.activity();
+        var last = activity.lastEventTime();
+        Long gap = last == null ? null : Math.max(0, java.time.Duration.between(last, read).toSeconds());
+        var threshold = staleAfter.toSeconds();
+        var status = gap == null ? "UNKNOWN" : gap > threshold ? "STALE" : "ACTIVE";
+        var version = state.updatedAtOf(source);
+        return new StationStatus(station.id(), station.label(), read, status, last, gap, threshold, source,
+                version == null ? NO_VERSION : version.toString(), activity, state.sources().size());
     }
 
     @McpTool(name = "declarer_anomalies",

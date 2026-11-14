@@ -92,11 +92,11 @@ class McpServerTest {
     }
 
     @Test
-    void exposesTheThreeToolsWithTheContractSchema() {
+    void exposesTheFiveToolsWithTheContractSchema() {
         var tools = client.listTools().tools();
 
         assertThat(tools).extracting(McpSchema.Tool::name)
-                .containsExactlyInAnyOrder("rechercher_gares", "consulter_anomalies", "declarer_anomalies", "lever_anomalies");
+                .containsExactlyInAnyOrder("rechercher_gares", "consulter_anomalies", "etat_gare", "declarer_anomalies", "lever_anomalies");
         var report = tools.stream().filter(t -> t.name().equals("declarer_anomalies")).findFirst().orElseThrow();
         assertThat(json.writeValueAsString(report.inputSchema())).contains("type_ano", "cardinalite", "criticite", "gare");
         assertThat(report.annotations().destructiveHint()).isTrue();
@@ -146,6 +146,43 @@ class McpServerTest {
         assertThat(state.path("maSource").asString()).isEqualTo(SOURCE);
         assertThat(state.path("versionAttendue").asString()).isEqualTo("2026-10-25T15:00:00Z");
         assertThat(state.path("sources")).hasSize(2);
+    }
+
+    @Test
+    void reportsAStaleStationByTheMeasuredGap() {
+        BACKEND.respondWithActivity(java.time.Instant.now().minusSeconds(1800).toString(), "[]");
+
+        var result = call("etat_gare", Map.of("gare", "La Boisse"));
+
+        assertThat(result.isError()).as(text(result)).isFalse();
+        var status = json.readTree(text(result));
+        assertThat(status.path("etat").asString()).isEqualTo("STALE");
+        assertThat(status.path("ecartSecondes").asLong()).isBetween(1790L, 1900L);
+        assertThat(status.path("seuilSecondes").asLong()).isEqualTo(300L);
+        assertThat(status.path("lectureA").asString()).isNotBlank();
+        assertThat(status.path("fenetres").path("last5m").path("entrees").asLong()).isEqualTo(7L);
+    }
+
+    @Test
+    void aStationWithoutMeasureIsUnknownNeverStaleNorZero() {
+        BACKEND.respond("[]");
+
+        var status = json.readTree(text(call("etat_gare", Map.of("gare", "La Boisse"))));
+
+        assertThat(status.path("etat").asString()).isEqualTo("UNKNOWN");
+        assertThat(status.path("ecartSecondes").isNull()).isTrue();
+        assertThat(status.path("fenetres").path("last5m").isNull()).isTrue();
+    }
+
+    @Test
+    void statusCarriesTheCallersVersionToFindItsLastDeclaration() {
+        BACKEND.respondWithActivity(java.time.Instant.now().toString(),
+                "[{\"source\":\"%s\",\"updatedAt\":\"2026-10-25T15:00:00Z\",\"anomalies\":[]}]".formatted(SOURCE));
+
+        var status = json.readTree(text(call("etat_gare", Map.of("gare", "La Boisse"))));
+
+        assertThat(status.path("etat").asString()).isEqualTo("ACTIVE");
+        assertThat(status.path("maVersion").asString()).isEqualTo("2026-10-25T15:00:00Z");
     }
 
     @Test

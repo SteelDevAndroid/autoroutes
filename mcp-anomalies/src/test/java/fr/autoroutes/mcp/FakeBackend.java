@@ -44,6 +44,13 @@ final class FakeBackend implements AutoCloseable {
         stationDetail = "{\"station\":{\"id\":\"GL-BPV-0054\"},\"metrics\":{\"stationId\":\"GL-BPV-0054\",\"anomalySources\":" + sourcesJson + "}}";
     }
 
+    void respondWithActivity(String lastEventTime, String sourcesJson) {
+        status = 200;
+        stationDetail = "{\"station\":{\"id\":\"GL-BPV-0054\"},\"metrics\":{\"stationId\":\"GL-BPV-0054\",\"lastEventTime\":\""
+                + lastEventTime + "\",\"last5m\":{\"entries\":7,\"exits\":5},\"last15m\":{\"entries\":20,\"exits\":18},"
+                + "\"last1h\":{\"entries\":80,\"exits\":75},\"today\":{\"entries\":900,\"exits\":880},\"anomalySources\":" + sourcesJson + "}}";
+    }
+
     void fail(int status) {
         this.status = status;
         stationDetail = "{}";

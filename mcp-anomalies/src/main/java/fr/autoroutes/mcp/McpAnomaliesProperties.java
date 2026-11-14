@@ -10,6 +10,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param sendTimeout    attente maximale de l'accusé Kafka : l'agent n'est informé du succès qu'après écriture effective
  * @param backendUrl     backend de supervision, lu par consulter_anomalies et par la garde de version
  * @param backendTimeout délai de connexion et de lecture vers le backend
+ * @param staleAfter     écart au-delà duquel etat_gare déclare une gare périmée (aucun passage depuis)
  */
 @ConfigurationProperties("mcp-anomalies")
 public record McpAnomaliesProperties(
@@ -19,6 +20,7 @@ public record McpAnomaliesProperties(
         @DefaultValue("10s") Duration sendTimeout,
         @DefaultValue("http://localhost:8081") String backendUrl,
         @DefaultValue("5s") Duration backendTimeout,
+        @DefaultValue("5m") Duration staleAfter,
         @DefaultValue Security security) {
 
     /**

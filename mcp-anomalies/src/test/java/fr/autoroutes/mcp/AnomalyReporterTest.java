@@ -37,7 +37,7 @@ class AnomalyReporterTest {
     private final JsonMapper json = JsonMapper.builder().build();
 
     private AnomalyReporter reporter() {
-        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofMillis(200), "http://backend.invalid", Duration.ofSeconds(1),
+        var properties = new McpAnomaliesProperties("toll-events", "a", "s", Duration.ofMillis(200), "http://backend.invalid", Duration.ofSeconds(1), Duration.ofMinutes(5),
                 new McpAnomaliesProperties.Security(false, null, null, "roles", "ANOMALY_REPORTER"));
         return new AnomalyReporter(kafka, json, Clock.fixed(NOW, ZoneOffset.UTC), properties);
     }
