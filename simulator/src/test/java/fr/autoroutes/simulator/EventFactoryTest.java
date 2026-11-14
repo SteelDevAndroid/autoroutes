@@ -31,7 +31,7 @@ class EventFactoryTest {
 
     private static SimulatorProperties properties(double duplicate, double late, double invalid, double unknown, double anomalyReport) {
         return new SimulatorProperties("toll-events", 80, "s", "a", duplicate, late, Duration.ofMinutes(30), invalid, unknown,
-                anomalyReport, 0.3, 0.2, 42L);
+                anomalyReport, 0.3, 0.2, "simulated", 42L);
     }
 
     private EventFactory factory(SimulatorProperties properties) {

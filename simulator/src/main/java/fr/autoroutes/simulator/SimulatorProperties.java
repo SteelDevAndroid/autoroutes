@@ -12,6 +12,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * @param anomalyReportRate  part des événements (à l'heure, gare connue) portant le rapport d'anomalies de leur gare ; 0 = aucun
  * @param anomalyOpenRate    probabilité, à chaque rapport, qu'une nouvelle occurrence d'incident s'ouvre sur la gare
  * @param anomalyResolveRate probabilité, à chaque rapport, que chaque type d'incident actif perde une occurrence
+ * @param provenance         valeur de l'en-tête {@code x-provenance} posé sur chaque message ; vide = pas d'en-tête
  * @param seed               graine fixe pour un rejeu déterministe ; absente = aléatoire
  */
 @ConfigurationProperties("simulator")
@@ -28,6 +29,7 @@ public record SimulatorProperties(
         @DefaultValue("0.1") double anomalyReportRate,
         @DefaultValue("0.05") double anomalyOpenRate,
         @DefaultValue("0.25") double anomalyResolveRate,
+        @DefaultValue("simulated") String provenance,
         Long seed) {
 
     public Path stationsPath() {

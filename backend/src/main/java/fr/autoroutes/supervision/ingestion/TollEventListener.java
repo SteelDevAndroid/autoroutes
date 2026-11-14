@@ -49,12 +49,18 @@ public class TollEventListener implements ConsumerSeekAware {
     @KafkaListener(id = LISTENER_ID, idIsGroup = false, topics = "${supervision.kafka.topic}", autoStartup = "false")
     void onRecord(ConsumerRecord<String, String> record) {
         switch (parser.parse(record.value())) {
-            case ParseResult.Valid valid -> sink.submit(IncomingEvent.fromKafka(record.partition(), record.offset(), valid.event()));
+            case ParseResult.Valid valid -> sink.submit(IncomingEvent.fromKafka(record.partition(), record.offset(), valid.event(), provenance(record)));
             case ParseResult.Rejected rejected -> {
                 meters.counter("toll.events.rejected", "reason", rejected.reason().name()).increment();
-                rejections.publish(record.partition(), record.offset(), rejected.eventId(), rejected.reason(), rejected.field());
+                rejections.publish(record.partition(), record.offset(), rejected.eventId(), rejected.reason(), rejected.field(),
+                        provenance(record));
             }
         }
+    }
+
+    private static String provenance(ConsumerRecord<String, String> record) {
+        var header = record.headers().lastHeader("x-provenance");
+        return header == null ? null : new String(header.value(), java.nio.charset.StandardCharsets.UTF_8);
     }
 
     /**

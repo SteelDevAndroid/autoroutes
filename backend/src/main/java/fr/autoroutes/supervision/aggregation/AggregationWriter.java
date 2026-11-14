@@ -260,7 +260,7 @@ public class AggregationWriter implements TollEventSink, SmartLifecycle {
                 if (incoming.replay()) {
                     markReplayed(incoming, QuarantineStore.Status.TOO_LATE);
                 } else {
-                    rejections.publish(incoming.partition(), incoming.offset(), rejected.eventId(), rejected.reason(), "eventTime");
+                    rejections.publish(incoming.partition(), incoming.offset(), rejected.eventId(), rejected.reason(), "eventTime", incoming.provenance());
                 }
             }
         }
