@@ -5,7 +5,7 @@ import type { StationCollection } from '../map/referentiel';
 import type { StationStore } from '../state/stationStore';
 import { useUiStore } from '../state/uiStore';
 import type { FlowKey } from '../state/uiStore';
-import { formatAxes } from '../map/axes';
+import { formatAxes, orderedAxisStations } from '../map/axes';
 import { formatCount, formatSigned, formatTime } from './format';
 import { HistoryChart } from './HistoryChart';
 import { flowsOfStation } from './stationFlows';
@@ -71,22 +71,26 @@ function StationFlows({ stationId, stations, onFocusFlow }: {
   );
 }
 
-export function StationDetail({ stations, store, onFocusFlow }: {
+export function StationDetail({ stations, store, onFocusFlow, onFocusStation }: {
   readonly stations: StationCollection;
   readonly store: StationStore;
+  readonly onFocusStation?: (index: number) => void;
   readonly onFocusFlow: (flow: FlowKey) => void;
 }) {
   useStoreVersion(store);
   const [expanded, setExpanded] = useState(false);
   const selected = useUiStore((s) => s.selectedIndex);
   const mode = useUiStore((s) => s.mode);
+  const axis = useUiStore((s) => s.odFilters.axis);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const navigation = useRef<HTMLElement>(null);
   const previousSelection = useRef<number | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   useEffect(() => {
     if (selected !== null) {
       if (previousSelection.current === null) returnFocus.current = document.activeElement as HTMLElement | null;
-      closeButton.current?.focus({ preventScroll: true });
+      if (!navigation.current?.contains(document.activeElement)) closeButton.current?.focus({ preventScroll: true });
+      else if (document.activeElement?.matches(':disabled')) navigation.current.querySelector<HTMLButtonElement>('button:enabled')?.focus({ preventScroll: true });
     } else if (previousSelection.current !== null) {
       const origin = returnFocus.current;
       if (origin?.isConnected && origin.matches('button, input, select, textarea, a[href], [tabindex]') && origin.getClientRects().length > 0 && getComputedStyle(origin).visibility !== 'hidden' && !origin.closest('[inert]')) {
@@ -106,6 +110,10 @@ export function StationDetail({ stations, store, onFocusFlow }: {
     return null;
   }
   const p = feature.properties;
+  const axisStations = axis === '' || onFocusStation === undefined ? [] : orderedAxisStations(stations, axis);
+  const rank = axisStations.indexOf(index);
+  const previous = rank > 0 ? axisStations[rank - 1] : undefined;
+  const next = rank >= 0 ? axisStations[rank + 1] : undefined;
   const rows: [string, number, number][] = [
     ['5 min', store.entries5m[index] ?? 0, store.exits5m[index] ?? 0],
     ['15 min', store.entries15m[index] ?? 0, store.exits15m[index] ?? 0],
@@ -126,6 +134,13 @@ export function StationDetail({ stations, store, onFocusFlow }: {
         </div>
         <button ref={closeButton} type="button" className="icon-button" onClick={() => { select(null); }} aria-label="Fermer le détail"><Icon name="close" /></button>
       </header>
+      {rank >= 0 && axisStations.length > 1 && <nav ref={navigation} className="axis-station-navigation" aria-label="Parcourir les gares de l’axe">
+        <button type="button" className="icon-button" aria-label="Gare précédente" disabled={previous === undefined || leaving}
+          onClick={() => { if (previous !== undefined) onFocusStation?.(previous); }}>←</button>
+        <span aria-live="polite">{rank + 1} / {axisStations.length}</span>
+        <button type="button" className="icon-button" aria-label="Gare suivante" disabled={next === undefined || leaving}
+          onClick={() => { if (next !== undefined) onFocusStation?.(next); }}>→</button>
+      </nav>}
       <button type="button" className="icon-button selection-clear" onClick={() => { select(null); }}>Effacer la sélection</button>
       <p className={`station-data-status ${stale ? 'status-warn' : ''}`}>{mode === 'replay' ? 'Données historiques' : !received ? 'En attente de données' : stale ? 'Données anciennes · à interpréter avec prudence' : 'Activité reçue'}</p>
       <section className="station-overview" aria-label="Chiffres clés de la gare">

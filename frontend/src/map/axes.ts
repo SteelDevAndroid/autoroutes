@@ -55,6 +55,25 @@ export function buildAxisGroups(stations: StationCollection): AxisGroup[] {
     .map(([id, { codes, stations: members }]) => ({ id, codes: [...codes].sort(), value: [...codes].sort().join(','), stations: members }));
 }
 
+/** Ordre géographique approximatif, de l’ouest à l’est ou du sud au nord selon l’étendue de l’axe. */
+export function orderedAxisStations(stations: StationCollection, axis: string): number[] {
+  const points = [...stationsOnAxes(stations, axis)].flatMap((index) => {
+    const feature = stations.features[index];
+    const [lon, lat] = feature?.geometry.coordinates ?? [];
+    return lon === undefined || lat === undefined || feature === undefined ? []
+      : [{ index, lon, lat, name: feature.properties.name }];
+  });
+  if (points.length < 2) return points.map(({ index }) => index);
+  const lons = points.map(({ lon }) => lon);
+  const lats = points.map(({ lat }) => lat);
+  const south = Math.min(...lats);
+  const north = Math.max(...lats);
+  const lonSpan = (Math.max(...lons) - Math.min(...lons)) * Math.cos((south + north) * Math.PI / 360);
+  const byLongitude = lonSpan >= north - south;
+  return points.sort((a, b) => (byLongitude ? a.lon - b.lon || a.lat - b.lat : a.lat - b.lat || a.lon - b.lon)
+    || a.name.localeCompare(b.name, 'fr')).map(({ index }) => index);
+}
+
 export interface LabelCandidate {
   readonly key: string;
   readonly text: string;

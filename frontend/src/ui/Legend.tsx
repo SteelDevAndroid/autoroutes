@@ -10,7 +10,9 @@ import { trafficMotionMessage, trafficMotionState } from '../animation/trafficMo
 export function LegendContent({ location = 'panel' }: { readonly location?: 'panel' | 'map' }) {
   const mode = useUiStore((s) => s.mode);
   const motionState = useUiStore(trafficMotionState);
-  const layers = useUiStore((s) => s.layers);
+  const selectedLayers = useUiStore((s) => s.layers);
+  const overview = useUiStore((s) => s.trafficOverview);
+  const layers = overview ? { ...selectedLayers, od: false, segments: true } : selectedLayers;
   const scheme = useAppearanceStore((state) => state.scheme);
   const theme = themeFor(useUiStore((s) => s.palette), scheme);
   const kinds = useUiStore((s) => s.kinds);
@@ -32,6 +34,7 @@ export function LegendContent({ location = 'panel' }: { readonly location?: 'pan
       {rows.includes('od') && <p className="note">Vue nationale statique ; zoomez pour voir les flux moyens et forts en mouvement, puis les petits flux en vue locale.</p>}
       {rows.includes('od') && trafficMotionMessage[motionState] !== null && <p className="note">{trafficMotionMessage[motionState]}</p>}
       {rows.includes('od') && <p className="note">Tracés routiers : itinéraires estimés. Sans tracé disponible, les arcs courbes représentent des liaisons schématiques.</p>}
+      {overview && selectedLayers.od && <p className="note">En vue nationale, la charge estimée remplace les tracés des flux. Zoomez pour retrouver les flux O/D.</p>}
       {rows.includes('segments') && (
         <div className="legend-scale" data-testid={location === 'panel' ? 'segment-scale' : undefined}>
           <div className="legend-row"><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} /> Charge de tronçon <strong>estimée</strong>, sur 1 h</div>

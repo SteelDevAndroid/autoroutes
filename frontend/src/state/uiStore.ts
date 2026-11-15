@@ -97,6 +97,8 @@ export interface UiState {
   readonly segments: SegmentsState | null;
   /** Référence de couleur commune à la carte et à la légende, conservée jusqu'au changement de graphe ou d'algorithme. */
   readonly segmentReference: number | null;
+  readonly trafficOverview: boolean;
+  readonly setTrafficOverview: (overview: boolean) => void;
   readonly concession: string | null;
   readonly setConcession: (code: string | null) => void;
   readonly axisFocus: AxisFocus | null;
@@ -180,6 +182,8 @@ export const useUiStore = create<UiState>()((set, get) => ({
   me: null,
   segments: null,
   segmentReference: null,
+  trafficOverview: false,
+  setTrafficOverview: (trafficOverview) => { set({ trafficOverview }); },
   quality: 0,
   // Le réglage du système (« réduire les animations ») s'applique d'emblée ; la case du panneau le modifie ensuite.
   reducedMotion: typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches,

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { buildAxisGroups } from '../map/axes';
 import type { AxisGroup } from '../map/axes';
 import { config } from '../config';
 import type { StationCollection } from '../map/referentiel';
@@ -17,11 +19,24 @@ import { Section } from './Section';
 import { SegmentsPanel } from './SegmentsPanel';
 import { AxisSummary } from './AxisSummary';
 
-export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, onResetView }: {
+function ConcessionFocus({ code, focus }: { readonly code: string; readonly focus: (code: string) => Promise<boolean | null> }) {
+  const [status, setStatus] = useState<'idle' | 'loading' | 'empty' | 'error'>('idle');
+  return <div className="concession-focus">
+    <button type="button" className="icon-button" disabled={status === 'loading'} onClick={() => {
+      setStatus('loading');
+      void focus(code).then((found) => { setStatus(found === false ? 'empty' : 'idle'); }, () => { setStatus('error'); });
+    }}>Cadrer la concession</button>
+    <span className="note" role="status">{status === 'loading' ? 'Lecture du réseau…' : status === 'empty'
+      ? 'Aucun tracé à cadrer pour cette concession.' : status === 'error' ? 'Tracé indisponible. Réessayez.' : ''}</span>
+  </div>;
+}
+
+export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusConcession, onFocusFlow, onResetView }: {
   readonly stations: StationCollection;
   readonly store: StationStore;
   readonly onFocus: (index: number) => void;
   readonly onFocusAxis: (group: AxisGroup) => void;
+  readonly onFocusConcession: (code: string) => Promise<boolean | null>;
   readonly onFocusFlow: (flow: FlowKey) => void;
   readonly onResetView: () => void;
 }) {
@@ -61,10 +76,17 @@ export function SidePanel({ stations, store, onFocus, onFocusAxis, onFocusFlow, 
         </select>
         <p id="concession-help" className="note">Met en évidence les tronçons dont le gestionnaire est identifié dans les données cartographiques.
           Les tronçons non renseignés restent neutres.</p>
+        {concession !== null && (config.motorwaysUrl === null
+          ? <p className="note">Le cadrage nécessite les tuiles autoroutières.</p>
+          : <ConcessionFocus key={concession} code={concession} focus={onFocusConcession} />)}
       </div>
       <div className="side-content">
       {compact && drawerOpen && <ActiveFilters stations={stations} />}
-      <AxisSummary stations={stations} store={store} />
+      <AxisSummary stations={stations} store={store} onFocus={onFocus}
+        onFrame={(axis) => {
+          const group = buildAxisGroups(stations).find((candidate) => candidate.value === axis);
+          if (group !== undefined) onFocusAxis(group);
+        }} />
       <Section id="layers" title="Couches et gares">
         <fieldset className="control-group"><legend>Affichage sur la carte</legend>
         <label><input type="checkbox" checked={layers.stations} onChange={() => { toggleLayer('stations'); }} /> Activité des gares</label>

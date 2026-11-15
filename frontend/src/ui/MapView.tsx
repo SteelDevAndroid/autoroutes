@@ -37,6 +37,7 @@ export function MapView({ stations, store, onReady }: {
       onHover: (hover) => { useUiStore.getState().setHover(hover); },
       onAxisHover: (axis) => { useUiStore.getState().setHoverAxis(axis); },
       onAxisClick: (axis) => { useUiStore.getState().chooseAxis(axis); },
+      onTrafficOverviewChange: (overview) => { useUiStore.getState().setTrafficOverview(overview); },
     });
     controller.setLayers(ui.layers);
     controller.setConcession(ui.concession);
@@ -82,6 +83,7 @@ export function MapView({ stations, store, onReady }: {
       unsubscribeAppearance();
       onReady(null);
       controller.destroy();
+      useUiStore.getState().setTrafficOverview(false);
     };
   }, [stations, store, onReady]);
 

@@ -18,6 +18,62 @@ test.describe('démonstration (flux simulé)', () => {
     await expect(page.getByLabel('Activité des gares')).toBeChecked();
   });
 
+  test('le relief régional et le parcours des gares de l’A43 conservent le mode de vue', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    const host = 'https://tiles.mapterhorn.com';
+    let tileRequests = 0;
+    await page.route(`${host}/**`, async (route) => {
+      const headers = { 'access-control-allow-origin': '*' };
+      if (route.request().url().endsWith('tilejson.json')) {
+        await route.fulfill({ headers, json: {
+          tilejson: '3.0.0', maxzoom: 12, tiles: [`${host}/{z}/{x}/{y}.webp`],
+          attribution: '© Mapterhorn', encoding: 'terrarium', tileSize: 512,
+        } });
+      } else {
+        tileRequests++;
+        // Tuile Terrarium constante de 512 × 512 (1 000 m), indépendante du fournisseur en CI.
+        const tile = 'UklGRi4AAABXRUJQVlA4TCEAAAAv/8F/AAdQ9A5G/wMCgWR/7xmK6H/Gf/7zn//85z//+T8A';
+        await route.fulfill({ headers, contentType: 'image/webp', body: Buffer.from(tile, 'base64') });
+      }
+    });
+
+    await page.goto('/');
+    const map = page.getByRole('region', { name: 'Carte des gares de péage' });
+    const modes = map.getByRole('group', { name: 'Mode de vue de la carte' });
+    await expect(map).toHaveAttribute('data-ready', 'true');
+    await modes.getByRole('button', { name: 'Relief' }).click();
+    await expect(map).toHaveAttribute('data-terrain', 'off');
+    await expect(map.getByText('Zoomez pour afficher le relief.')).toBeVisible();
+    expect(tileRequests).toBe(0);
+
+    await page.getByLabel('Nom de gare').fill('A43');
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('button', { name: 'Voir sur la carte' })).toBeVisible();
+    await page.getByRole('button', { name: 'Voir sur la carte' }).click();
+    await expect(map).toHaveAttribute('data-terrain', 'on');
+    await expect.poll(() => tileRequests).toBeGreaterThan(0);
+    await expect(map.getByText('© Mapterhorn')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Parcourir les gares' }).click();
+    const detail = page.getByRole('region', { name: /^Détail de la gare/ });
+    const first = await detail.getByRole('heading', { level: 2 }).textContent();
+    expect(first).toBeTruthy();
+    await detail.getByRole('button', { name: 'Gare suivante' }).click();
+    await expect(detail.getByRole('heading', { level: 2 })).not.toHaveText(first ?? '');
+    await expect(modes.getByRole('button', { name: 'Relief' })).toHaveAttribute('aria-pressed', 'true');
+    await detail.getByRole('button', { name: 'Gare précédente' }).click();
+    await expect(detail.getByRole('heading', { level: 2 })).toHaveText(first ?? '');
+
+    await modes.getByRole('button', { name: '2D', exact: true }).click();
+    await expect(map).toHaveAttribute('data-terrain', 'off');
+    await expect(detail.getByRole('heading', { level: 2 })).toHaveText(first ?? '');
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await modes.getByRole('button', { name: 'Perspective' }).click();
+    await expect(map).toHaveAttribute('data-view-mode', 'perspective');
+    await expect(detail.getByRole('heading', { level: 2 })).toHaveText(first ?? '');
+  });
+
   test('la légende compacte se déplie au clavier et reste utilisable sur téléphone', async ({ page }) => {
     await page.goto('/');
     const legend = page.getByRole('region', { name: 'Légende de la carte', exact: true });
