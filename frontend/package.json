@@ -18,8 +18,10 @@
     "e2e:visual:update": "node scripts/visual-docker.mjs --update-snapshots"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "3.0.0",
     "@protomaps/basemaps": "5.7.2",
     "maplibre-gl": "6.15.0",
+    "pbf": "5.1.2",
     "pmtiles": "4.5.0",
     "react": "19.3.1",
     "react-dom": "19.3.1",

@@ -169,6 +169,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .detail .station-meta { font-size: 12px; }
   .detail .station-data-status { margin: 8px 0; }
   .map-area:has(.detail) > .active-filters { display: none; }
+  .map-area:has(.detail:not(.detail-expanded)) .maplibregl-ctrl-bottom-left { top: 60px; bottom: auto; }
   .map-legend { max-width: min(320px, calc(100% - 24px)); }
 }
 @media (max-width: 600px) {

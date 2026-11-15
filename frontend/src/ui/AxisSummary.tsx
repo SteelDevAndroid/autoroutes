@@ -1,4 +1,4 @@
-import { formatAxes, splitCodes } from '../map/axes';
+import { formatAxes, orderedAxisStations, splitCodes } from '../map/axes';
 import type { StationCollection } from '../map/referentiel';
 import { anomalySummary } from '../realtime/anomalies';
 import type { StationStore } from '../state/stationStore';
@@ -27,7 +27,12 @@ export function axisMetrics(stations: StationCollection, store: StationStore, ax
   return { members, received, active, passages, reported, anomalies };
 }
 
-export function AxisSummary({ stations, store }: { readonly stations: StationCollection; readonly store: StationStore }) {
+export function AxisSummary({ stations, store, onFrame, onFocus }: {
+  readonly stations: StationCollection;
+  readonly store: StationStore;
+  readonly onFrame?: (axis: string) => void;
+  readonly onFocus?: (index: number) => void;
+}) {
   const axis = useUiStore((s) => s.odFilters.axis);
   const mode = useUiStore((s) => s.mode);
   const watermark = useUiStore((s) => s.watermark);
@@ -36,11 +41,16 @@ export function AxisSummary({ stations, store }: { readonly stations: StationCol
   const data = axisMetrics(stations, store, axis);
   if (axis === '') return null;
   const total = data.members.length;
+  const first = onFocus === undefined ? undefined : orderedAxisStations(stations, axis)[0];
   const stale = mode === 'live' ? data.members.filter((f) => freshness?.staleStations.includes(f.properties.id)).length : 0;
   return <details className="axis-summary" aria-label="Résumé de l’axe" open>
     <summary><Icon name="route" /><span>Résumé · {formatAxes(axis)}</span><Icon name="chevron" /></summary>
     <div className="axis-summary-body">
       <p className="note">Ensemble de l’axe · <DataNature /></p>
+      {total > 0 && <div className="axis-actions">
+        {onFrame !== undefined && <button type="button" className="icon-button" onClick={() => { onFrame(axis); }}>Voir sur la carte</button>}
+        {first !== undefined && <button type="button" className="icon-button" onClick={() => { onFocus?.(first); }}>Parcourir les gares</button>}
+      </div>}
       {total === 0 ? <p className="note">Aucune gare du référentiel ne correspond à cet axe.</p> : <>
         <dl className="summary-grid">
           <div><dt>Gares de l’axe</dt><dd>{formatCount(total)}</dd></div>

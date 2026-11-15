@@ -3,8 +3,8 @@ import * as maplibregl from 'maplibre-gl';
 import type { GeoJSONSource, MapLayerMouseEvent } from 'maplibre-gl';
 import type { AllPaintProperties } from '@maplibre/maplibre-gl-style-spec';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import { Protocol } from 'pmtiles';
-import { FLOW_MOTION_BANDS, FLOW_STEP_MS, flowPattern, flowDetail, motionMinZoom } from '../animation/flowMotion';
+import { PMTiles, Protocol } from 'pmtiles';
+import { FLOW_LOCAL_ZOOM, FLOW_MOTION_BANDS, FLOW_STEP_MS, flowPattern, flowDetail, motionMinZoom } from '../animation/flowMotion';
 import type { FlowDensity, FlowDetail } from '../animation/flowMotion';
 import type { TrafficMotionState } from '../animation/trafficMotion';
 import { distanceKm, flightDurationMs } from '../animation/flight';
@@ -19,6 +19,10 @@ import type { Feature, LineString } from 'geojson';
 import type { OdProperties } from './odGeometry';
 import type { StationStore } from '../state/stationStore';
 import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore';
+import { readConcessionBounds } from './concessionBounds';
+import type { RoadBounds } from './concessionBounds';
+import { flowLabels } from './flowLabels';
+import { formatCount } from '../ui/format';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
 import { selectedRoadIds } from './motorwaySelection';
 import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
@@ -32,7 +36,12 @@ import type { StyleOptions } from './style';
 import { FRANCE_BOUNDS } from './theme';
 import type { MapAppearance, Palette } from './theme';
 
+const protocol = new Protocol();
 let pmtilesRegistered = false;
+type MapViewMode = 'flat' | 'perspective' | 'relief';
+const TERRAIN_SOURCE = 'elevation';
+const TERRAIN_HILLSHADE = 'elevation-hillshade';
+const TERRAIN_MIN_ZOOM = 7;
 
 export interface MapControllerOptions {
   readonly style: StyleOptions;
@@ -43,6 +52,7 @@ export interface MapControllerOptions {
   /** Survol (valeur du filtre « Axe », ou null en sortant) et clic sur le nom d'une autoroute. */
   readonly onAxisHover: (axis: string | null) => void;
   readonly onAxisClick: (axis: string) => void;
+  readonly onTrafficOverviewChange?: (overview: boolean) => void;
 }
 
 const STATION_LAYERS = ['stations', 'stations-halo', 'stations-anomalies', 'stations-axis', 'stations-selected', 'stations-label'] as const;
@@ -93,6 +103,16 @@ export class MapController {
   private readonly container: HTMLElement;
   private reduced = false;
   private odVisible = false;
+  private segmentsVisible = false;
+  private trafficOverview = false;
+  private viewMode: MapViewMode = 'flat';
+  private terrainActive = false;
+  private terrainFailed = false;
+  private syncViewControl = (): void => {};
+  private readonly directionalLabels = new Map<string, { marker: maplibregl.Marker; arrow: HTMLElement; volume: HTMLElement }>();
+  private readonly concessionAbort = new AbortController();
+  private concessionBounds: Promise<ReadonlyMap<string, RoadBounds>> | null = null;
+  private cameraRequest = 0;
   private anomaliesVisible = true;
   private stationsVisible = true;
   private readonly flowPresence = new Presence(FLOW_FADE_MS);
@@ -112,7 +132,8 @@ export class MapController {
   private readonly onVisibility = (): void => { this.updateMotion(); };
   private readonly onZoom = (): void => {
     // Les styles interpolent en continu ; seuls les changements de niveau réveillent ou arrêtent la boucle.
-    if (flowDetail(this.map.getZoom()) !== this.motionDetail) this.updateMotion();
+    if (!this.ready) return;
+    if (flowDetail(this.map.getZoom()) !== this.motionDetail) this.updateTrafficDisplay();
   };
 
   constructor(
@@ -124,7 +145,7 @@ export class MapController {
     if (!pmtilesRegistered) {
       // MapLibre 6 résout son worker relativement à son propre module : URL explicite, produite par Vite au build.
       maplibregl.setWorkerUrl(workerUrl);
-      maplibregl.addProtocol('pmtiles', new Protocol().tile);
+      maplibregl.addProtocol('pmtiles', protocol.tile);
       pmtilesRegistered = true;
     }
     this.options = options;
@@ -147,8 +168,8 @@ export class MapController {
       attributionControl: { compact: false, customAttribution: 'Gares et échangeurs : Ministère de la Transition écologique (data.gouv.fr)' },
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
-    this.addPerspectiveControl();
     this.map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+    this.addPerspectiveControl();
 
     this.animator = new StationAnimator(store.size);
     this.renderer = new StationLayerRenderer(this.map, store, this.animator);
@@ -165,10 +186,15 @@ export class MapController {
       this.onData();
       this.renderOd();
       this.layoutAxisLabels();
+      this.updateTerrain();
     });
-    this.map.on('moveend', () => { this.layoutAxisLabels(); });
+    this.map.on('moveend', () => {
+      this.updateTerrain();
+      this.layoutAxisLabels();
+      this.layoutFlowLabels();
+    });
     this.map.on('zoom', this.onZoom);
-    this.map.on('resize', () => { this.layoutAxisLabels(); });
+    this.map.on('resize', () => { this.layoutAxisLabels(); this.layoutFlowLabels(); });
     this.map.on('sourcedata', (event) => {
       if (event.sourceId === SOURCE.motorways && event.sourceDataType === 'content' && this.activeAxis !== null
         && this.roadHighlightHandle === null) {
@@ -199,30 +225,84 @@ export class MapController {
 
   private addPerspectiveControl(): void {
     const control = document.createElement('div');
-    control.className = 'maplibregl-ctrl maplibregl-ctrl-group map-perspective';
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.textContent = 'Perspective';
-    control.append(button);
-
-    const setPressed = (active: boolean): void => { button.setAttribute('aria-pressed', String(active)); };
-    const syncPitch = (): void => { setPressed(this.map.getPitch() > 0); };
-    button.addEventListener('click', () => {
-      const perspective = button.getAttribute('aria-pressed') !== 'true';
-      this.map.easeTo({ pitch: perspective ? PERSPECTIVE_PITCH : 0, duration: this.reduced ? 0 : PERSPECTIVE_TRANSITION_MS });
-      setPressed(perspective);
+    control.className = 'maplibregl-ctrl map-view-control';
+    const group = document.createElement('div');
+    group.className = 'maplibregl-ctrl-group map-perspective';
+    group.setAttribute('role', 'group');
+    group.setAttribute('aria-label', 'Mode de vue de la carte');
+    const message = document.createElement('div');
+    message.className = 'map-view-message';
+    message.setAttribute('role', 'status');
+    control.append(message, group);
+    const modes = [['flat', '2D'], ['perspective', 'Perspective'], ['relief', 'Relief']] as const;
+    const buttons = modes.map(([mode, label]) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = label;
+      button.addEventListener('click', () => {
+        this.map.stop();
+        this.viewMode = mode;
+        this.terrainFailed = false;
+        this.map.easeTo({ pitch: mode === 'flat' ? 0 : PERSPECTIVE_PITCH, duration: this.reduced ? 0 : PERSPECTIVE_TRANSITION_MS });
+        this.updateTerrain();
+        if (this.ready) this.updateTrafficDisplay();
+      });
+      group.append(button);
+      return { mode, button };
     });
+    this.syncViewControl = (): void => {
+      this.container.dataset.viewMode = this.viewMode;
+      this.container.dataset.terrain = this.terrainActive ? 'on' : 'off';
+      for (const { mode, button } of buttons) button.setAttribute('aria-pressed', String(mode === this.viewMode));
+      const status = this.viewMode !== 'relief' ? '' : this.terrainFailed ? 'Relief indisponible. Réessayer avec Relief.'
+        : this.map.getZoom() < TERRAIN_MIN_ZOOM ? 'Zoomez pour afficher le relief.' : '';
+      if (message.textContent !== status) message.textContent = status;
+      message.hidden = status === '';
+    };
+    const syncPitch = (): void => {
+      if (this.viewMode !== 'relief') this.viewMode = this.map.getPitch() > 0 ? 'perspective' : 'flat';
+      this.syncViewControl();
+      if (this.ready) this.updateTrafficDisplay();
+    };
+    const terrainError = (event: maplibregl.ErrorEvent): void => {
+      if (!('sourceId' in event) || event.sourceId !== TERRAIN_SOURCE || !this.terrainActive) return;
+      this.terrainFailed = true;
+      queueMicrotask(() => { if (this.ready) this.updateTerrain(); });
+    };
     this.map.addControl({
       onAdd: (map) => {
-        syncPitch();
+        this.syncViewControl();
         map.on('pitchend', syncPitch);
+        map.on('error', terrainError);
         return control;
       },
       onRemove: (map) => {
         map.off('pitchend', syncPitch);
+        map.off('error', terrainError);
         control.remove();
       },
-    }, 'bottom-right');
+    }, 'bottom-left');
+  }
+
+  private updateTerrain(): void {
+    const wanted = this.ready && this.viewMode === 'relief' && !this.terrainFailed && this.map.getZoom() >= TERRAIN_MIN_ZOOM;
+    if (wanted && !this.terrainActive) {
+      this.terrainActive = true;
+      this.map.addSource(TERRAIN_SOURCE, {
+        type: 'raster-dem', url: 'https://tiles.mapterhorn.com/tilejson.json', encoding: 'terrarium', tileSize: 512,
+      });
+      this.map.addLayer({
+        id: TERRAIN_HILLSHADE, type: 'hillshade', source: TERRAIN_SOURCE,
+        paint: { 'hillshade-exaggeration': 0.28 },
+      }, this.map.getLayer('motorways-casing') ? 'motorways-casing' : 'od-flows');
+      this.map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: 1 });
+    } else if (!wanted && this.terrainActive) {
+      this.terrainActive = false;
+      this.map.setTerrain(null);
+      this.map.removeLayer(TERRAIN_HILLSHADE);
+      this.map.removeSource(TERRAIN_SOURCE);
+    }
+    this.syncViewControl();
   }
 
   /** Noms des autoroutes : affichés ou masqués. Quand ils sont affichés, ils remplacent la couche native de références (pas de doublon). */
@@ -318,7 +398,7 @@ export class MapController {
   setTrafficMotion(state: TrafficMotionState): void {
     if (state === this.motionDataState) return;
     this.motionDataState = state;
-    this.whenStyleReady(() => { this.updateMotion(); });
+    this.whenStyleReady(() => { this.updateTrafficDisplay(); });
   }
 
   /** Rejoué à l’arrivée des tuiles : la recherche peut précéder le chargement du tracé. */
@@ -365,6 +445,7 @@ export class MapController {
 
   /** Filtre par concession exacte, sans assimiler un numéro d'autoroute à un gestionnaire unique. */
   setConcession(code: string | null): void {
+    this.cameraRequest++;
     this.container.dataset.concession = code ?? '';
     this.whenStyleReady(() => {
       if (this.map.getLayer('motorways-concession') !== undefined) {
@@ -405,10 +486,12 @@ export class MapController {
     this.odCoordinates = coordinates;
     this.odFeatureKeys = features.map((f) => ({ originId: f.properties.originId, destinationId: f.properties.destinationId }));
     (this.map.getSource(SOURCE.od) as GeoJSONSource).setData({ type: 'FeatureCollection', features }).then(() => {
+      if (!this.ready) return;
       this.applyHighlight();
       this.applyFade(performance.now());
       this.wakeFade();
       this.updateMotion();
+      this.layoutFlowLabels();
     }, reportError);
   }
 
@@ -440,17 +523,18 @@ export class MapController {
   };
 
   /**
-   * Tirets des flux entre gares de l'axe choisi : mouvement non réduit, onglet visible et rendu à pleine qualité.
-   * Les arcs restent visibles sans axe. `data-flow-motion` expose l'état aux tests de bout en bout.
+   * Tirets des flux de l’axe en 2D, ou de la gare sélectionnée en perspective rapprochée.
+   * Respecte le mouvement réduit, la visibilité de l’onglet et la qualité du rendu.
    */
   private updateMotion(): void {
-    const members = [...this.motionStations];
     const zoom = this.map.getZoom();
     this.motionDetail = flowDetail(zoom);
-    const axisFlows = this.od.level === 'STATION' ? [...this.flowFeatures.values()].filter((flow) =>
-      this.motionStations.has(flow.properties.originId) || this.motionStations.has(flow.properties.destinationId)) : [];
+    const members = this.viewMode === 'flat' ? this.motionStations
+      : zoom >= FLOW_LOCAL_ZOOM && this.selectedId !== null ? new Set([this.selectedId]) : new Set<string>();
+    const eligibleFlows = this.od.level === 'STATION' ? [...this.flowFeatures.values()].filter((flow) =>
+      members.has(flow.properties.originId) || members.has(flow.properties.destinationId)) : [];
     const bands = FLOW_MOTION_BANDS.map((band) => ({ ...band,
-      count: zoom < motionMinZoom(band.density) ? 0 : axisFlows.filter((flow) => flow.properties.density === band.density).length,
+      count: zoom < motionMinZoom(band.density) ? 0 : eligibleFlows.filter((flow) => flow.properties.density === band.density).length,
     }));
     const count = bands.reduce((sum, band) => sum + band.count, 0);
     const shown = this.odVisible && !this.reduced && this.loop.quality === 0;
@@ -465,7 +549,7 @@ export class MapController {
     for (const { id, density, count: bandCount } of bands) {
       if (this.map.getLayer(id) !== undefined) {
         this.map.setFilter(id, ['all', ['==', ['get', 'density'], density], ['any',
-          ['in', ['get', 'originId'], ['literal', members]], ['in', ['get', 'destinationId'], ['literal', members]],
+          ['in', ['get', 'originId'], ['literal', [...members]]], ['in', ['get', 'destinationId'], ['literal', [...members]]],
         ]]);
         this.map.setLayoutProperty(id, 'visibility', shown && bandCount > 0 ? 'visible' : 'none');
       }
@@ -496,6 +580,59 @@ export class MapController {
     this.motionHandle = requestAnimationFrame(this.motionTick);
   };
 
+  private updateTrafficDisplay(): void {
+    const overview = this.motionDataState === 'live' && this.viewMode !== 'flat' && flowDetail(this.map.getZoom()) === 'national'
+      && this.segmentIntensity.size > 0 && (this.odVisible || this.segmentsVisible);
+    if (overview !== this.trafficOverview) {
+      this.trafficOverview = overview;
+      this.options.onTrafficOverviewChange?.(overview);
+    }
+    if (this.map.getLayer('od-flows') !== undefined) {
+      this.map.setLayoutProperty('od-flows', 'visibility', this.odVisible && !overview ? 'visible' : 'none');
+    }
+    if (this.map.getLayer('segments-load') !== undefined) {
+      this.map.setLayoutProperty('segments-load', 'visibility', this.segmentsVisible || overview ? 'visible' : 'none');
+    }
+    this.updateMotion();
+    this.layoutFlowLabels();
+  }
+
+  private layoutFlowLabels(): void {
+    const labels = this.viewMode !== 'flat' && this.odVisible && this.selectedId !== null
+        && this.od.level === 'STATION' && this.map.getZoom() >= FLOW_LOCAL_ZOOM
+      ? flowLabels([...this.flowFeatures.values()], this.selectedId, ([lon, lat]) => {
+        const point = this.map.project([lon, lat]);
+        return [point.x, point.y];
+      }, this.container.clientWidth, this.container.clientHeight)
+      : [];
+    const wanted = new Set(labels.map((label) => label.key));
+    for (const [key, { marker }] of this.directionalLabels) {
+      if (!wanted.has(key)) { marker.remove(); this.directionalLabels.delete(key); }
+    }
+    for (const label of labels) {
+      let item = this.directionalLabels.get(label.key);
+      if (item === undefined) {
+        const element = document.createElement('div');
+        element.className = 'map-flow-label';
+        element.dataset.direction = label.inbound ? 'inbound' : 'outbound';
+        element.setAttribute('aria-hidden', 'true');
+        const arrow = document.createElement('span');
+        arrow.textContent = '➜';
+        const volume = document.createElement('span');
+        element.append(arrow, volume);
+        const marker = new maplibregl.Marker({ element, offset: [...label.offset] })
+          .setLngLat([...label.position]).addTo(this.map);
+        item = { marker, arrow, volume };
+        this.directionalLabels.set(label.key, item);
+      } else {
+        item.marker.setLngLat([...label.position]).setOffset([...label.offset]);
+      }
+      item.arrow.style.transform = `rotate(${label.angle}deg)`;
+      const volume = formatCount(label.vehicles);
+      if (item.volume.textContent !== volume) item.volume.textContent = volume;
+    }
+  }
+
   /** Met en évidence l'arc d'un flux (survol ou sélection dans la liste) et atténue les autres. */
   setHighlightedFlow(flow: FlowKey | null): void {
     this.highlighted = flow;
@@ -514,6 +651,7 @@ export class MapController {
 
   /** Cadre tout l'itinéraire, y compris les détours qui débordent du rectangle de ses deux gares. */
   focusFlow(flow: FlowKey): void {
+    this.cameraRequest++;
     const origin = this.odCoordinates.get(flow.originId);
     const destination = this.odCoordinates.get(flow.destinationId);
     if (origin === undefined || destination === undefined) {
@@ -546,7 +684,9 @@ export class MapController {
         return;
       }
       const diff = diffSegmentLoads(this.segmentIntensity, loads, reference);
+      const wasAvailable = this.segmentIntensity.size > 0;
       this.segmentIntensity = diff.next;
+      if (wasAvailable !== (diff.next.size > 0)) this.updateTrafficDisplay();
       const now = performance.now();
       this.loadTween.retarget(diff.set, diff.clear, now);
       const instant = this.reduced || diff.set.length + diff.clear.length > SEGMENT_TWEEN_LIMIT;
@@ -587,10 +727,9 @@ export class MapController {
       ['stations', 'stations-halo', 'stations-axis', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
       show('stations-anomalies', visibility.stations && this.anomaliesVisible);
       show('stations-label', visibility.stations && visibility.labels);
-      show('od-flows', visibility.od);
       this.odVisible = visibility.od;
-      this.updateMotion();
-      show('segments-load', visibility.segments);
+      this.segmentsVisible = visibility.segments;
+      this.updateTrafficDisplay();
     });
   }
 
@@ -611,6 +750,7 @@ export class MapController {
   }
 
   setSelected(index: number | null, focus: boolean): void {
+    if (focus) this.cameraRequest++;
     this.whenStyleReady(() => {
       this.renderer.setSelected(index);
       const feature = index === null ? undefined : this.stations.features[index];
@@ -676,6 +816,31 @@ export class MapController {
     });
   }
 
+  async focusConcession(code: string): Promise<boolean | null> {
+    const url = this.options.style.motorwaysUrl;
+    if (url?.startsWith('pmtiles://') !== true) return false;
+    const request = ++this.cameraRequest;
+    const archiveUrl = url.slice('pmtiles://'.length);
+    const archive = protocol.get(archiveUrl) ?? new PMTiles(archiveUrl);
+    protocol.add(archive);
+    this.concessionBounds ??= readConcessionBounds(archive, this.concessionAbort.signal).catch((error: unknown) => {
+      this.concessionBounds = null;
+      throw error;
+    });
+    const bounds = (await this.concessionBounds).get(code);
+    if (this.concessionAbort.signal.aborted || request !== this.cameraRequest || this.container.dataset.concession !== code) return null;
+    if (bounds === undefined) return false;
+    const [west, south, east, north] = bounds;
+    this.fitNetwork([[west, south], [east, north]]);
+    return true;
+  }
+
+  private fitNetwork(bounds: [[number, number], [number, number]]): void {
+    const [[west, south], [east, north]] = bounds;
+    const padding = Math.min(80, Math.floor(Math.min(this.container.clientWidth, this.container.clientHeight) / 5));
+    this.map.fitBounds(bounds, { padding, maxZoom: 9, duration: this.flightTo([(west + east) / 2, (south + north) / 2]) });
+  }
+
   /** Cadre la carte sur l'ensemble des gares d'une autoroute. */
   focusAxis(stationIndices: readonly number[]): void {
     const points = stationIndices.flatMap((i) => {
@@ -687,16 +852,20 @@ export class MapController {
     }
     const lons = points.map((p) => p[0]);
     const lats = points.map((p) => p[1]);
-    const middle: [number, number] = [(Math.min(...lons) + Math.max(...lons)) / 2, (Math.min(...lats) + Math.max(...lats)) / 2];
-    this.map.fitBounds([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]],
-      { padding: 80, maxZoom: 9, duration: this.flightTo(middle) });
+    this.cameraRequest++;
+    this.fitNetwork([[Math.min(...lons), Math.min(...lats)], [Math.max(...lons), Math.max(...lats)]]);
   }
 
   resetView(): void {
+    this.cameraRequest++;
     this.map.fitBounds(FRANCE_BOUNDS, { padding: 24, duration: this.flightTo([(FRANCE_BOUNDS[0][0] + FRANCE_BOUNDS[1][0]) / 2, (FRANCE_BOUNDS[0][1] + FRANCE_BOUNDS[1][1]) / 2]) });
   }
 
   destroy(): void {
+    this.ready = false;
+    this.concessionAbort.abort();
+    for (const { marker } of this.directionalLabels.values()) marker.remove();
+    this.directionalLabels.clear();
     document.removeEventListener('visibilitychange', this.onVisibility);
     for (const handle of [this.fadeHandle, this.motionHandle, this.segmentHandle, this.roadHighlightHandle]) {
       if (handle !== null) {

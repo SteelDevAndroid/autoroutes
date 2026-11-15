@@ -11,7 +11,9 @@ import { legendRows } from './legendModel';
 export function MapLegend() {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
-  const layers = useUiStore((s) => s.layers);
+  const selectedLayers = useUiStore((s) => s.layers);
+  const overview = useUiStore((s) => s.trafficOverview);
+  const layers = overview ? { ...selectedLayers, od: false, segments: true } : selectedLayers;
   const kinds = useUiStore((s) => s.kinds);
   const palette = useUiStore((s) => s.palette);
   const mode = useUiStore((s) => s.mode);

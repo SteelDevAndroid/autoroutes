@@ -5,16 +5,18 @@ import { StationStore } from '../state/stationStore';
 import { MapController } from './mapController';
 import type { StationCollection } from './referentiel';
 import type { FeatureCollection } from 'geojson';
+import type { IControl, Map as MapLibreMap } from 'maplibre-gl';
 
 // Seule la frontière WebGL est doublée : sélection, géométrie, filtres et boucles restent réels.
 const { map } = vi.hoisted(() => ({ map: {
-  on: vi.fn(), once: vi.fn(), addControl: vi.fn(), remove: vi.fn(),
+  on: vi.fn(), once: vi.fn(), addControl: vi.fn<(control: IControl) => void>(), remove: vi.fn(),
   getLayer: vi.fn(() => ({})), getSource: vi.fn(),
   setFilter: vi.fn(), setLayoutProperty: vi.fn(), setPaintProperty: vi.fn(),
   setFeatureState: vi.fn(), removeFeatureState: vi.fn(),
   querySourceFeatures: vi.fn(() => []),
   fitBounds: vi.fn(), getCenter: vi.fn(() => ({ lng: 0, lat: 0 })),
   getZoom: vi.fn(() => 8),
+  getPitch: vi.fn(() => 45),
   setData: vi.fn<(data: FeatureCollection) => Promise<void>>(async () => {}),
 } }));
 
@@ -69,6 +71,24 @@ beforeEach(async () => {
 afterEach(() => { controller.destroy(); vi.unstubAllGlobals(); });
 
 describe('traffic motion on the selected axis', () => {
+  it('uses estimated loads in the national live perspective and restores flows for replay', () => {
+    controller.setLayers({ ...visible, segments: false });
+    const control = map.addControl.mock.calls.find(([candidate]) => typeof candidate.onAdd === 'function')?.[0];
+    expect(control).toBeDefined();
+    control?.onAdd(map as unknown as MapLibreMap);
+    map.getZoom.mockReturnValue(5);
+    const pitchEnd = map.on.mock.calls.find(([event]) => event === 'pitchend')?.[1] as (() => void) | undefined;
+    pitchEnd?.();
+    controller.setSegmentLoads([{ segmentId: 'segment', vehicles: 12 }], 12);
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('od-flows', 'visibility', 'none');
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('segments-load', 'visibility', 'visible');
+
+    map.setLayoutProperty.mockClear();
+    controller.setTrafficMotion('replay');
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('od-flows', 'visibility', 'visible');
+    expect(map.setLayoutProperty).toHaveBeenCalledWith('segments-load', 'visibility', 'none');
+  });
+
   it('switches appearance and palette without touching data, selection, camera or dash phase', async () => {
     controller.setActiveAxis('A0001');
     controller.setSelected(0, false);

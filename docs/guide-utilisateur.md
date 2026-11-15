@@ -40,7 +40,11 @@ Une seule requête partagée couvre les deux heures nécessaires, chaque minute 
 2. Dans « Concession autoroutière », sélectionner la société à mettre en évidence.
 3. Zoomer pour lire les tronçons et ouvrir une fiche de gare pour consulter son activité.
 
-Le bouton « Perspective », en bas à droite de la carte, incline la vue. Appuyer à nouveau rétablit la vue de dessus. Le centre, le zoom et les sélections sont conservés.
+Les commandes « 2D », « Perspective » et « Relief » changent l’angle de vue et conservent les sélections. « Relief » charge les altitudes [Mapterhorn](https://mapterhorn.com/attribution) lorsque le zoom atteint le niveau régional (7). Il nécessite un accès à `tiles.mapterhorn.com` depuis le navigateur. En cas d’échec, la carte reste inclinée et le relief peut être réessayé. Pour l’explorer en Maurienne, recherchez l’A43, puis utilisez « Parcourir les gares » et « Relief ».
+
+« Voir sur la carte » cadre les gares de l’axe sélectionné. « Parcourir les gares » ouvre sa première fiche et donne accès aux gares précédente et suivante, dans un ordre géographique approximatif. « Cadrer la concession » utilise l’emprise des tronçons attribués dans les tuiles autoroutières.
+
+En direct et en perspective, la vue nationale privilégie la charge estimée des tronçons quand elle est disponible et qu’une couche de trafic est active. En vue rapprochée, les tirets animés concernent la gare sélectionnée. Les principaux flux visibles portent une flèche et leur volume horaire. Les contours pointillés indiquent les flux entrants et les contours continus les flux sortants.
 
 Une concession colore les sections dont le gestionnaire est identifié ; les sections sans attribution restent neutres. Ce choix aide à explorer le réseau et ne transforme pas les compteurs nationaux en compteurs de concession. Les sources et la couverture sont détaillées dans [Concessions](concessions.md).
 

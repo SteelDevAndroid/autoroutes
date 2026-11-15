@@ -269,6 +269,18 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
     controller.current?.focusAxis(group.stations);
   }, []);
 
+  const focusConcession = useCallback(async (code: string) => {
+    const focused = controller.current === null ? false : await controller.current.focusConcession(code);
+    if (focused) {
+      const ui = useUiStore.getState();
+      if (ui.drawerOpen) {
+        ui.setDrawerOpen(false);
+        document.getElementById('drawer-toggle')?.focus();
+      }
+    }
+    return focused;
+  }, []);
+
   /** Lien partageable : l'adresse reflète la gare, l'autoroute et les couches affichées ; l'ouvrir les reproduit. */
   useEffect(() => startUrlSync({
     stationIds: stations.features.map((f) => f.properties.id),
@@ -325,7 +337,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
       </div>
       <TopBar store={store} />
       <AlertBanner stationCount={store.size} />
-      <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
+      <SidePanel stations={stations} store={store} onFocus={focus} onFocusAxis={focusAxis} onFocusConcession={focusConcession} onFocusFlow={(flow) => { useUiStore.getState().setDrawerOpen(false); controller.current?.focusFlow(flow); }}
         onResetView={() => { controller.current?.resetView(); }} />
       {compact && drawerOpen && <div className="drawer-backdrop" aria-hidden="true" onClick={() => { useUiStore.getState().setDrawerOpen(false); document.getElementById('drawer-toggle')?.focus(); }} />}
       <main className="map-area" id="main-map" aria-label="Supervision cartographique" data-tour="map" inert={compact && drawerOpen}>
@@ -342,7 +354,7 @@ function Dashboard({ stations }: { readonly stations: StationCollection }) {
         <MapLegend />
         <AxisFocusChip onBack={() => { controller.current?.resetView(); }} />
         <StationTooltip stations={stations} store={store} />
-        <StationDetail stations={stations} store={store}
+        <StationDetail stations={stations} store={store} onFocusStation={focus}
           onFocusFlow={(flow) => { controller.current?.focusFlow(flow); }} />
         {!config.demo && <ReplayBar controls={replayControls} />}
         <DiagnosticPanel store={store} />
