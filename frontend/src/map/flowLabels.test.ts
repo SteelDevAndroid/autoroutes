@@ -11,8 +11,8 @@ it('keeps the two directions readable and preserves their volumes on a shared ro
   ], stations).features;
   const labels = flowLabels(features, 'A', ([lon, lat]) => [200 + 200 * lon, 100 + 100 * lat], 700, 500);
   expect(labels).toMatchObject([
-    { inbound: false, angle: 0, vehicles: 30 },
-    { inbound: true, angle: 180, vehicles: 20 },
+    { inbound: false, angle: 0, volume: '30 véh. · 1 h' },
+    { inbound: true, angle: 180, volume: '20 véh. · 1 h' },
   ]);
   expect(labels[0]?.offset[1]).toBeLessThan(0);
   expect(labels[1]?.offset[1]).toBeGreaterThan(0);

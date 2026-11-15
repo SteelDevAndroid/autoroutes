@@ -256,9 +256,11 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
   color: var(--text);
   font-size: var(--text-caption);
   font-weight: 600;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.map-flow-label[data-direction='inbound'] { border-style: dashed; }
+.swatch-flow { display: inline-grid; flex: 0 0 18px; width: 18px; place-items: center; font-weight: 700; line-height: 1; }
 .map-flow-label > :first-child { display: inline-block; color: var(--accent); }
 .maplibregl-marker.map-selected-station {
   z-index: 1;

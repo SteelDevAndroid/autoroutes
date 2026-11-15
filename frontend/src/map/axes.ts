@@ -1,4 +1,5 @@
 import type { StationCollection } from './referentiel';
+import type { MapFrame } from './mapViewport';
 import { RADIUS_MAX_PX } from './scales';
 
 /** Autoroute (ou route nationale) regroupant tous les codes du référentiel qui la désignent : A0007 et A0007N sont « A7 ». */
@@ -130,9 +131,16 @@ export function layoutLabels(
   project: (position: Position) => readonly [x: number, y: number],
   zoom: number,
   viewport: Viewport,
-  activeAxis: string | null = null,
+  options: {
+    readonly activeAxis?: string | null;
+    readonly previous?: ReadonlyMap<string, LabelCandidate>;
+    readonly pitch?: number;
+    readonly protectedLabel?: MapFrame | null;
+  } = {},
 ): LabelCandidate[] {
+  const { activeAxis = null, previous, pitch = 0, protectedLabel } = options;
   const candidates: { candidate: LabelCandidate; x: number; y: number; priority: number }[] = [];
+  const perAxis = labelCount(zoom);
   for (const group of groups) {
     const visible = group.stations.flatMap((index) => {
       const position = positions[index];
@@ -140,31 +148,46 @@ export function layoutLabels(
         return [];
       }
       const [x, y] = project(position);
-      return x >= -MARGIN && x <= viewport.width + MARGIN && y >= -MARGIN && y <= viewport.height + MARGIN ? [{ position, x, y }] : [];
+      return x >= -MARGIN && x <= viewport.width + MARGIN && y >= -MARGIN && y <= viewport.height + MARGIN
+        ? [{ position, x, y, key: `${group.id}#${index}` }] : [];
     });
-    pickSpread(visible, labelCount(zoom)).forEach((point, i) => {
+    const retained = visible.filter(({ key }) => previous?.has(key));
+    const additions = pickSpread(visible.filter(({ key }) => !previous?.has(key)), perAxis);
+    for (const point of [...retained, ...additions]) {
       candidates.push({
-        candidate: { key: `${group.id}#${i}`, text: group.id, value: group.value, lon: point.position[0], lat: point.position[1], offset: [0, 0] },
+        candidate: { key: point.key, text: group.id, value: group.value, lon: point.position[0], lat: point.position[1], offset: [0, 0] },
         x: point.x, y: point.y, priority: group.value === activeAxis ? Infinity : group.stations.length,
       });
-    });
+    }
   }
-  candidates.sort((a, b) => b.priority - a.priority || a.candidate.key.localeCompare(b.candidate.key));
+  candidates.sort((a, b) => b.priority - a.priority
+    || Number(previous?.has(b.candidate.key) ?? false) - Number(previous?.has(a.candidate.key) ?? false)
+    || a.candidate.key.localeCompare(b.candidate.key));
   const obstacles = positions.map(project).filter(([x, y]) => x >= -STATION_CLEARANCE && x <= viewport.width + STATION_CLEARANCE
     && y >= -STATION_CLEARANCE && y <= viewport.height + STATION_CLEARANCE);
   const kept: typeof candidates = [];
   const limit = zoom < 6 ? Math.max(4, Math.min(14, Math.floor(viewport.width / 65))) : Infinity;
+  const counts = new Map<string, number>();
+  const horizonLimit = pitch >= 25 ? Math.max(1, Math.floor(viewport.width / 260)) : Infinity;
+  let horizonLabels = 0;
   for (const c of candidates) {
     if (kept.length >= limit) break;
+    const count = counts.get(c.candidate.value) ?? 0;
+    if (count >= perAxis) continue;
     const width = c.candidate.text.length * CHAR_WIDTH + BOX_PADDING;
     const dy = STATION_CLEARANCE + BOX_HEIGHT / 2;
     const dx = STATION_CLEARANCE + width / 2;
-    const offsets: readonly (readonly [number, number])[] = [[0, -dy], [0, dy], [dx, 0], [-dx, 0],
-      [dx, -dy], [-dx, -dy], [dx, dy], [-dx, dy]];
+    const old = previous?.get(c.candidate.key)?.offset;
+    const offsets: readonly (readonly [number, number])[] = [...(old === undefined ? [] : [old]),
+      [0, -dy], [0, dy], [dx, 0], [-dx, 0], [dx, -dy], [-dx, -dy], [dx, dy], [-dx, dy]];
     for (const offset of offsets) {
       const x = c.x + offset[0];
       const y = c.y + offset[1];
       if (x - width / 2 < 0 || x + width / 2 > viewport.width || y - BOX_HEIGHT / 2 < 0 || y + BOX_HEIGHT / 2 > viewport.height) continue;
+      const inHorizon = y < viewport.height * 0.3 && c.candidate.value !== activeAxis;
+      if (inHorizon && horizonLabels >= horizonLimit) continue;
+      if (protectedLabel && x + width / 2 + 4 > protectedLabel.left && x - width / 2 - 4 < protectedLabel.right
+        && y + BOX_HEIGHT / 2 + 4 > protectedLabel.top && y - BOX_HEIGHT / 2 - 4 < protectedLabel.bottom) continue;
       const coversStation = obstacles.some(([sx, sy]) => {
         const nearestX = Math.max(Math.abs(sx - x) - width / 2, 0);
         const nearestY = Math.max(Math.abs(sy - y) - BOX_HEIGHT / 2, 0);
@@ -174,6 +197,8 @@ export function layoutLabels(
         && Math.abs(y - k.y) < BOX_HEIGHT + 4);
       if (!coversStation && !coversLabel) {
         kept.push({ ...c, x, y, candidate: { ...c.candidate, offset } });
+        counts.set(c.candidate.value, count + 1);
+        if (inHorizon) horizonLabels++;
         break;
       }
     }

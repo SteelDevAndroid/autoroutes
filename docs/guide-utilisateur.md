@@ -44,7 +44,9 @@ Les commandes « 2D », « Perspective » et « Relief » changent l’angle de 
 
 « Voir sur la carte » cadre les gares de l’axe sélectionné. « Parcourir les gares » ouvre sa première fiche et donne accès aux gares précédente et suivante, dans un ordre géographique approximatif. « Cadrer la concession » utilise l’emprise des tronçons attribués dans les tuiles autoroutières.
 
-Dans les trois modes, la vue nationale met en avant les grands axes et privilégie en direct la charge estimée des tronçons quand une couche de trafic est active. En région, les numéros d’axes et les noms des barrières apparaissent progressivement. En vue rapprochée, le nom et le double anneau de la gare sélectionnée ressortent du fond. Ses principaux flux affichent une flèche et leur volume horaire. Les contours pointillés indiquent les flux entrants et les contours continus les flux sortants.
+Dans les trois modes, la vue nationale met en avant les grands axes et privilégie en direct la charge estimée des tronçons quand une couche de trafic est active. En région, les numéros d’axes et les noms des barrières apparaissent progressivement. En vue rapprochée, le nom et le double anneau de la gare sélectionnée ressortent du fond. Ses principaux flux affichent une flèche orientée et un volume libellé, par exemple « 240 véh. · 1 h ». Les tirets identifient la charge estimée des tronçons.
+
+Les noms restent horizontaux. Pendant un déplacement, les repères suivent la carte et se réorganisent lorsque la caméra s’arrête. La perspective et le relief limitent les libellés d’axes vers l’horizon. L’ombrage du terrain reste discret pour préserver le contraste des routes.
 
 Le cadrage tient compte de la fiche et de la légende. Sur téléphone, la gare reste visible dans la partie de la carte dégagée au-dessus de la fiche.
 
@@ -52,7 +54,7 @@ Une concession colore les sections dont le gestionnaire est identifié ; les sec
 
 ## Comprendre les mouvements sur la carte
 
-Les entrées et sorties sont des observations d’événements. Le chemin emprunté entre deux gares est une **estimation** à partir du graphe routier ; en l’absence de géométrie, la liaison reste schématique. Les tirets ont une vitesse visuelle constante : leur densité traduit le volume, pas la vitesse réelle des véhicules. Le détail augmente avec le zoom.
+Les entrées et sorties sont des observations d’événements. Le chemin emprunté entre deux gares est une **estimation** à partir du graphe routier ; en l’absence de géométrie, la liaison reste schématique. La densité des points animés traduit le volume. Leur vitesse est illustrative. Le détail augmente avec le zoom.
 
 L’état de connexion et l’heure de dernière donnée expliquent la fraîcheur de l’affichage. Quand les données deviennent anciennes, les animations se figent et les dernières valeurs restent consultables. Voir [Animation et fraîcheur](animation-trafic.md).
 

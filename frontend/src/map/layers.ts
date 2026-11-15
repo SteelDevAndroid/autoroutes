@@ -1,7 +1,7 @@
 import type { FeatureCollection } from 'geojson';
-import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
+import type { ExpressionSpecification, HillshadeLayerSpecification, LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import { theme as defaultTheme } from './theme';
-import type { Theme } from './theme';
+import type { MapAppearance, Theme } from './theme';
 import { FLOW_DASH_LENGTH, FLOW_REGIONAL_ZOOM, FLOW_MARK_WIDTH, FLOW_MOTION_BANDS, motionMinZoom } from '../animation/flowMotion';
 
 export const SOURCE = { stations: 'stations', od: 'od', motorways: 'motorways' } as const;
@@ -58,9 +58,23 @@ export const segmentColor = (theme: Theme): unknown => [
 export const flowGradient = (theme: Theme): unknown =>
   ['interpolate', ['linear'], ['line-progress'], 0, theme.odOrigin, 1, theme.odFlow];
 
+// Le zoom reste l’entrée directe de l’interpolation, aussi pour le renfort de contour en relief.
+const width = (factor = 1): ExpressionSpecification =>
+  ['interpolate', ['exponential', 1.5], ['zoom'], 4, 0.6 * factor, 8, 1.6 * factor, 12, 4 * factor, 15, 10 * factor];
+
+export const motorwayCasingWidth = (relief: boolean): ExpressionSpecification => width(relief ? 2.25 : 1.9);
+
+export function reliefPaint(appearance: MapAppearance): NonNullable<HillshadeLayerSpecification['paint']> {
+  return {
+    'hillshade-exaggeration': 0.16,
+    'hillshade-illumination-anchor': 'map',
+    'hillshade-shadow-color': appearance === 'light' ? '#5b6e81' : '#0e151e',
+    'hillshade-highlight-color': appearance === 'light' ? '#f5f9fd' : '#677786',
+    'hillshade-accent-color': appearance === 'light' ? '#8a9eaa' : '#263747',
+  };
+}
+
 export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[] {
-  // zoom doit rester l'entrée d'une interpolation de premier niveau : le facteur s'applique aux paliers, pas au résultat.
-  const width = (factor = 1): unknown => ['interpolate', ['exponential', 1.5], ['zoom'], 4, 0.6 * factor, 8, 1.6 * factor, 12, 4 * factor, 15, 10 * factor];
   const selectedWidth = (factor = 1): unknown => ['interpolate', ['linear'], ['zoom'], 4, 3 * factor, 8, 4 * factor, 12, 6 * factor, 15, 11 * factor];
   return [
     {
@@ -69,7 +83,7 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
       source: SOURCE.motorways,
       'source-layer': MOTORWAYS_SOURCE_LAYER,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': theme.motorwayCasing, 'line-width': width(1.8) },
+      paint: { 'line-color': theme.motorwayCasing, 'line-width': motorwayCasingWidth(false) },
     },
     {
       id: 'motorways',
@@ -151,6 +165,7 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
         'text-font': LABEL_FONT,
         'text-size': 11,
         'text-rotation-alignment': 'viewport',
+        'text-pitch-alignment': 'viewport',
       },
       paint: { 'text-color': theme.label, 'text-halo-color': theme.labelHalo, 'text-halo-width': 1.5 },
     },
@@ -178,7 +193,7 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       },
     },
     ...FLOW_MOTION_BANDS.map(({ id, density, gap }) => ({
-      // Tirets clairs qui avancent dans le sens origine → destination (motif changé à chaque pas, voir animation/dash.ts).
+      // Points clairs qui avancent dans le sens origine → destination (motif changé à chaque pas, voir animation/dash.ts).
       // line-dasharray est incompatible avec line-gradient : c'est une couche à part, au-dessus des arcs.
       id,
       minzoom: motionMinZoom(density),

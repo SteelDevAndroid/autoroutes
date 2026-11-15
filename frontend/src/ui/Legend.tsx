@@ -29,8 +29,8 @@ export function LegendContent({ location = 'panel' }: { readonly location?: 'pan
       {layers.stations && <p className="note">Activité : surface du cercle ∝ passages sur 1 h. Halo bref = nouveaux passages. Anneau large = gare sélectionnée.</p>}
       {layers.stations && mode === 'live' && <div className="legend-row"><span className="anomaly-swatch" aria-hidden="true" /> Contour d’alerte : anomalies signalées. Criticité et nombre au survol ou dans la fiche.</div>}
       {rows.includes('axes') && <div className="legend-row"><span className="axis-label axis-label-sample" aria-hidden="true">A7</span> Nom d’autoroute : survol = ses gares, clic = filtre « Axe » des flux</div>}
-      {rows.includes('od') && <div className="legend-row"><span className="swatch-line" style={{ borderColor: theme.odFlow }} /> Flux O/D reçu (≥ 3 véh. sur 1 h), atténué → soutenu = origine → destination</div>}
-      {rows.includes('od') && <p className="note">Flux entre gares de l’axe sélectionné : tirets plus rapprochés = volume plus élevé. Leur vitesse est illustrative et constante.</p>}
+      {rows.includes('od') && <div className="legend-row"><span className="swatch-flow" aria-hidden="true" style={{ color: theme.odFlow }}>➜</span> Flux O/D reçu (≥ 3 véh. sur 1 h), atténué → soutenu = origine → destination</div>}
+      {rows.includes('od') && <p className="note">Points rapprochés : volume plus élevé. Leur vitesse est illustrative. Une flèche indique le sens et son libellé donne le volume sur 1 h.</p>}
       {rows.includes('od') && <p className="note">Vue nationale statique ; zoomez pour voir les flux moyens et forts en mouvement, puis les petits flux en vue locale.</p>}
       {rows.includes('od') && trafficMotionMessage[motionState] !== null && <p className="note">{trafficMotionMessage[motionState]}</p>}
       {rows.includes('od') && <p className="note">Tracés routiers : itinéraires estimés. Sans tracé disponible, les arcs courbes représentent des liaisons schématiques.</p>}

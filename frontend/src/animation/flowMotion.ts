@@ -17,13 +17,13 @@ export function motionMinZoom(density: FlowDensity): number {
 
 /** Trois densités plafonnées ; même déplacement (0,25 unité par pas) et même largeur pour une vitesse constante. */
 export const FLOW_MOTION_BANDS = [
-  { id: 'od-flows-motion-low', density: 0, gap: 14.5, steps: 64 },
-  { id: 'od-flows-motion-medium', density: 1, gap: 6.5, steps: 32 },
-  { id: 'od-flows-motion-high', density: 2, gap: 2.5, steps: 16 },
+  { id: 'od-flows-motion-low', density: 0, gap: 15.25, steps: 64 },
+  { id: 'od-flows-motion-medium', density: 1, gap: 7.25, steps: 32 },
+  { id: 'od-flows-motion-high', density: 2, gap: 3.25, steps: 16 },
 ] as const;
 
 export const FLOW_MARK_WIDTH = 1.5;
-export const FLOW_DASH_LENGTH = 1.5;
+export const FLOW_DASH_LENGTH = 0.75;
 export const FLOW_STEP_MS = 40;
 
 const sequences = FLOW_MOTION_BANDS.map(({ gap, steps }) => dashSequence(FLOW_DASH_LENGTH, gap, steps));

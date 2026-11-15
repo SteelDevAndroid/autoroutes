@@ -3,6 +3,8 @@ const time = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 
 
 export const formatCount = (value: number): string => (Number.isFinite(value) ? integer.format(value) : '–');
 
+export const formatFlowVolume = (value: number): string => `${formatCount(value)} véh. · 1 h`;
+
 export const formatPercent = (ratio: number): string =>
   Number.isFinite(ratio) ? `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 }).format(ratio * 100)} %` : '–';
 

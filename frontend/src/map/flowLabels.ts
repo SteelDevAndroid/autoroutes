@@ -1,4 +1,6 @@
 import type { Feature, LineString } from 'geojson';
+import { formatFlowVolume } from '../ui/format';
+import type { MapFrame } from './mapViewport';
 import type { OdProperties } from './odGeometry';
 
 type Point = readonly [number, number];
@@ -8,7 +10,7 @@ interface FlowLabel {
   readonly position: Point;
   readonly offset: Point;
   readonly angle: number;
-  readonly vehicles: number;
+  readonly volume: string;
   readonly inbound: boolean;
 }
 
@@ -19,9 +21,10 @@ export function flowLabels(
   project: (point: Point) => Point,
   width: number,
   height: number,
+  protectedLabel?: MapFrame | null,
 ): FlowLabel[] {
   const visible: FlowLabel[] = [];
-  const anchors: Point[] = [];
+  const anchors: { point: Point; halfWidth: number }[] = [];
   let inboundCount = 0;
   let outboundCount = 0;
   const candidates = flows.filter(({ properties }) => properties.originId === selected || properties.destinationId === selected);
@@ -29,6 +32,8 @@ export function flowLabels(
   for (const { geometry, properties } of candidates) {
     const inbound = properties.destinationId === selected;
     if ((inbound ? inboundCount : outboundCount) >= 3) continue;
+    const volume = formatFlowVolume(properties.vehicles);
+    const halfWidth = Math.ceil((32 + volume.length * 6) / 2);
     const coordinates = inbound ? [...geometry.coordinates].reverse() : geometry.coordinates;
     let distance = 0;
     for (let i = 1; i < coordinates.length; i++) {
@@ -50,15 +55,18 @@ export function flowLabels(
       const side = inbound ? 18 : -18;
       const labelOffset: Point = [-dy / length * side, dx / length * side];
       const anchor: Point = [x + dx * ratio + labelOffset[0], y + dy * ratio + labelOffset[1]];
-      if (anchor[0] < 44 || anchor[0] > width - 44 || anchor[1] < 22 || anchor[1] > height - 22
-        || anchors.some(([ax, ay]) => Math.abs(ax - anchor[0]) < 82 && Math.abs(ay - anchor[1]) < 27)) continue;
-      anchors.push(anchor);
+      const [ax, ay] = anchor;
+      if (ax < halfWidth || ax > width - halfWidth || ay < 22 || ay > height - 22
+        || anchors.some(({ point: [px, py], halfWidth: other }) => Math.abs(px - ax) < halfWidth + other + 4 && Math.abs(py - ay) < 27)) continue;
+      if (protectedLabel && ax + halfWidth > protectedLabel.left && ax - halfWidth < protectedLabel.right
+        && ay + 16 > protectedLabel.top && ay - 16 < protectedLabel.bottom) continue;
+      anchors.push({ point: anchor, halfWidth });
       visible.push({
         key: `${properties.originId}>${properties.destinationId}`,
         position: [start[0] + (end[0] - start[0]) * ratio, start[1] + (end[1] - start[1]) * ratio],
         offset: labelOffset,
         angle: Math.atan2(dy, dx) * 180 / Math.PI + (inbound ? 180 : 0),
-        vehicles: properties.vehicles,
+        volume,
         inbound,
       });
       if (inbound) inboundCount++;

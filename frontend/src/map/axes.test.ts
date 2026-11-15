@@ -95,7 +95,7 @@ describe('layoutLabels', () => {
     const labels = layoutLabels(groups, positions, project, 5, viewport);
 
     expect(labels.map((l) => l.text)).toEqual(['A1', 'A2']);
-    expect(labels[0]).toMatchObject({ value: 'A0001', key: 'A1#0' });
+    expect(labels[0]).toMatchObject({ value: 'A0001', key: 'A1#1' });
   });
 
   it('places the busiest axis first and moves a neighbouring label to a free position', () => {
@@ -150,4 +150,27 @@ describe('layoutLabels', () => {
     expect(layoutLabels(long, line, project, 5, viewport)).toHaveLength(1);
     expect(layoutLabels(long, line, project, 7, viewport).length).toBeGreaterThan(1);
   });
+
+  it('retains the anchor and offset on a pan while the previous label still fits', () => {
+    const group = [{ id: 'A7', codes: ['A0007'], value: 'A0007', stations: [0, 1, 2] }];
+    const points = [[100, 120], [220, 120], [340, 120]] as const;
+    const view = { width: 380, height: 420 };
+    const first = layoutLabels(group, points, ([x, y]) => [x + 100, y], 5, view);
+    const stable = layoutLabels(group, points, ([x, y]) => [x - 150, y], 5, view,
+      { previous: new Map(first.map((label) => [label.key, label])) });
+    expect(stable).toEqual(first);
+    expect(stable[0]?.lon).toBe(220);
+  });
+
+  it('reserves the crowded horizon for fewer references and still favors the selected axis', () => {
+    const points = [[100, 120], [240, 120], [380, 120], [520, 120]] as const;
+    const axes = points.map((_, index) => ({ id: `A${index + 1}`, codes: [], value: String(index), stations: [index] }));
+    const view = { width: 620, height: 660 };
+    const nearTop = (label: { lat: number; offset: readonly number[] }) => label.lat + (label.offset[1] ?? 0) < 198;
+    const flat = layoutLabels(axes, points, (point) => point, 7, view);
+    const pitched = layoutLabels(axes, points, (point) => point, 7, view, { pitch: 45, activeAxis: '3' });
+    expect(pitched.filter(nearTop).length).toBeLessThan(flat.filter(nearTop).length);
+    expect(pitched[0]?.value).toBe('3');
+  });
+
 });

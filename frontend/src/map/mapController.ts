@@ -22,10 +22,10 @@ import type { FlowKey, HoveredStation, LayerVisibility } from '../state/uiStore'
 import { readConcessionBounds } from './concessionBounds';
 import type { RoadBounds } from './concessionBounds';
 import { flowLabels } from './flowLabels';
-import { formatCount } from '../ui/format';
 import { buildAxisGroups, layoutLabels, stationsOnAxes } from './axes';
+import type { LabelCandidate } from './axes';
 import { selectedRoadIds } from './motorwaySelection';
-import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
+import { MOTORWAYS_SOURCE_LAYER, SOURCE, motorwayCasingWidth, reliefPaint } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
 import type { SegmentLoad } from '../realtime/protocol';
@@ -71,7 +71,7 @@ const flowKey = (p: { readonly originId: string; readonly destinationId: string 
 interface AxisLabel {
   readonly marker: maplibregl.Marker;
   readonly element: HTMLElement;
-  readonly value: string;
+  candidate: LabelCandidate;
 }
 
 /** Unique point de contact avec MapLibre : React ne manipule jamais la carte directement. */
@@ -186,7 +186,7 @@ export class MapController {
     this.animator = new StationAnimator(store.size);
     this.renderer = new StationLayerRenderer(this.map, store, this.animator);
     this.loop = new FrameLoop((now, quality) => this.renderer.renderFrame(now, quality), {
-      // Qualité dégradée : les tirets animés des flux s'arrêtent d'abord.
+      // Qualité dégradée : les points animés des flux s'arrêtent d'abord.
       onQualityChange: (level) => { options.onQualityChange(level); this.updateMotion(); },
     });
     document.addEventListener('visibilitychange', this.onVisibility);
@@ -394,16 +394,34 @@ export class MapController {
       });
       this.map.addLayer({
         id: TERRAIN_HILLSHADE, type: 'hillshade', source: TERRAIN_SOURCE,
-        paint: { 'hillshade-exaggeration': 0.28 },
+        paint: reliefPaint(this.appearance),
       }, this.map.getLayer('motorways-casing') ? 'motorways-casing' : 'od-flows');
       this.map.setTerrain({ source: TERRAIN_SOURCE, exaggeration: 1 });
+      this.updateMotorwayCasing();
     } else if (!wanted && this.terrainActive) {
       this.terrainActive = false;
       this.map.setTerrain(null);
       this.map.removeLayer(TERRAIN_HILLSHADE);
       this.map.removeSource(TERRAIN_SOURCE);
+      this.updateMotorwayCasing();
     }
     this.syncViewControl();
+  }
+
+  private updateMotorwayCasing(): void {
+    if (this.map.getLayer('motorways-casing') !== undefined) {
+      this.map.setPaintProperty('motorways-casing', 'line-width', motorwayCasingWidth(this.terrainActive));
+    }
+  }
+
+  private protectedStationLabel(frame: MapFrame): MapFrame | null {
+    if (this.selectedLabel === null) return null;
+    const map = this.container.getBoundingClientRect();
+    const rect = this.selectedLabel.getElement().getBoundingClientRect();
+    return {
+      left: rect.left - map.left - frame.left, right: rect.right - map.left - frame.left,
+      top: rect.top - map.top - frame.top, bottom: rect.bottom - map.top - frame.top,
+    };
   }
 
   /** Noms des autoroutes : affichés ou masqués. Quand ils sont affichés, ils remplacent la couche native de références (pas de doublon). */
@@ -426,9 +444,15 @@ export class MapController {
       return;
     }
     const frame = this.mapFrame;
+    if (this.axisLabelsOn && frame !== null && this.map.isMoving()) return;
     const wanted = this.axisLabelsOn && frame !== null
       ? layoutLabels(this.axisGroups, this.axisPositions, (position) => this.projectInFrame(position, frame),
-        this.map.getZoom(), { width: frame.right - frame.left, height: frame.bottom - frame.top }, this.labelPriorityAxis)
+        this.map.getZoom(), { width: frame.right - frame.left, height: frame.bottom - frame.top }, {
+          activeAxis: this.labelPriorityAxis,
+          pitch: this.map.getPitch(),
+          previous: new Map([...this.axisLabels].map(([key, label]) => [key, label.candidate])),
+          protectedLabel: this.protectedStationLabel(frame),
+        })
       : [];
     const keys = new Set(wanted.map((l) => l.key));
     for (const [key, label] of this.axisLabels) {
@@ -440,7 +464,10 @@ export class MapController {
     for (const candidate of wanted) {
       const existing = this.axisLabels.get(candidate.key);
       if (existing !== undefined) {
-        existing.marker.setLngLat([candidate.lon, candidate.lat]).setOffset([...candidate.offset]);
+        if (existing.candidate.offset[0] !== candidate.offset[0] || existing.candidate.offset[1] !== candidate.offset[1]) {
+          existing.marker.setOffset([...candidate.offset]);
+        }
+        existing.candidate = candidate;
         continue;
       }
       const element = document.createElement('div');
@@ -452,16 +479,16 @@ export class MapController {
       element.addEventListener('mouseenter', () => { this.options.onAxisHover(candidate.value); });
       element.addEventListener('mouseleave', () => { this.options.onAxisHover(null); });
       element.addEventListener('click', (event) => { event.stopPropagation(); this.options.onAxisClick(candidate.value); });
-      const marker = new maplibregl.Marker({ element, anchor: 'center', offset: [...candidate.offset] })
+      const marker = new maplibregl.Marker({ element, anchor: 'center', pitchAlignment: 'viewport', rotationAlignment: 'viewport', offset: [...candidate.offset] })
         .setLngLat([candidate.lon, candidate.lat]).addTo(this.map);
-      this.axisLabels.set(candidate.key, { marker, element, value: candidate.value });
+      this.axisLabels.set(candidate.key, { marker, element, candidate });
     }
     this.styleAxisLabels();
   }
 
   private styleAxisLabels(): void {
-    for (const { element, value } of this.axisLabels.values()) {
-      element.classList.toggle('axis-label-active', value === this.activeAxis);
+    for (const { element, candidate } of this.axisLabels.values()) {
+      element.classList.toggle('axis-label-active', candidate.value === this.activeAxis);
     }
   }
 
@@ -498,7 +525,7 @@ export class MapController {
     this.whenStyleReady(() => { this.applyHighlight(); this.updateMotion(); });
   }
 
-  /** Une interruption fige les tirets affichés ; elle ne retire ni géométrie, ni volume, ni date. */
+  /** Une interruption fige les points affichés et conserve la géométrie, le volume et la date. */
   setTrafficMotion(state: TrafficMotionState): void {
     if (state === this.motionDataState) return;
     this.motionDataState = state;
@@ -629,7 +656,7 @@ export class MapController {
   };
 
   /**
-   * Tirets des flux de l’axe en 2D, ou de la gare sélectionnée en perspective rapprochée.
+   * Points des flux de l’axe en 2D, ou de la gare sélectionnée en perspective rapprochée.
    * Respecte le mouvement réduit, la visibilité de l’onglet et la qualité du rendu.
    */
   private updateMotion(): void {
@@ -705,10 +732,12 @@ export class MapController {
 
   private layoutFlowLabels(): void {
     const frame = this.mapFrame;
-    const labels = frame !== null && this.odVisible && this.selectedId !== null
-        && this.od.level === 'STATION' && this.map.getZoom() >= FLOW_LOCAL_ZOOM
-      ? flowLabels([...this.flowFeatures.values()], this.selectedId, (position) => this.projectInFrame(position, frame),
-        frame.right - frame.left, frame.bottom - frame.top)
+    const selected = this.selectedId;
+    const visible = frame !== null && this.odVisible && selected !== null && this.od.level === 'STATION';
+    if (visible && this.map.isMoving()) return;
+    const labels = visible && this.map.getZoom() >= FLOW_LOCAL_ZOOM
+      ? flowLabels([...this.flowFeatures.values()], selected, (position) => this.projectInFrame(position, frame),
+        frame.right - frame.left, frame.bottom - frame.top, this.protectedStationLabel(frame))
       : [];
     const wanted = new Set(labels.map((label) => label.key));
     for (const [key, { marker }] of this.directionalLabels) {
@@ -733,8 +762,7 @@ export class MapController {
         item.marker.setLngLat([...label.position]).setOffset([...label.offset]);
       }
       item.arrow.style.transform = `rotate(${label.angle}deg)`;
-      const volume = formatCount(label.vehicles);
-      if (item.volume.textContent !== volume) item.volume.textContent = volume;
+      if (item.volume.textContent !== label.volume) item.volume.textContent = label.volume;
     }
   }
 
@@ -834,6 +862,7 @@ export class MapController {
       show('stations-anomalies', visibility.stations && this.anomaliesVisible);
       show('stations-label', this.showStationLabels);
       this.updateSelectedLabel();
+      this.layoutAxisLabels();
       this.odVisible = visibility.od;
       this.segmentsVisible = visibility.segments;
       this.updateTrafficDisplay();
@@ -873,10 +902,16 @@ export class MapController {
     this.whenStyleReady(() => {
       this.renderer.setSelected(index);
       const feature = index === null ? undefined : this.stations.features[index];
-      this.selectedId = feature?.properties.id ?? null;
+      const selectedId = feature?.properties.id ?? null;
+      if (selectedId !== this.selectedId) {
+        for (const { marker } of this.directionalLabels.values()) marker.remove();
+        this.directionalLabels.clear();
+      }
+      this.selectedId = selectedId;
       this.selectedStation = feature;
       this.updateStationLabelFilter();
       this.updateSelectedLabel();
+      this.layoutAxisLabels();
       this.stations.features.forEach((_, id) => {
         this.map.setFeatureState({ source: SOURCE.stations, id }, { selectionDim: this.selectedId !== null && id !== index });
       });
@@ -916,8 +951,15 @@ export class MapController {
         for (const [property, value] of Object.entries(layer.paint)) {
           // The live dash pattern belongs to the motion clock, not the theme.
           if (property === 'line-dasharray' && FLOW_MOTION_BANDS.some((band) => band.id === layer.id)) continue;
+          if (this.terrainActive && layer.id === 'motorways-casing' && property === 'line-width') continue;
           const name = property as keyof AllPaintProperties;
           this.map.setPaintProperty(layer.id, name, value as AllPaintProperties[typeof name]);
+        }
+      }
+      if (this.terrainActive) {
+        for (const [property, value] of Object.entries(reliefPaint(this.appearance))) {
+          const name = property as keyof AllPaintProperties;
+          this.map.setPaintProperty(TERRAIN_HILLSHADE, name, value);
         }
       }
       if (typeof style.sprite === 'string' && style.sprite !== this.sprite) {
