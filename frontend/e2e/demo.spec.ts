@@ -67,10 +67,28 @@ test.describe('démonstration (flux simulé)', () => {
     await modes.getByRole('button', { name: '2D', exact: true }).click();
     await expect(map).toHaveAttribute('data-terrain', 'off');
     await expect(detail.getByRole('heading', { level: 2 })).toHaveText(first ?? '');
+    const stationLabel = map.locator('.map-selected-station');
+    await expect(stationLabel).toHaveText(first ?? '');
+    await expect.poll(async () => {
+      const label = await stationLabel.boundingBox();
+      const panel = await detail.boundingBox();
+      return label !== null && panel !== null && label.x + label.width < panel.x;
+    }).toBe(true);
 
     await page.setViewportSize({ width: 390, height: 844 });
-    await modes.getByRole('button', { name: 'Perspective' }).click();
-    await expect(map).toHaveAttribute('data-view-mode', 'perspective');
+    for (const mode of ['2D', 'Perspective', 'Relief']) {
+      const control = modes.getByRole('button', { name: mode, exact: true });
+      await control.click();
+      await expect(control).toHaveAttribute('aria-pressed', 'true');
+      // Le marqueur est ancré 29 px au-dessus de la gare. La gare elle-même doit aussi dépasser de la fiche.
+      await expect.poll(async () => {
+        const label = await stationLabel.boundingBox();
+        const panel = await detail.boundingBox();
+        const frame = await map.boundingBox();
+        return label !== null && panel !== null && frame !== null
+          && label.y >= frame.y && label.y + label.height + 29 < panel.y;
+      }).toBe(true);
+    }
     await expect(detail.getByRole('heading', { level: 2 })).toHaveText(first ?? '');
   });
 

@@ -260,6 +260,21 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
 }
 .map-flow-label[data-direction='inbound'] { border-style: dashed; }
 .map-flow-label > :first-child { display: inline-block; color: var(--accent); }
+.maplibregl-marker.map-selected-station {
+  z-index: 1;
+  max-width: min(220px, 65vw);
+  padding: 4px 8px;
+  border: 2px solid var(--text);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+  color: var(--text);
+  font-size: var(--text-small);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
 .axis-actions, .axis-station-navigation { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-block: var(--space-2); }
 .axis-station-navigation { font-variant-numeric: tabular-nums; }
 .maplibregl-ctrl-attrib { background: var(--panel); color: var(--text-muted); font-size: 10px; }

@@ -44,7 +44,9 @@ Les commandes « 2D », « Perspective » et « Relief » changent l’angle de 
 
 « Voir sur la carte » cadre les gares de l’axe sélectionné. « Parcourir les gares » ouvre sa première fiche et donne accès aux gares précédente et suivante, dans un ordre géographique approximatif. « Cadrer la concession » utilise l’emprise des tronçons attribués dans les tuiles autoroutières.
 
-En direct et en perspective, la vue nationale privilégie la charge estimée des tronçons quand elle est disponible et qu’une couche de trafic est active. En vue rapprochée, les tirets animés concernent la gare sélectionnée. Les principaux flux visibles portent une flèche et leur volume horaire. Les contours pointillés indiquent les flux entrants et les contours continus les flux sortants.
+Dans les trois modes, la vue nationale met en avant les grands axes et privilégie en direct la charge estimée des tronçons quand une couche de trafic est active. En région, les numéros d’axes et les noms des barrières apparaissent progressivement. En vue rapprochée, le nom et le double anneau de la gare sélectionnée ressortent du fond. Ses principaux flux affichent une flèche et leur volume horaire. Les contours pointillés indiquent les flux entrants et les contours continus les flux sortants.
+
+Le cadrage tient compte de la fiche et de la légende. Sur téléphone, la gare reste visible dans la partie de la carte dégagée au-dessus de la fiche.
 
 Une concession colore les sections dont le gestionnaire est identifié ; les sections sans attribution restent neutres. Ce choix aide à explorer le réseau et ne transforme pas les compteurs nationaux en compteurs de concession. Les sources et la couverture sont détaillées dans [Concessions](concessions.md).
 

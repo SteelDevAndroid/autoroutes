@@ -2,7 +2,7 @@ import type { FeatureCollection } from 'geojson';
 import type { LayerSpecification, SourceSpecification } from 'maplibre-gl';
 import { theme as defaultTheme } from './theme';
 import type { Theme } from './theme';
-import { FLOW_DASH_LENGTH, FLOW_MARK_WIDTH, FLOW_MOTION_BANDS, motionMinZoom } from '../animation/flowMotion';
+import { FLOW_DASH_LENGTH, FLOW_REGIONAL_ZOOM, FLOW_MARK_WIDTH, FLOW_MOTION_BANDS, motionMinZoom } from '../animation/flowMotion';
 
 export const SOURCE = { stations: 'stations', od: 'od', motorways: 'motorways' } as const;
 export const MOTORWAYS_SOURCE_LAYER = 'motorways';
@@ -80,6 +80,7 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
       paint: {
         'line-color': ['case', ['get', 'concede'], theme.motorway, theme.motorwayNonConcede],
         'line-width': width(),
+        'line-opacity': ['case', ['boolean', ['get', 'link'], false], 0.42, 1],
       },
     },
     {
@@ -88,7 +89,7 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
       source: SOURCE.motorways,
       'source-layer': MOTORWAYS_SOURCE_LAYER,
       layout: { 'line-join': 'round', 'line-cap': 'round' },
-      paint: { 'line-color': theme.background, 'line-width': selectedWidth(1.7),
+      paint: { 'line-color': theme.background, 'line-width': selectedWidth(1.9),
         'line-opacity': ['case', ['boolean', ['feature-state', 'axisSelected'], false], 1, 0] },
     },
     {
@@ -101,6 +102,15 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
         'line-opacity': ['case', ['boolean', ['feature-state', 'axisSelected'], false], 1, 0] },
     },
     {
+      id: 'motorways-concession-casing',
+      type: 'line',
+      source: SOURCE.motorways,
+      'source-layer': MOTORWAYS_SOURCE_LAYER,
+      filter: ['==', ['get', 'concession'], '__none__'],
+      layout: { 'line-join': 'round', 'line-cap': 'round' },
+      paint: { 'line-color': theme.background, 'line-width': selectedWidth(1.9) },
+    },
+    {
       // Couche indépendante de la sélection d'axe et des charges : respecte les limites de concession par tronçon.
       id: 'motorways-concession',
       type: 'line',
@@ -110,7 +120,7 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
       layout: { 'line-join': 'round', 'line-cap': 'round' },
       paint: {
         'line-color': theme.selection,
-        'line-width': selectedWidth(1.35),
+        'line-width': selectedWidth(1.22),
         'line-opacity': 0.95,
       },
     },
@@ -148,6 +158,9 @@ export function motorwayLayers(theme: Theme = defaultTheme): LayerSpecification[
 }
 
 export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[] {
+  const stationOpacity: unknown = ['case', ['boolean', ['feature-state', 'selected'], false], 1,
+    ['boolean', ['feature-state', 'selectionDim'], false], 0.18, ['boolean', ['feature-state', 'dim'], false], 0.15,
+    ['boolean', ['feature-state', 'stale'], false], 0.5, 0.9];
   const flowWidth: unknown = ['+', ['get', 'width'], ['case', ['boolean', ['feature-state', 'active'], false], 3, 0]];
   const flowOpacity: unknown = ['*', ['case', ['boolean', ['feature-state', 'dim'], false], 0.08, ['boolean', ['feature-state', 'active'], false], 1, ['boolean', ['feature-state', 'context'], false], 0.85, 0.4], ['case', ['==', ['get', 'density'], 0], 0.6, 1], ['coalesce', ['feature-state', 'fade'], 1]];
   return [
@@ -192,7 +205,7 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
         // Halos discrets à l'échelle nationale (densité), pleinement visibles à l'échelle régionale.
         'circle-stroke-opacity': [
           'interpolate', ['linear'], ['zoom'],
-          5, ['*', ['coalesce', ['feature-state', 'halo'], 0], 0.2],
+          5.5, 0,
           8, ['*', ['coalesce', ['feature-state', 'halo'], 0], 0.8],
         ],
       },
@@ -205,9 +218,11 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
         'circle-radius': stationRadius(),
         'circle-color': stationColor(theme),
         // Axe mis en évidence : les gares des autres axes s'estompent (états posés par MapController.setActiveAxis).
-        'circle-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, ['boolean', ['feature-state', 'selectionDim'], false], 0.18, ['boolean', ['feature-state', 'dim'], false], 0.15, ['boolean', ['feature-state', 'stale'], false], 0.5, 0.9],
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['*', stationOpacity, 0.3],
+          FLOW_REGIONAL_ZOOM, ['*', stationOpacity, 0.7], 8, stationOpacity],
         'circle-stroke-color': theme.stationStroke,
-        'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'selectionDim'], false], 0.2, ['boolean', ['feature-state', 'dim'], false], 0.2, 1],
+        'circle-stroke-opacity': ['interpolate', ['linear'], ['zoom'], 4, ['*', stationOpacity, 0.2],
+          FLOW_REGIONAL_ZOOM, ['*', stationOpacity, 0.65], 8, stationOpacity],
         // Indice de forme en plus de la couleur : contour épais pour les barrières pleine voie.
         'circle-stroke-width': ['case', ['==', ['get', 'kind'], 'PLEINE_VOIE'], 2, 0.75],
       },
@@ -237,6 +252,18 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       },
     },
     {
+      id: 'stations-selected-casing',
+      type: 'circle',
+      source: SOURCE.stations,
+      paint: {
+        'circle-radius': stationRadius(10),
+        'circle-color': 'rgba(0,0,0,0)',
+        'circle-stroke-color': theme.background,
+        'circle-stroke-width': 7,
+        'circle-stroke-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0],
+      },
+    },
+    {
       id: 'stations-selected',
       type: 'circle',
       source: SOURCE.stations,
@@ -252,16 +279,21 @@ export function businessLayers(theme: Theme = defaultTheme): LayerSpecification[
       id: 'stations-label',
       type: 'symbol',
       source: SOURCE.stations,
-      minzoom: 8,
+      minzoom: FLOW_REGIONAL_ZOOM,
       layout: {
-        'text-field': ['get', 'name'],
+        'text-field': ['step', ['zoom'],
+          ['case', ['==', ['get', 'kind'], 'PLEINE_VOIE'], ['get', 'name'], ''], 9, ['get', 'name']],
         'text-font': LABEL_FONT,
         'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 13, 13],
         'text-offset': [0, 1.2],
         'text-anchor': 'top',
         'text-optional': true,
+        'text-rotation-alignment': 'viewport',
+        'text-pitch-alignment': 'viewport',
       },
-      paint: { 'text-color': theme.label, 'text-halo-color': theme.labelHalo, 'text-halo-width': 1.5 },
+      paint: { 'text-color': theme.label, 'text-halo-color': theme.labelHalo, 'text-halo-width': 1.5,
+        'text-opacity': ['case', ['boolean', ['feature-state', 'selectionDim'], false], 0.25,
+          ['boolean', ['feature-state', 'dim'], false], 0.35, 1] },
     },
   ] as LayerSpecification[];
 }

@@ -130,6 +130,7 @@ export function layoutLabels(
   project: (position: Position) => readonly [x: number, y: number],
   zoom: number,
   viewport: Viewport,
+  activeAxis: string | null = null,
 ): LabelCandidate[] {
   const candidates: { candidate: LabelCandidate; x: number; y: number; priority: number }[] = [];
   for (const group of groups) {
@@ -144,7 +145,7 @@ export function layoutLabels(
     pickSpread(visible, labelCount(zoom)).forEach((point, i) => {
       candidates.push({
         candidate: { key: `${group.id}#${i}`, text: group.id, value: group.value, lon: point.position[0], lat: point.position[1], offset: [0, 0] },
-        x: point.x, y: point.y, priority: group.stations.length,
+        x: point.x, y: point.y, priority: group.value === activeAxis ? Infinity : group.stations.length,
       });
     });
   }
@@ -152,7 +153,9 @@ export function layoutLabels(
   const obstacles = positions.map(project).filter(([x, y]) => x >= -STATION_CLEARANCE && x <= viewport.width + STATION_CLEARANCE
     && y >= -STATION_CLEARANCE && y <= viewport.height + STATION_CLEARANCE);
   const kept: typeof candidates = [];
+  const limit = zoom < 6 ? Math.max(4, Math.min(14, Math.floor(viewport.width / 65))) : Infinity;
   for (const c of candidates) {
+    if (kept.length >= limit) break;
     const width = c.candidate.text.length * CHAR_WIDTH + BOX_PADDING;
     const dy = STATION_CLEARANCE + BOX_HEIGHT / 2;
     const dx = STATION_CLEARANCE + width / 2;
