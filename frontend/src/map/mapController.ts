@@ -398,7 +398,7 @@ export class MapController {
   setTrafficMotion(state: TrafficMotionState): void {
     if (state === this.motionDataState) return;
     this.motionDataState = state;
-    this.whenStyleReady(() => { this.updateMotion(); });
+    this.whenStyleReady(() => { this.updateTrafficDisplay(); });
   }
 
   /** Rejoué à l’arrivée des tuiles : la recherche peut précéder le chargement du tracé. */
@@ -581,7 +581,7 @@ export class MapController {
   };
 
   private updateTrafficDisplay(): void {
-    const overview = this.viewMode !== 'flat' && flowDetail(this.map.getZoom()) === 'national'
+    const overview = this.motionDataState === 'live' && this.viewMode !== 'flat' && flowDetail(this.map.getZoom()) === 'national'
       && this.segmentIntensity.size > 0 && (this.odVisible || this.segmentsVisible);
     if (overview !== this.trafficOverview) {
       this.trafficOverview = overview;
