@@ -175,10 +175,12 @@ test.describe('démonstration (flux simulé)', () => {
     await page.waitForTimeout(2_500);
     await page.screenshot({ path: 'test-results/demo-gare.png' });
 
-    // Info-bulle au survol : la gare est au centre de la carte après le cadrage.
-    const box = await map.boundingBox();
-    expect(box).not.toBeNull();
-    await page.mouse.move((box?.x ?? 0) + (box?.width ?? 0) / 2, (box?.y ?? 0) + (box?.height ?? 0) / 2);
+    // Le cadrage tient compte de la fiche. Survoler la gare sous son libellé, centré 29 px au-dessus du point.
+    const label = map.locator('.map-selected-station');
+    await expect(label).toHaveText('La Boisse');
+    const box = await label.boundingBox();
+    if (box === null) throw new Error('Libellé de la gare introuvable');
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height + 29);
     await expect(page.getByRole('tooltip')).toContainText('La Boisse');
     await expect(page.getByRole('tooltip')).toContainText('Passages · 1 h');
     await expect(map).not.toHaveAttribute('data-selected-station', '');
