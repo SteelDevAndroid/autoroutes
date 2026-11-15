@@ -16,9 +16,9 @@ La liste distingue **Itinéraire estimé** et **Liaison schématique**. Un trac�
 le plus rapide calculé par le backend. Sans géométrie complète, sans chemin ou sans rattachement des gares au graphe,
 un arc courbe relie les gares : aucun raccord routier n'est inventé.
 
-Les tirets avancent dans le sens **origine → destination**. Leur densité comporte trois classes relatives au volume
-des flux tracés ; elle ne représente pas un nombre exact de véhicules à l'écran. Leur vitesse visuelle est constante :
-elle ne mesure ni une vitesse de circulation, ni une congestion.
+Les points avancent dans le sens **origine → destination**. Leur densité comporte trois classes relatives au volume
+des flux tracés et leur vitesse est illustrative. En vue rapprochée, une flèche indique le sens et le libellé donne
+le volume horaire, par exemple « 240 véh. · 1 h ».
 
 ## Détail selon le zoom
 
@@ -37,7 +37,7 @@ dégradée arrêtent également le mouvement.
 
 | Situation | Comportement |
 |---|---|
-| Démarrage ou fraîcheur pas encore confirmée | Tirets immobiles en attendant une confirmation. |
+| Démarrage ou fraîcheur pas encore confirmée | Points immobiles en attendant une confirmation. |
 | Connexion interrompue ou en reconnexion | Mouvement suspendu ; dernières valeurs, géométries et heure conservées. |
 | Fraîcheur `CATCHING_UP` | Suspension pendant le rattrapage. |
 | Fraîcheur `STALE` | Suspension tant que les données sont signalées périmées. |
@@ -45,7 +45,7 @@ dégradée arrêtent également le mouvement.
 | Connexion ouverte et nouvelle confirmation `LIVE` | Reprise si les autres conditions d'affichage sont remplies. |
 
 Après une coupure, une simple réouverture de connexion ne suffit pas : la dernière confirmation de fraîcheur reste
-consultable, mais une nouvelle est requise. La reprise conserve la phase des tirets ; le temps passé en suspension
+consultable, mais une nouvelle est requise. La reprise conserve la phase des points ; le temps passé en suspension
 n'est pas ajouté à leur déplacement.
 
 La barre du haut conserve **Données à · Paris**. La légende explique les suspensions liées aux données ; les statuts
@@ -53,7 +53,7 @@ et alertes d'exploitation indiquent la coupure, le rattrapage ou la péremption.
 par le client SSE après **45 secondes sans message** : ce délai n'est pas un seuil universel d'âge des données.
 
 Les signaux du direct ne qualifient pas les données historiques. La relecture conserve les arcs schématiques ;
-la synchronisation du déplacement des tirets avec la pause et la vitesse de l'horloge historique reste une évolution
+la synchronisation du déplacement des points avec la pause et la vitesse de l'horloge historique reste une évolution
 distincte.
 
 ## Couleurs des charges de tronçons

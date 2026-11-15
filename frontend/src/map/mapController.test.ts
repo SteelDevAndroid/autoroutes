@@ -194,7 +194,7 @@ describe('traffic motion on the selected axis', () => {
     }
     for (const callback of [...frames.values()]) callback(0);
     for (const callback of [...frames.values()]) callback(40);
-    expect(map.setPaintProperty).toHaveBeenCalledWith('od-flows-motion-medium', 'line-dasharray', [0, 0.25, 1.5, 6.25]);
+    expect(map.setPaintProperty).toHaveBeenCalledWith('od-flows-motion-medium', 'line-dasharray', [0, 0.25, 0.75, 7]);
     controller.setMotionAxis('');
     expect(container.dataset.flowMotion).toBe('off');
     expect(container.dataset.animatedFlows).toBe('0');

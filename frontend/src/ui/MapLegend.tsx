@@ -43,11 +43,11 @@ export function MapLegend() {
           {rows.includes('stale') && <li><span className="swatch" style={{ background: theme.stationStale }} aria-hidden="true" />Sans données récentes</li>}
           {layers.stations && mode === 'live' && <li><span className="anomaly-swatch" aria-hidden="true" />Anomalies</li>}
           {rows.includes('axes') && <li><span className="axis-label axis-label-sample" aria-hidden="true">A7</span>Axes</li>}
-          {rows.includes('od') && <li><span className="swatch-line" style={{ borderColor: theme.odFlow }} aria-hidden="true" />Flux O/D ≥ 3 véh./h</li>}
+          {rows.includes('od') && <li><span className="swatch-flow" style={{ color: theme.odFlow }} aria-hidden="true">➜</span>Flux O/D ≥ 3 véh./h</li>}
           {rows.includes('segments') && <li><span className="swatch-line swatch-dashed" style={{ borderColor: theme.segmentRamp[3] }} aria-hidden="true" />Tronçons estimés</li>}
         </ul>}
         {layers.stations && <p className="note">Surface des cercles : passages sur 1 h.</p>}
-        {layers.od && <p className="note">Tirets : volume des flux, vitesse illustrative.</p>}
+        {layers.od && <p className="note">Flèches : sens. Densité des points : volume.</p>}
       </>}
     </div>
   </GlassPanel>;

@@ -18,6 +18,9 @@ export interface StyleOptions {
 const BASEMAP_SOURCE = 'basemap';
 
 function quietBasemap(layer: LayerSpecification): LayerSpecification {
+  if (layer.type === 'fill' && ['buildings', 'landuse_industrial', 'landuse_pedestrian'].includes(layer.id)) {
+    return { ...layer, paint: { ...layer.paint, 'fill-opacity': 0.55 } };
+  }
   if (layer.type === 'line' && layer.id.startsWith('roads_')) {
     const opacity = /(?:minor|service|other|link|rail)/.test(layer.id) ? 0.38 : 0.62;
     return { ...layer, paint: { ...layer.paint, 'line-opacity': opacity } };
