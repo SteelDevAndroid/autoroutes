@@ -47,6 +47,8 @@ export interface MapControllerOptions {
 
 const STATION_LAYERS = ['stations', 'stations-halo', 'stations-anomalies', 'stations-axis', 'stations-selected', 'stations-label'] as const;
 
+const PERSPECTIVE_PITCH = 45;
+const PERSPECTIVE_TRANSITION_MS = 400;
 const FLOW_FADE_MS = 300;
 const SEGMENT_FADE_MS = 500;
 /** Au-delà, les tronçons passent à leur nouvelle charge d'un coup : animer des milliers d'états par image coûterait plus que le fondu n'apporte. */
@@ -145,6 +147,7 @@ export class MapController {
       attributionControl: { compact: false, customAttribution: 'Gares et échangeurs : Ministère de la Transition écologique (data.gouv.fr)' },
     });
     this.map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'bottom-right');
+    this.addPerspectiveControl();
     this.map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     this.animator = new StationAnimator(store.size);
@@ -192,6 +195,34 @@ export class MapController {
       const id = event.features?.[0]?.id;
       this.emitHover(typeof id === 'number' ? { index: id, x: event.point.x, y: event.point.y } : null, options);
     });
+  }
+
+  private addPerspectiveControl(): void {
+    const control = document.createElement('div');
+    control.className = 'maplibregl-ctrl maplibregl-ctrl-group map-perspective';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = 'Perspective';
+    control.append(button);
+
+    const setPressed = (active: boolean): void => { button.setAttribute('aria-pressed', String(active)); };
+    const syncPitch = (): void => { setPressed(this.map.getPitch() > 0); };
+    button.addEventListener('click', () => {
+      const perspective = button.getAttribute('aria-pressed') !== 'true';
+      this.map.easeTo({ pitch: perspective ? PERSPECTIVE_PITCH : 0, duration: this.reduced ? 0 : PERSPECTIVE_TRANSITION_MS });
+      setPressed(perspective);
+    });
+    this.map.addControl({
+      onAdd: (map) => {
+        syncPitch();
+        map.on('pitchend', syncPitch);
+        return control;
+      },
+      onRemove: (map) => {
+        map.off('pitchend', syncPitch);
+        control.remove();
+      },
+    }, 'bottom-right');
   }
 
   /** Noms des autoroutes : affichés ou masqués. Quand ils sont affichés, ils remplacent la couche native de références (pas de doublon). */
