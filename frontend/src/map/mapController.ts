@@ -29,8 +29,10 @@ import { MOTORWAYS_SOURCE_LAYER, SOURCE } from './layers';
 import { buildOdFeatures, selectFlows } from './odGeometry';
 import { diffSegmentLoads } from './segmentLoads';
 import type { SegmentLoad } from '../realtime/protocol';
-import type { StationCollection, StationKind } from './referentiel';
+import type { StationCollection, StationFeature, StationKind } from './referentiel';
 import { StationLayerRenderer } from './stationLayerRenderer';
+import { MAP_PANELS, mapPadding, readMapFrame } from './mapViewport';
+import type { MapFrame } from './mapViewport';
 import { buildStyle } from './style';
 import type { StyleOptions } from './style';
 import { FRANCE_BOUNDS } from './theme';
@@ -55,7 +57,7 @@ export interface MapControllerOptions {
   readonly onTrafficOverviewChange?: (overview: boolean) => void;
 }
 
-const STATION_LAYERS = ['stations', 'stations-halo', 'stations-anomalies', 'stations-axis', 'stations-selected', 'stations-label'] as const;
+const STATION_LAYERS = ['stations', 'stations-halo', 'stations-anomalies', 'stations-axis', 'stations-selected-casing', 'stations-selected'] as const;
 
 const PERSPECTIVE_PITCH = 45;
 const PERSPECTIVE_TRANSITION_MS = 400;
@@ -85,6 +87,15 @@ export class MapController {
   private ready = false;
   private od: OdView = EMPTY_OD_VIEW;
   private selectedId: string | null = null;
+  private selectedStation: StationFeature | undefined;
+  private selectedLabel: maplibregl.Marker | null = null;
+  private showStationLabels = false;
+  private stationKindFilter: maplibregl.ExpressionSpecification | null = null;
+  private visibleStationKinds: ReadonlySet<StationKind> | null = null;
+  private mapFrame: MapFrame | null = null;
+  private viewportFrame: number | null = null;
+  private viewportPending = false;
+  private stopViewportObserver: (() => void) | undefined;
   private segmentIntensity: ReadonlyMap<string, number> = new Map();
   private highlighted: FlowKey | null = null;
   private odFeatureKeys: readonly FlowKey[] = [];
@@ -95,6 +106,7 @@ export class MapController {
   private readonly axisLabels = new Map<string, AxisLabel>();
   private axisLabelsOn = true;
   private activeAxis: string | null = null;
+  private labelPriorityAxis: string | null = null;
   private motionStations: ReadonlySet<string> = new Set();
   private highlightedStations: ReadonlySet<number> = new Set();
   private highlightedRoads: ReadonlySet<string | number> = new Set();
@@ -184,17 +196,23 @@ export class MapController {
       this.ready = true;
       container.dataset.ready = 'true';
       this.onData();
+      this.refreshViewport();
+      if (this.mapFrame !== null && this.cameraRequest === 0 && this.selectedStation === undefined) {
+        this.map.fitBounds(FRANCE_BOUNDS, { padding: 20, duration: 0 });
+      }
       this.renderOd();
       this.layoutAxisLabels();
       this.updateTerrain();
     });
     this.map.on('moveend', () => {
+      if (this.viewportPending) this.scheduleViewport();
       this.updateTerrain();
       this.layoutAxisLabels();
       this.layoutFlowLabels();
     });
     this.map.on('zoom', this.onZoom);
-    this.map.on('resize', () => { this.layoutAxisLabels(); this.layoutFlowLabels(); });
+    this.map.on('resize', () => { this.scheduleViewport(); });
+    this.watchViewport();
     this.map.on('sourcedata', (event) => {
       if (event.sourceId === SOURCE.motorways && event.sourceDataType === 'content' && this.activeAxis !== null
         && this.roadHighlightHandle === null) {
@@ -221,6 +239,89 @@ export class MapController {
       const id = event.features?.[0]?.id;
       this.emitHover(typeof id === 'number' ? { index: id, x: event.point.x, y: event.point.y } : null, options);
     });
+  }
+
+  private watchViewport(): void {
+    const root = this.container.parentElement;
+    if (root === null || typeof ResizeObserver === 'undefined') return;
+    const resize = new ResizeObserver(this.scheduleViewport);
+    const observe = (): void => {
+      resize.disconnect();
+      resize.observe(this.container);
+      root.querySelectorAll<HTMLElement>(MAP_PANELS).forEach((element) => { resize.observe(element); });
+      this.scheduleViewport();
+    };
+    const children = new MutationObserver(observe);
+    children.observe(root, { childList: true });
+    observe();
+    this.stopViewportObserver = () => { children.disconnect(); resize.disconnect(); };
+  }
+
+  private readonly scheduleViewport = (): void => {
+    if (this.viewportFrame !== null) return;
+    this.viewportFrame = requestAnimationFrame(() => {
+      this.viewportFrame = null;
+      this.refreshViewport();
+    });
+  };
+
+  private refreshViewport(): void {
+    const width = this.container.clientWidth;
+    const height = this.container.clientHeight;
+    if (!this.ready || width === 0 || height === 0) return;
+    const frame = readMapFrame(this.container);
+    const padding = mapPadding(frame, width, height);
+    const current = this.map.getPadding();
+    const changed = padding.top !== current.top || padding.bottom !== current.bottom
+      || padding.left !== current.left || padding.right !== current.right;
+    if (changed && this.map.isMoving()) {
+      this.viewportPending = true;
+      return;
+    }
+    this.viewportPending = false;
+    this.mapFrame = frame;
+    if (changed) {
+      this.map.setPadding(padding);
+      if (this.selectedStation !== undefined) {
+        const position = this.selectedStation.geometry.coordinates as [number, number];
+        const point = this.map.project(position);
+        if (point.x < frame.left + 20 || point.x > frame.right - 20
+            || point.y < frame.top + 36 || point.y > frame.bottom - 20) {
+          this.map.panTo(position, { duration: this.reduced ? 0 : 250 });
+        }
+      }
+    }
+    this.layoutAxisLabels();
+    this.layoutFlowLabels();
+    this.updateSelectedLabel();
+  }
+
+  private updateSelectedLabel(): void {
+    const station = this.selectedStation;
+    if (!this.showStationLabels || station === undefined || this.mapFrame === null
+        || this.visibleStationKinds?.has(station.properties.kind) === false) {
+      this.selectedLabel?.remove();
+      this.selectedLabel = null;
+      return;
+    }
+    const position = station.geometry.coordinates as [number, number];
+    const name = station.properties.name;
+    if (this.selectedLabel === null) {
+      const element = document.createElement('div');
+      element.className = 'map-selected-station';
+      element.setAttribute('aria-hidden', 'true');
+      this.selectedLabel = new maplibregl.Marker({ element, anchor: 'bottom', offset: [0, -29] })
+        .setLngLat(position).addTo(this.map);
+    } else {
+      this.selectedLabel.setLngLat(position);
+    }
+    const label = this.selectedLabel.getElement();
+    if (label.textContent !== name) label.textContent = name;
+  }
+
+  private projectInFrame([lon, lat]: readonly [number, number], frame: MapFrame): readonly [number, number] {
+    const point = this.map.project([lon, lat]);
+    return [point.x - frame.left, point.y - frame.top];
   }
 
   private addPerspectiveControl(): void {
@@ -324,9 +425,10 @@ export class MapController {
     if (!this.ready) {
       return;
     }
-    const wanted = this.axisLabelsOn
-      ? layoutLabels(this.axisGroups, this.axisPositions, ([lon, lat]) => { const p = this.map.project([lon, lat]); return [p.x, p.y]; },
-        this.map.getZoom(), { width: this.container.clientWidth, height: this.container.clientHeight })
+    const frame = this.mapFrame;
+    const wanted = this.axisLabelsOn && frame !== null
+      ? layoutLabels(this.axisGroups, this.axisPositions, (position) => this.projectInFrame(position, frame),
+        this.map.getZoom(), { width: frame.right - frame.left, height: frame.bottom - frame.top }, this.labelPriorityAxis)
       : [];
     const keys = new Set(wanted.map((l) => l.key));
     for (const [key, label] of this.axisLabels) {
@@ -387,6 +489,8 @@ export class MapController {
 
   /** Seul le filtre choisi anime les flux ; le survol conserve uniquement la mise en évidence des gares. */
   setMotionAxis(value: string): void {
+    this.labelPriorityAxis = value === '' ? null : value;
+    this.layoutAxisLabels();
     this.motionStations = new Set(stationsOnAxes(this.stations, value).flatMap((index) => {
       const id = this.stations.features[index]?.properties.id;
       return id === undefined ? [] : [id];
@@ -448,8 +552,10 @@ export class MapController {
     this.cameraRequest++;
     this.container.dataset.concession = code ?? '';
     this.whenStyleReady(() => {
-      if (this.map.getLayer('motorways-concession') !== undefined) {
-        this.map.setFilter('motorways-concession', ['==', ['get', 'concession'], code ?? '__none__']);
+      for (const layer of ['motorways-concession', 'motorways-concession-casing']) {
+        if (this.map.getLayer(layer) !== undefined) {
+          this.map.setFilter(layer, ['==', ['get', 'concession'], code ?? '__none__']);
+        }
       }
     });
   }
@@ -581,7 +687,7 @@ export class MapController {
   };
 
   private updateTrafficDisplay(): void {
-    const overview = this.motionDataState === 'live' && this.viewMode !== 'flat' && flowDetail(this.map.getZoom()) === 'national'
+    const overview = this.motionDataState === 'live' && flowDetail(this.map.getZoom()) === 'national'
       && this.segmentIntensity.size > 0 && (this.odVisible || this.segmentsVisible);
     if (overview !== this.trafficOverview) {
       this.trafficOverview = overview;
@@ -598,12 +704,11 @@ export class MapController {
   }
 
   private layoutFlowLabels(): void {
-    const labels = this.viewMode !== 'flat' && this.odVisible && this.selectedId !== null
+    const frame = this.mapFrame;
+    const labels = frame !== null && this.odVisible && this.selectedId !== null
         && this.od.level === 'STATION' && this.map.getZoom() >= FLOW_LOCAL_ZOOM
-      ? flowLabels([...this.flowFeatures.values()], this.selectedId, ([lon, lat]) => {
-        const point = this.map.project([lon, lat]);
-        return [point.x, point.y];
-      }, this.container.clientWidth, this.container.clientHeight)
+      ? flowLabels([...this.flowFeatures.values()], this.selectedId, (position) => this.projectInFrame(position, frame),
+        frame.right - frame.left, frame.bottom - frame.top)
       : [];
     const wanted = new Set(labels.map((label) => label.key));
     for (const [key, { marker }] of this.directionalLabels) {
@@ -718,15 +823,17 @@ export class MapController {
 
   setLayers(visibility: LayerVisibility): void {
     this.stationsVisible = visibility.stations;
+    this.showStationLabels = visibility.stations && visibility.labels;
     this.whenStyleReady(() => {
       const show = (id: string, visible: boolean) => {
         if (this.map.getLayer(id) !== undefined) {
           this.map.setLayoutProperty(id, 'visibility', visible ? 'visible' : 'none');
         }
       };
-      ['stations', 'stations-halo', 'stations-axis', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
+      ['stations', 'stations-halo', 'stations-axis', 'stations-selected-casing', 'stations-selected'].forEach((id) => { show(id, visibility.stations); });
       show('stations-anomalies', visibility.stations && this.anomaliesVisible);
-      show('stations-label', visibility.stations && visibility.labels);
+      show('stations-label', this.showStationLabels);
+      this.updateSelectedLabel();
       this.odVisible = visibility.od;
       this.segmentsVisible = visibility.segments;
       this.updateTrafficDisplay();
@@ -742,11 +849,23 @@ export class MapController {
   }
 
   setKinds(kinds: ReadonlySet<StationKind>): void {
+    this.visibleStationKinds = kinds;
     this.whenStyleReady(() => {
-      const filter: maplibregl.FilterSpecification = ['in', ['get', 'kind'], ['literal', [...kinds]]];
+      const filter: maplibregl.ExpressionSpecification = ['in', ['get', 'kind'], ['literal', [...kinds]]];
+      this.stationKindFilter = filter;
       // Les libellés sont absents sans polices auto-hébergées.
       STATION_LAYERS.filter((id) => this.map.getLayer(id) !== undefined).forEach((id) => { this.map.setFilter(id, filter); });
+      this.updateStationLabelFilter();
+      this.updateSelectedLabel();
     });
+  }
+
+  private updateStationLabelFilter(): void {
+    if (this.map.getLayer('stations-label') === undefined) return;
+    const filters: maplibregl.ExpressionSpecification[] = [];
+    if (this.stationKindFilter !== null) filters.push(this.stationKindFilter);
+    if (this.selectedId !== null) filters.push(['!=', ['get', 'id'], this.selectedId]);
+    this.map.setFilter('stations-label', ['all', ...filters]);
   }
 
   setSelected(index: number | null, focus: boolean): void {
@@ -755,6 +874,9 @@ export class MapController {
       this.renderer.setSelected(index);
       const feature = index === null ? undefined : this.stations.features[index];
       this.selectedId = feature?.properties.id ?? null;
+      this.selectedStation = feature;
+      this.updateStationLabelFilter();
+      this.updateSelectedLabel();
       this.stations.features.forEach((_, id) => {
         this.map.setFeatureState({ source: SOURCE.stations, id }, { selectionDim: this.selectedId !== null && id !== index });
       });
@@ -864,10 +986,12 @@ export class MapController {
   destroy(): void {
     this.ready = false;
     this.concessionAbort.abort();
+    this.stopViewportObserver?.();
+    this.selectedLabel?.remove();
     for (const { marker } of this.directionalLabels.values()) marker.remove();
     this.directionalLabels.clear();
     document.removeEventListener('visibilitychange', this.onVisibility);
-    for (const handle of [this.fadeHandle, this.motionHandle, this.segmentHandle, this.roadHighlightHandle]) {
+    for (const handle of [this.fadeHandle, this.motionHandle, this.segmentHandle, this.roadHighlightHandle, this.viewportFrame]) {
       if (handle !== null) {
         cancelAnimationFrame(handle);
       }

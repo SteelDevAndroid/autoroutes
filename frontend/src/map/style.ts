@@ -17,16 +17,27 @@ export interface StyleOptions {
 
 const BASEMAP_SOURCE = 'basemap';
 
+function quietBasemap(layer: LayerSpecification): LayerSpecification {
+  if (layer.type === 'line' && layer.id.startsWith('roads_')) {
+    const opacity = /(?:minor|service|other|link|rail)/.test(layer.id) ? 0.38 : 0.62;
+    return { ...layer, paint: { ...layer.paint, 'line-opacity': opacity } };
+  }
+  if (layer.type === 'symbol' && /^(?:roads_|address_|pois$|places_subplace$)/.test(layer.id)) {
+    return { ...layer, paint: { ...layer.paint, 'text-opacity': 0.6, 'icon-opacity': 0.6 } };
+  }
+  return layer;
+}
+
 /**
  * Fond Protomaps auto-hébergé et couches métier accordés à la même apparence.
- * Sans fond configuré (démonstration hors ligne), un aplat neutre le remplace : les couches métier restent identiques.
+ * Sans fond configuré, un aplat neutre le remplace.
  */
 export function buildStyle(options: StyleOptions): StyleSpecification {
   const appearance = options.appearance ?? 'dark';
   const theme = themeFor(options.palette ?? 'default', appearance);
   const base: LayerSpecification[] = options.basemapUrl === null
     ? [{ id: 'background', type: 'background', paint: { 'background-color': theme.background } }]
-    : basemapLayers(BASEMAP_SOURCE, basemapTheme(appearance), { lang: 'fr' });
+    : basemapLayers(BASEMAP_SOURCE, basemapTheme(appearance), { lang: 'fr' }).map(quietBasemap);
   const style: StyleSpecification = {
     version: 8,
     sources: {
