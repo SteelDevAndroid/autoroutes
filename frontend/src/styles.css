@@ -219,6 +219,18 @@ input[type='checkbox'] { width: 16px; height: 16px; margin: 0; flex-shrink: 0; a
 .maplibregl-ctrl-group button + button { border-top: 1px solid var(--panel-border); }
 .maplibregl-ctrl-group button:hover { background: var(--surface-hover); }
 .maplibregl-ctrl-group .maplibregl-ctrl-icon { filter: invert(1); }
+.maplibregl-ctrl-group.map-perspective button {
+  width: auto;
+  min-height: 44px;
+  padding: 0 12px;
+  color: var(--text);
+  font-size: var(--text-caption);
+  font-weight: 600;
+}
+.maplibregl-ctrl-group.map-perspective button[aria-pressed='true'] {
+  background: var(--surface-hover);
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
 .maplibregl-ctrl-attrib { background: var(--panel); color: var(--text-muted); font-size: 10px; }
 .maplibregl-ctrl-attrib a { color: var(--text-muted); }
 .detail { position: absolute; z-index: 3; top: 20px; right: 20px; width: 360px; max-height: calc(100% - 90px); overflow-y: auto; background: var(--panel); border: 1px solid var(--panel-border); border-radius: var(--radius-lg); padding: 20px; box-shadow: var(--shadow); }

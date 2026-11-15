@@ -40,6 +40,8 @@ Une seule requête partagée couvre les deux heures nécessaires, chaque minute 
 2. Dans « Concession autoroutière », sélectionner la société à mettre en évidence.
 3. Zoomer pour lire les tronçons et ouvrir une fiche de gare pour consulter son activité.
 
+Le bouton « Perspective », en bas à droite de la carte, incline la vue. Appuyer à nouveau rétablit la vue de dessus. Le centre, le zoom et les sélections sont conservés.
+
 Une concession colore les sections dont le gestionnaire est identifié ; les sections sans attribution restent neutres. Ce choix aide à explorer le réseau et ne transforme pas les compteurs nationaux en compteurs de concession. Les sources et la couverture sont détaillées dans [Concessions](concessions.md).
 
 ## Comprendre les mouvements sur la carte
